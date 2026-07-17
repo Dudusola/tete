@@ -65,7 +65,12 @@ generate predictions on demand.
                           dark palette under html.dark (covers accent/error/border tokens too — keep new
                           token classes in that list) + a .theme-toggle button injected in-flow into the
                           desktop top nav and the mobile bottom nav (never floating over content),
-                          persisted in localStorage 'pp-theme'. NEVER edit these html files with
+                          persisted in localStorage 'pp-theme'. api.js also makes the logo+name a
+                          link to index.html on every page, and on mobile trims the bottom nav to
+                          Picks/Builder/Record/More — Consensus, Checker and the theme toggle live in
+                          the #pp-sheet bottom sheet behind the More (hamburger) button.
+                          Project is a git repo now (initial commit July 2026; .gitignore excludes
+                          .env, venv, db/*.db, data/, models/*.joblib). NEVER edit these html files with
                           PowerShell Get-Content/Set-Content — PS5.1 reads UTF-8 as ANSI and mojibakes
                           •/≥/– (happened once; repaired via cp1252→utf8 reversal). HTML loads js/api.js?v=N — BUMP N on any api.js change
                           or browsers serve stale JS (the "Couldn't book" bug). Note nav bars use the
