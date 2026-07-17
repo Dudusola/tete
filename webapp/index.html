@@ -119,7 +119,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 <span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=9"></script>
+<script src="js/api.js?v=10"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -152,10 +152,12 @@ function renderCard(p) {
     const drawPct = Math.round((p.draw_prob || 0) * 100);
     const awayPct = Math.round((p.away_win_prob || 0) * 100);
     const analysis = p.gemma_analysis ? escapeHtml(p.gemma_analysis) : "No analysis available for this pick.";
-    const meta = `${escapeHtml(prettyLeague(p.league))} • ${escapeHtml(p.match_date || "")} ${escapeHtml(p.kickoff_time || "")}`;
+    const started = hasKickedOff(p.match_date, p.kickoff_time);
+    const meta = `${escapeHtml(prettyLeague(p.league))} • ${escapeHtml(kickoffLabel(p.match_date, p.kickoff_time))}`
+        + (started ? ` <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm rounded-full normal-case" title="Kickoff has passed — too late to bet this one">started</span>` : "");
 
     return `
-<article class="glass-card rounded-xl p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+<article class="glass-card rounded-xl p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group${started ? " opacity-60" : ""}">
   <div class="absolute left-0 top-0 bottom-0 w-[2px] bg-secondary-container opacity-0 group-hover:opacity-100 transition-opacity"></div>
   <div class="flex justify-between items-start mb-sm">
     <div>
@@ -241,6 +243,7 @@ function skeletonCard() {
 
 let ALL_PICKS = [];
 let CURRENT_TIER = "ALL";
+let UPDATED_AT = null;
 
 function paintTierChips() {
     document.querySelectorAll(".tier-chip").forEach(c => {
@@ -263,7 +266,8 @@ function renderFeed() {
     } else {
         feed.innerHTML = shown.map(renderCard).join("");
     }
-    status.textContent = `${shown.length} of ${ALL_PICKS.length} shown`;
+    const ago = timeAgo(UPDATED_AT);
+    status.textContent = `${shown.length} of ${ALL_PICKS.length} shown${ago ? ` • updated ${ago}` : ""}`;
 }
 
 async function loadPicks() {
@@ -276,7 +280,9 @@ async function loadPicks() {
             PotentialProAPI.picks(),
             PotentialProAPI.stats().catch(() => null),
         ]);
-        ALL_PICKS = data.picks || [];
+        ALL_PICKS = (data.picks || []).slice().sort((a, b) =>
+            (kickoffDate(a.match_date, a.kickoff_time) || 0) - (kickoffDate(b.match_date, b.kickoff_time) || 0));
+        UPDATED_AT = data.generated_at || null;
         renderStatStrip(ALL_PICKS, stats);
         if (ALL_PICKS.length === 0) {
             feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">

@@ -61,7 +61,17 @@ const API_BASE = "http://localhost:8080";
       #pp-sheet .pp-row.active { background:#acf847; color:#457000; }
       html.dark #pp-sheet .pp-row.active { background:#354a12; color:#acf847; }
       #pp-sheet .pp-grab { width:36px; height:4px; border-radius:2px; background:#c6c6cd; margin:6px auto 10px; }
-      html.dark #pp-sheet .pp-grab { background:#42474a; }`;
+      html.dark #pp-sheet .pp-grab { background:#42474a; }
+      /* Shared skeleton + toast */
+      .pp-skel { border-radius:12px; background:#e6e8ea; animation:pp-pulse 1.4s ease-in-out infinite; }
+      html.dark .pp-skel { background:#272a2c; }
+      @keyframes pp-pulse { 0%,100% { opacity:1; } 50% { opacity:0.45; } }
+      #pp-toast { position:fixed; left:50%; transform:translateX(-50%); bottom:92px; z-index:80;
+        background:#2d3133; color:#eff1f3; padding:10px 18px; border-radius:9999px;
+        font-size:14px; box-shadow:0 4px 16px rgba(0,0,0,0.3); opacity:0; transition:opacity .25s;
+        pointer-events:none; max-width:85vw; text-align:center; }
+      #pp-toast.show { opacity:1; }
+      @media (min-width:768px) { #pp-toast { bottom:24px; } }`;
     const style = document.createElement("style");
     style.textContent = DARK_CSS;
     document.head.appendChild(style);
@@ -185,6 +195,65 @@ function prettyLeague(s) {
     const cleaned = (s || "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
     if (!cleaned) return "Football";
     return cleaned.replace(/\b[a-z]/g, c => c.toUpperCase());
+}
+
+/* ── Kickoff time helpers ─────────────────────────────────────────────
+   match_date is "YYYY-MM-DD", kickoff_time is "HH:MM" (may be missing). */
+function kickoffDate(matchDate, kickoffTime) {
+    if (!matchDate) return null;
+    const t = /^\d{1,2}:\d{2}/.test(kickoffTime || "") ? kickoffTime : "00:00";
+    const d = new Date(`${matchDate}T${t.padStart(5, "0")}`);
+    return isNaN(d) ? null : d;
+}
+
+function kickoffLabel(matchDate, kickoffTime) {
+    const d = kickoffDate(matchDate, kickoffTime);
+    if (!d) return matchDate || "";
+    const now = new Date();
+    const day = new Date(d); day.setHours(0, 0, 0, 0);
+    const today = new Date(now); today.setHours(0, 0, 0, 0);
+    const diff = Math.round((day - today) / 86400000);
+    const time = /^\d{1,2}:\d{2}/.test(kickoffTime || "") ? " " + kickoffTime : "";
+    if (diff === 0) return "Today" + time;
+    if (diff === 1) return "Tomorrow" + time;
+    if (diff === -1) return "Yesterday" + time;
+    return d.toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short"}) + time;
+}
+
+function hasKickedOff(matchDate, kickoffTime) {
+    if (!/^\d{1,2}:\d{2}/.test(kickoffTime || "")) return false;
+    const d = kickoffDate(matchDate, kickoffTime);
+    return d ? d < new Date() : false;
+}
+
+/* "x min ago" for SQLite UTC timestamps like "2026-07-17 06:05:12" */
+function timeAgo(utcStr) {
+    if (!utcStr) return "";
+    const d = new Date(utcStr.replace(" ", "T") + "Z");
+    if (isNaN(d)) return "";
+    const mins = Math.max(0, Math.round((Date.now() - d) / 60000));
+    if (mins < 1) return "just now";
+    if (mins < 60) return `${mins} min ago`;
+    const hrs = Math.round(mins / 60);
+    if (hrs < 24) return `${hrs}h ago`;
+    return `${Math.round(hrs / 24)}d ago`;
+}
+
+function showToast(msg) {
+    let t = document.getElementById("pp-toast");
+    if (!t) {
+        t = document.createElement("div");
+        t.id = "pp-toast";
+        document.body.appendChild(t);
+    }
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(t._hide);
+    t._hide = setTimeout(() => t.classList.remove("show"), 2200);
+}
+
+function ppSkeleton(heightPx) {
+    return `<div class="pp-skel" style="height:${heightPx}px"></div>`;
 }
 
 async function apiGet(path) {

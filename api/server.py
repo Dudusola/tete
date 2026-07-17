@@ -75,6 +75,14 @@ def _model_predictions(only_strong: bool = True) -> list:
     return [dict(r) for r in rows]
 
 
+def _last_generated_at() -> str | None:
+    """UTC timestamp of the newest model prediction — when the pipeline last ran."""
+    conn = get_connection()
+    row = conn.execute("SELECT MAX(predicted_at) AS ts FROM model_predictions").fetchone()
+    conn.close()
+    return row["ts"] if row else None
+
+
 def _predictions_with_goals() -> list:
     """Model preds joined with Forebet goal data, for market derivation."""
     conn = get_connection()
@@ -129,14 +137,14 @@ def health():
 def get_picks():
     """Today's HIGH and MEDIUM confidence model picks."""
     picks = _attach_consensus(_model_predictions(only_strong=True))
-    return {"count": len(picks), "picks": picks}
+    return {"count": len(picks), "generated_at": _last_generated_at(), "picks": picks}
 
 
 @app.get("/api/picks/all")
 def get_all_picks():
     """All predictions including LOW confidence."""
     picks = _attach_consensus(_model_predictions(only_strong=False))
-    return {"count": len(picks), "picks": picks}
+    return {"count": len(picks), "generated_at": _last_generated_at(), "picks": picks}
 
 
 @app.get("/api/slip")

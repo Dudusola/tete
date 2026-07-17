@@ -99,7 +99,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=9"></script>
+<script src="js/api.js?v=10"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
@@ -134,7 +134,7 @@ function renderLeg(leg) {
   <div class="flex-1">
     <div class="flex items-center gap-2 mb-1">
       <span class="w-2 h-2 rounded-full bg-secondary"></span>
-      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(leg.match_date)} ${escapeHtml(leg.kickoff_time)}</span>
+      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(kickoffLabel(leg.match_date, leg.kickoff_time))}</span>
     </div>
     <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
     <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(leg.market)}</div>
@@ -223,7 +223,7 @@ async function bookSlip(provider) {
               <div class="text-label-sm">${PROVIDER_NAME[provider]} booking code (${d.mapped.length} legs)</div>
               <div class="text-headline-md font-headline-md font-bold tracking-widest">${escapeHtml(d.code)}</div>
             </div>
-            <button class="bg-surface text-primary rounded-lg px-md py-sm text-label-sm font-bold" onclick="navigator.clipboard.writeText('${escapeHtml(d.code)}').then(()=>this.textContent='Copied!')">Copy</button>
+            <button class="bg-surface text-primary rounded-lg px-md py-sm text-label-sm font-bold" onclick="navigator.clipboard.writeText('${escapeHtml(d.code)}').then(()=>{this.textContent='Copied!';showToast('${PROVIDER_NAME[provider]} code copied')})">Copy</button>
           </div>${skipped}
           <div class="text-label-sm text-on-surface-variant mt-1">Paste it in the ${PROVIDER_NAME[provider]} app under “Load Booking Code”. Odds may shift before kickoff.</div>`;
     } catch (err) {
@@ -238,7 +238,8 @@ async function generateSlip() {
     const btn = document.getElementById("generate-btn");
     const out = document.getElementById("slip-output");
     btn.disabled = true;
-    out.innerHTML = `<div class="text-center text-on-surface-variant py-md">Building your ${selectedRisk.toLowerCase()} slip…</div>`;
+    out.innerHTML = `<div class="space-y-sm">${ppSkeleton(56)}${ppSkeleton(180)}${ppSkeleton(90)}</div>
+      <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${selectedRisk.toLowerCase()} slip…</div>`;
     try {
         const data = await PotentialProAPI.slip(selectedRisk, selectedCount);
         renderSlip(data);

@@ -24,7 +24,8 @@
       "Bash(PYTHONUTF8=1 ./venv/Scripts/python.exe run_daily.py)",
       "PowerShell(git *)",
       "PowerShell(node --check \"C:\\\\Users\\\\OWNER\\\\Desktop\\\\PECULIAR DESKTOP\\\\projects\\\\files\\\\webapp\\\\js\\\\api.js\" 2>&1; if \\($?\\) {'js ok'})",
-      "PowerShell(Stop-Process *)"
+      "PowerShell(Stop-Process *)",
+      "PowerShell(cd \"C:\\\\Users\\\\OWNER\\\\Desktop\\\\PECULIAR DESKTOP\\\\projects\\\\files\"; $web = Start-Process -PassThru -WindowStyle Hidden -WorkingDirectory \"$pwd\\\\webapp\" python -ArgumentList '-m','http.server','3000'; Start-Sleep 3; $sp=\"C:\\\\Users\\\\OWNER\\\\AppData\\\\Local\\\\Temp\\\\claude\\\\C--Users-OWNER-Desktop-PECULIAR-DESKTOP-projects-files\\\\9b36c03f-b359-4239-b3ab-47c2149ff2e9\\\\scratchpad\"; .\\\\venv\\\\Scripts\\\\python.exe \"$sp\\\\polish_check.py\"; $c1=$LASTEXITCODE; try { Stop-Process $web.Id -Force -ErrorAction Stop } catch {}; exit $c1)"
     ]
   }
 }
