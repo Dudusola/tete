@@ -171,7 +171,13 @@ unknown until the honest ledger matures.
    /api/picks/all attach a `consensus` field per pick ({sources, agree,
    agreed_outcome} or null); index.html shows "N sources agree" / "sources split"
    badges. Reuses consensus.py's fuzzy ±1 day matching via _attach_consensus.
-3. Consensus as a confidence modifier in predict.py (agreement bumps tier).
+3. ~~Consensus as a confidence modifier in predict.py~~ DONE (July 2026):
+   apply_consensus_modifier — MEDIUM→HIGH when 2+ sources agree WITH the model,
+   HIGH→MEDIUM when they agree AGAINST it, LOW never promoted, probabilities
+   untouched. Adjustment stored in model_predictions.consensus_adj
+   ('boosted'/'demoted'/NULL) so the ledger can answer "do boosts win?";
+   MODEL_VERSION bumped to rf_v1c to separate eras. /api/picks serves
+   consensus_adj; index.html shows "consensus boost"/"tier lowered" chips.
 4. Model-vs-Forebet-on-real-results tracker (needs mature ledger) — validates the premise.
 5. Polish: truncated league names ("world-cup-2026-last-"), add "Checker" to all navs.
 6. DEFERRED until football is validated: second sport, cloud 24/7 deploy, real booking codes.

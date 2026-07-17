@@ -114,6 +114,14 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # already exists
 
+    # Consensus tier adjustment: 'boosted' (MEDIUM->HIGH, sources agree with
+    # model), 'demoted' (HIGH->MEDIUM, sources agree against model), or NULL.
+    # Stored so the ledger can later answer "do consensus boosts actually win?"
+    try:
+        cursor.execute("ALTER TABLE model_predictions ADD COLUMN consensus_adj TEXT")
+    except sqlite3.OperationalError:
+        pass  # already exists
+
     conn.commit()
     conn.close()
     logger.success("✅ Database initialized")

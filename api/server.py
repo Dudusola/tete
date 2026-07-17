@@ -58,6 +58,7 @@ def _model_predictions(only_strong: bool = True) -> list:
                m.match_date, m.kickoff_time,
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
                mp.confidence, mp.best_bet, mp.best_bet_prob, mp.gemma_analysis,
+               mp.consensus_adj,
                sp.predicted_home_goals, sp.predicted_away_goals
         FROM matches m
         JOIN model_predictions mp ON mp.id = (

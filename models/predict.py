@@ -19,12 +19,15 @@ from loguru import logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.train import load_all_csvs, form_ppg, goals_avg, venue_ppg, h2h_wins, FORM_WINDOW
+from models.consensus import build_consensus, _same_match
 
 MODEL_PATH = "./models/random_forest_v1.joblib"
 # rf_v1b = same trained model, but serving now feeds REAL bookmaker odds to the
 # odds features (was Forebet's percentages - train/serve mismatch) and team
 # form includes our own recorded results. Bumped so the ledger separates eras.
-MODEL_VERSION = "rf_v1b"
+# rf_v1c = same model, but the confidence TIER is now consensus-adjusted
+# (see apply_consensus_modifier). Probabilities are untouched.
+MODEL_VERSION = "rf_v1c"
 
 # Confidence tiers calibrated from training evaluation (12 June 2026):
 #   >=65% model prob -> ~75% historical accuracy -> HIGH
@@ -175,17 +178,46 @@ def build_live_features(home_hist: list, away_hist: list,
 
 
 def save_prediction(match_id: str, probs: dict, confidence: str,
-                    best_bet: str, best_prob: float, gemma_analysis: str = None):
+                    best_bet: str, best_prob: float, gemma_analysis: str = None,
+                    consensus_adj: str = None):
     conn = get_connection()
     conn.execute("""
         INSERT INTO model_predictions
         (match_id, model_version, home_win_prob, draw_prob, away_win_prob,
-         confidence, best_bet, best_bet_prob, gemma_analysis)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         confidence, best_bet, best_bet_prob, gemma_analysis, consensus_adj)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, [match_id, MODEL_VERSION, probs["H"], probs["D"], probs["A"],
-          confidence, best_bet, best_prob, gemma_analysis])
+          confidence, best_bet, best_prob, gemma_analysis, consensus_adj])
     conn.commit()
     conn.close()
+
+
+def apply_consensus_modifier(match: dict, best_outcome: str,
+                             confidence: str, consensus: list) -> tuple[str, str | None]:
+    """Adjust the confidence tier using cross-source agreement.
+
+    Rules (deliberately conservative — the tier calibration story depends on
+    these staying rare and defensible):
+      - boost:  MEDIUM -> HIGH when 2+ sources agree WITH the model's outcome.
+      - demote: HIGH -> MEDIUM when 2+ sources agree on a DIFFERENT outcome.
+      - LOW is never promoted: sources agreeing on a coin-flip doesn't make it
+        bettable. Probabilities are never changed, only the tier label.
+
+    Returns (confidence, consensus_adj) where consensus_adj is
+    'boosted' / 'demoted' / None — stored in the ledger so we can later
+    measure whether these adjustments actually win.
+    """
+    for entry in consensus:
+        if not _same_match(match, entry):
+            continue
+        if len(entry["sources"]) < 2 or not entry["agree"]:
+            return confidence, None
+        if entry["agreed_outcome"] == best_outcome and confidence == "MEDIUM":
+            return "HIGH", "boosted"
+        if entry["agreed_outcome"] != best_outcome and confidence == "HIGH":
+            return "MEDIUM", "demoted"
+        return confidence, None
+    return confidence, None
 
 
 def run(use_gemma: bool = True):
@@ -216,8 +248,16 @@ def run(use_gemma: bool = True):
         sys.exit(0)
     logger.info(f"Found {len(scraped)} scraped matches to evaluate")
 
+    # Cross-source agreement, used to adjust confidence tiers
+    try:
+        consensus = build_consensus()
+    except Exception as e:
+        logger.warning(f"Consensus unavailable ({e}) — tiers won't be adjusted")
+        consensus = []
+
     predictions = []
     skipped = 0
+    boosted = demoted = 0
 
     for match in scraped:
         home_match = match_team_name(match["home_team"], known_teams)
@@ -252,6 +292,19 @@ def run(use_gemma: bool = True):
         bet_names = {"H": "Home Win", "D": "Draw", "A": "Away Win"}
         best_bet = bet_names[best_outcome]
 
+        # Consensus tier adjustment (before Gemma, so boosted picks get analysis)
+        confidence, consensus_adj = apply_consensus_modifier(
+            match, best_outcome, confidence, consensus)
+        if consensus_adj == "boosted":
+            boosted += 1
+            logger.info(f"⬆ Consensus boost MEDIUM→HIGH: "
+                        f"{match['home_team']} vs {match['away_team']}")
+        elif consensus_adj == "demoted":
+            demoted += 1
+            logger.info(f"⬇ Consensus demote HIGH→MEDIUM: "
+                        f"{match['home_team']} vs {match['away_team']} "
+                        f"(sources back a different outcome)")
+
         # Gemma analysis only for picks worth showing (saves time)
         gemma_text = None
         if gemma_ok and confidence in ("HIGH", "MEDIUM"):
@@ -277,7 +330,7 @@ def run(use_gemma: bool = True):
             })
 
         save_prediction(match["match_id"], probs, confidence,
-                        best_bet, best_prob, gemma_text)
+                        best_bet, best_prob, gemma_text, consensus_adj)
 
         predictions.append({
             **match,
@@ -289,7 +342,8 @@ def run(use_gemma: bool = True):
         })
 
     logger.success(f"✅ Predicted {len(predictions)} matches "
-                   f"({skipped} skipped - teams not in historical data)")
+                   f"({skipped} skipped - teams not in historical data; "
+                   f"consensus: {boosted} boosted, {demoted} demoted)")
 
     # Display, best picks first
     predictions.sort(key=lambda x: x["best_prob"], reverse=True)
