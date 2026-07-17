@@ -69,6 +69,10 @@ generate predictions on demand.
                           link to index.html on every page, and on mobile trims the bottom nav to
                           Picks/Builder/Record/More — Consensus, Checker and the theme toggle live in
                           the #pp-sheet bottom sheet behind the More (hamburger) button.
+                          PWA (July 2026): manifest.json + icons/ (from logo.png) + sw.js registered by
+                          api.js. sw.js is NETWORK-FIRST on purpose (cache only serves offline) — never
+                          switch it to cache-first for HTML/JS or the stale-api.js bug returns.
+                          prettyLeague() in api.js is the shared league-slug prettifier (all 5 pages).
                           Project is a git repo now (initial commit July 2026; .gitignore excludes
                           .env, venv, db/*.db, data/, models/*.joblib). NEVER edit these html files with
                           PowerShell Get-Content/Set-Content — PS5.1 reads UTF-8 as ANSI and mojibakes

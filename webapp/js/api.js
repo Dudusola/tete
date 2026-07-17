@@ -69,11 +69,19 @@ const API_BASE = "http://localhost:8080";
     const saved = localStorage.getItem("pp-theme");
     if (saved === "dark") document.documentElement.classList.add("dark");
 
+    // Keep the phone status bar / PWA titlebar color in sync with the theme
+    function syncThemeColor() {
+        const meta = document.getElementById("meta-theme-color");
+        if (meta) meta.content = document.documentElement.classList.contains("dark") ? "#0c0f10" : "#f7f9fb";
+    }
+    document.addEventListener("DOMContentLoaded", syncThemeColor);
+
     window.toggleTheme = function () {
         const dark = document.documentElement.classList.toggle("dark");
         localStorage.setItem("pp-theme", dark ? "dark" : "light");
         document.querySelectorAll(".theme-toggle .material-symbols-outlined")
             .forEach(icon => icon.textContent = dark ? "light_mode" : "dark_mode");
+        syncThemeColor();
     };
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -164,6 +172,20 @@ const API_BASE = "http://localhost:8080";
         bottomNav.appendChild(moreBtn);
     });
 })();
+
+/* PWA: register the service worker (no-op on browsers without support) */
+if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+}
+
+/* Shared display helper: turn scraped league slugs like
+   "world-cup-2026-last-" into "World Cup 2026 Last". Pages that render
+   in ALL CAPS keep doing so via their `uppercase` CSS class. */
+function prettyLeague(s) {
+    const cleaned = (s || "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
+    if (!cleaned) return "Football";
+    return cleaned.replace(/\b[a-z]/g, c => c.toUpperCase());
+}
 
 async function apiGet(path) {
     const res = await fetch(`${API_BASE}${path}`);

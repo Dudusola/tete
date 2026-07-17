@@ -2,6 +2,12 @@
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/png" href="icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="icons/icon-180.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Today's Picks</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
@@ -113,7 +119,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 <span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=8"></script>
+<script src="js/api.js?v=9"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -146,7 +152,7 @@ function renderCard(p) {
     const drawPct = Math.round((p.draw_prob || 0) * 100);
     const awayPct = Math.round((p.away_win_prob || 0) * 100);
     const analysis = p.gemma_analysis ? escapeHtml(p.gemma_analysis) : "No analysis available for this pick.";
-    const meta = `${escapeHtml(p.league || "")} • ${escapeHtml(p.match_date || "")} ${escapeHtml(p.kickoff_time || "")}`;
+    const meta = `${escapeHtml(prettyLeague(p.league))} • ${escapeHtml(p.match_date || "")} ${escapeHtml(p.kickoff_time || "")}`;
 
     return `
 <article class="glass-card rounded-xl p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">

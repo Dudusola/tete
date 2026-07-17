@@ -2,6 +2,12 @@
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/png" href="icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="icons/icon-180.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Slip Builder</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
@@ -93,7 +99,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=8"></script>
+<script src="js/api.js?v=9"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
@@ -128,7 +134,7 @@ function renderLeg(leg) {
   <div class="flex-1">
     <div class="flex items-center gap-2 mb-1">
       <span class="w-2 h-2 rounded-full bg-secondary"></span>
-      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(leg.league)} • ${escapeHtml(leg.match_date)} ${escapeHtml(leg.kickoff_time)}</span>
+      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(leg.match_date)} ${escapeHtml(leg.kickoff_time)}</span>
     </div>
     <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
     <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(leg.market)}</div>

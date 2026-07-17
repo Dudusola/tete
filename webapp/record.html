@@ -2,6 +2,12 @@
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/png" href="icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="icons/icon-180.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Track Record</title>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
@@ -105,7 +111,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 flex-1" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=8"></script>
+<script src="js/api.js?v=9"></script>
 <script>
 const TIER_STYLE = {
     HIGH:   { bar:"bg-secondary",          badge:"bg-secondary-container text-on-secondary-container", icon:"verified",   border:"hover:border-secondary" },
@@ -150,7 +156,7 @@ function renderDrillRow(p) {
 <div class="p-md flex items-center justify-between gap-md">
   <div class="flex-1">
     <div class="text-body-md text-primary font-semibold">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</div>
-    <div class="text-label-sm text-on-surface-variant">${escapeHtml(p.league)} • ${escapeHtml(p.match_date)} • Pick: ${escapeHtml(p.best_bet)} • FT ${score}</div>
+    <div class="text-label-sm text-on-surface-variant">${escapeHtml(prettyLeague(p.league))} • ${escapeHtml(p.match_date)} • Pick: ${escapeHtml(p.best_bet)} • FT ${score}</div>
   </div>
   <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-bold ${won ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}">
     <span class="material-symbols-outlined text-[16px]">${won ? 'check_circle' : 'cancel'}</span>${won ? 'WON' : 'LOST'}
