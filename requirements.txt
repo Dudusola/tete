@@ -1,0 +1,32 @@
+# Scraping
+requests==2.31.0
+beautifulsoup4==4.12.3
+selenium==4.18.1
+playwright==1.42.0
+lxml==5.1.0
+fake-useragent==1.4.0
+
+# Data
+pandas==2.2.1
+numpy==1.26.4
+SQLAlchemy==2.0.28
+
+# ML
+scikit-learn==1.4.1
+xgboost==2.0.3
+joblib==1.3.2
+
+# Ollama (local LLM)
+ollama==0.1.7
+
+# Telegram bot
+python-telegram-bot==20.8
+
+# Scheduling (run scrapers daily automatically)
+schedule==1.2.1
+APScheduler==3.10.4
+
+# Utilities
+python-dotenv==1.0.1
+loguru==0.7.2
+rich==13.7.1

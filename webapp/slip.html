@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotentialPro - Slip Builder</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = { darkMode:"class", theme:{ extend:{
+    "colors":{"inverse-surface":"#2d3133","primary-container":"#131b2e","surface-container-high":"#e6e8ea","on-error-container":"#93000a","on-secondary-fixed-variant":"#304f00","background":"#f7f9fb","on-tertiary-fixed-variant":"#38485d","on-error":"#ffffff","on-primary-container":"#7c839b","secondary-fixed-dim":"#91db2a","on-background":"#191c1e","surface-container-lowest":"#ffffff","surface":"#f7f9fb","tertiary-fixed-dim":"#b7c8e1","on-primary":"#ffffff","secondary-container":"#acf847","on-secondary-container":"#457000","inverse-primary":"#bec6e0","on-secondary-fixed":"#102000","primary-fixed-dim":"#bec6e0","inverse-on-surface":"#eff1f3","secondary-fixed":"#acf847","on-primary-fixed":"#131b2e","primary-fixed":"#dae2fd","tertiary-container":"#0b1c30","primary":"#000000","surface-container-highest":"#e0e3e5","tertiary":"#000000","on-surface":"#191c1e","surface-variant":"#e0e3e5","on-tertiary-fixed":"#0b1c30","error":"#ba1a1a","surface-container":"#eceef0","on-secondary":"#ffffff","tertiary-fixed":"#d3e4fe","surface-dim":"#d8dadc","outline":"#76777d","secondary":"#416900","on-tertiary":"#ffffff","surface-container-low":"#f2f4f6","outline-variant":"#c6c6cd","error-container":"#ffdad6","on-surface-variant":"#45464d","surface-bright":"#f7f9fb","surface-tint":"#565e74","on-tertiary-container":"#75859d","on-primary-fixed-variant":"#3f465c"},
+    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+    "spacing":{"sm":"12px","gutter":"16px","xs":"8px","md":"16px","xl":"32px","container-max":"1280px","base":"4px","lg":"24px"},
+    "fontFamily":{"body-lg":["Inter"],"label-sm":["Inter"],"body-md":["Inter"],"headline-lg":["Inter"],"headline-md":["Inter"],"display-lg":["Inter"],"headline-lg-mobile":["Inter"],"data-tabular":["Inter"]},
+    "fontSize":{"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],"display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],"data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]}
+}}}
+</script>
+<style> body { font-family:'Inter',sans-serif; } .material-symbols-outlined{font-family:'Material Symbols Outlined';} </style>
+</head>
+<body class="bg-surface text-on-surface pb-24">
+<!-- Desktop Nav -->
+<nav class="hidden md:flex fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 mx-auto bg-surface-container-lowest shadow-sm border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<img src="logo.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+<span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex space-x-lg">
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="index.html">Picks</a>
+<a class="text-secondary font-bold border-b-2 border-secondary pb-1" href="slip.html">Builder</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="record.html">Record</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="consensus.html">Consensus</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="checker.html">Checker</a>
+</div>
+</nav>
+
+<main class="max-w-container-max mx-auto px-gutter md:px-lg pt-8 md:pt-24 space-y-xl">
+<header class="mb-lg">
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Slip Builder</h1>
+<p class="text-body-md text-on-surface-variant mt-2">Configure your accumulator parameters and let the data generate your slip.</p>
+</header>
+
+<!-- Risk Level -->
+<section>
+<h2 class="text-headline-md font-headline-md text-primary mb-md">Risk Level</h2>
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md" id="risk-group">
+<button data-risk="LOW" class="risk-btn flex flex-col items-start p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
+<span class="material-symbols-outlined text-secondary mb-2" style="font-variation-settings:'FILL' 1;">shield</span>
+<span class="text-body-lg text-primary font-semibold">Low Risk</span>
+<span class="text-body-md text-on-surface-variant mt-1">Safe plays, higher probability, lower returns.</span>
+</button>
+<button data-risk="MEDIUM" class="risk-btn flex flex-col items-start p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
+<span class="material-symbols-outlined text-secondary mb-2" style="font-variation-settings:'FILL' 1;">balance</span>
+<span class="text-body-lg text-primary font-semibold">Medium Risk</span>
+<span class="text-body-md text-on-surface-variant mt-1">Balanced approach for steady growth.</span>
+</button>
+<button data-risk="HIGH" class="risk-btn flex flex-col items-start p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
+<span class="material-symbols-outlined text-error mb-2" style="font-variation-settings:'FILL' 1;">local_fire_department</span>
+<span class="text-body-lg text-primary font-semibold">High Risk</span>
+<span class="text-body-md text-on-surface-variant mt-1">Aggressive plays for maximum returns.</span>
+</button>
+</div>
+</section>
+
+<!-- Game Count -->
+<section>
+<h2 class="text-headline-md font-headline-md text-primary mb-md">Number of Games</h2>
+<div class="flex flex-wrap gap-sm" id="count-group">
+<button data-count="3" class="count-btn px-lg py-sm rounded-full border border-outline-variant text-body-md text-on-surface hover:bg-surface-container-high transition">3</button>
+<button data-count="5" class="count-btn px-lg py-sm rounded-full border border-outline-variant text-body-md text-on-surface hover:bg-surface-container-high transition">5</button>
+<button data-count="7" class="count-btn px-lg py-sm rounded-full border border-outline-variant text-body-md text-on-surface hover:bg-surface-container-high transition">7</button>
+<button data-count="10" class="count-btn px-lg py-sm rounded-full border border-outline-variant text-body-md text-on-surface hover:bg-surface-container-high transition">10</button>
+</div>
+</section>
+
+<!-- Generate -->
+<div class="flex justify-end">
+<button id="generate-btn" class="bg-secondary text-on-secondary px-xl py-sm rounded-lg font-semibold text-body-lg shadow-sm hover:bg-secondary-fixed-dim transition active:scale-95 flex items-center gap-2">
+<span class="material-symbols-outlined">bolt</span> Generate Slip
+</button>
+</div>
+
+<!-- Slip output (built dynamically) -->
+<div id="slip-output"></div>
+<div class="h-8"></div>
+</main>
+
+<!-- Mobile Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface-container-lowest shadow-lg border-t border-outline-variant">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="index.html"><span class="material-symbols-outlined">analytics</span><span class="text-label-sm mt-1">Picks</span></a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl p-2 shadow-sm" href="slip.html"><span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1;">receipt_long</span><span class="text-label-sm mt-1 font-bold">Builder</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="record.html"><span class="material-symbols-outlined">query_stats</span><span class="text-label-sm mt-1">Record</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="consensus.html"><span class="material-symbols-outlined">groups</span><span class="text-label-sm mt-1">Consensus</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
+</nav>
+
+<script src="js/api.js?v=8"></script>
+<script>
+let selectedRisk = "MEDIUM";
+let selectedCount = 5;
+
+const SELECTED_RISK = "border-l-2 border-l-secondary bg-secondary/10 shadow-md";
+const SELECTED_COUNT = "bg-primary text-on-primary font-semibold shadow-sm";
+const UNSELECTED_COUNT = "border border-outline-variant text-on-surface";
+
+function paintRisk() {
+    document.querySelectorAll(".risk-btn").forEach(btn => {
+        const on = btn.dataset.risk === selectedRisk;
+        btn.classList.toggle("border-l-2", on);
+        btn.classList.toggle("border-l-secondary", on);
+        btn.classList.toggle("shadow-md", on);
+        btn.style.backgroundColor = on ? "rgba(145,219,42,0.15)" : "";
+    });
+}
+function paintCount() {
+    document.querySelectorAll(".count-btn").forEach(btn => {
+        const on = parseInt(btn.dataset.count) === selectedCount;
+        btn.className = "count-btn px-lg py-sm rounded-full text-body-md transition " +
+            (on ? SELECTED_COUNT : UNSELECTED_COUNT + " hover:bg-surface-container-high");
+    });
+}
+
+function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function renderLeg(leg) {
+    const prob = Math.round((leg.probability||0)*100);
+    return `
+<div class="p-md flex flex-col md:flex-row md:items-center justify-between gap-md hover:bg-surface transition">
+  <div class="flex-1">
+    <div class="flex items-center gap-2 mb-1">
+      <span class="w-2 h-2 rounded-full bg-secondary"></span>
+      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(leg.league)} • ${escapeHtml(leg.match_date)} ${escapeHtml(leg.kickoff_time)}</span>
+    </div>
+    <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
+    <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(leg.market)}</div>
+  </div>
+  <div class="flex items-center justify-between md:justify-end gap-lg flex-1">
+    <div class="bg-primary-container text-on-primary rounded-md px-3 py-1 text-data-tabular font-data-tabular text-center min-w-[110px]">${escapeHtml(leg.selection)}</div>
+    <div class="text-right">
+      <div class="text-body-md text-primary font-semibold">${prob}%</div>
+      <div class="text-label-sm text-secondary">probability</div>
+    </div>
+  </div>
+</div>`;
+}
+
+function renderSlip(data) {
+    const out = document.getElementById("slip-output");
+    if (!data.legs || data.legs.length === 0) {
+        out.innerHTML = `<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-md text-center text-on-surface-variant">
+            No ${escapeHtml(data.risk)} risk picks available right now. Try a different risk level or check back when more fixtures are scheduled.
+        </section>`;
+        return;
+    }
+    const accPct = (data.accumulator_probability*100).toFixed(1);
+    out.innerHTML = `
+<section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+  <div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
+    <h3 class="text-body-lg text-primary font-semibold">Generated Acca</h3>
+    <span class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">${escapeHtml(data.risk)} Risk • ${data.actual_games} Games</span>
+  </div>
+  <div class="divide-y divide-surface-container-high">
+    ${data.legs.map(renderLeg).join("")}
+  </div>
+  <div class="bg-primary-container text-on-primary p-md flex flex-col md:flex-row justify-between items-center">
+    <div>
+      <span class="text-body-md text-inverse-primary block">Legs</span>
+      <span class="text-headline-md font-headline-md font-bold block">${data.actual_games}</span>
+    </div>
+    <div class="text-right mt-4 md:mt-0">
+      <span class="text-body-md text-inverse-primary block">Accumulator Hit Chance</span>
+      <div class="flex items-center justify-end gap-2">
+        <span class="material-symbols-outlined text-secondary" style="font-variation-settings:'FILL' 1;">trending_up</span>
+        <span class="text-display-lg font-display-lg text-secondary block">${accPct}%</span>
+      </div>
+    </div>
+  </div>
+  <div class="bg-surface-container-low px-md py-sm border-t border-outline-variant">
+    <div class="flex gap-sm">
+      <button id="book-btn" data-provider="sportybet" class="book-provider-btn flex-1 bg-secondary text-on-secondary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:bg-secondary-fixed-dim transition active:scale-95 flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        SportyBet code
+      </button>
+      <button id="book-btn-msport" data-provider="msport" class="book-provider-btn flex-1 bg-primary-container text-inverse-primary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        MSport code
+      </button>
+    </div>
+    <div id="book-result" class="mt-sm text-body-md text-on-surface"></div>
+  </div>
+</section>`;
+    LAST_SLIP = data.legs;
+    document.querySelectorAll(".book-provider-btn").forEach(b =>
+        b.addEventListener("click", () => bookSlip(b.dataset.provider)));
+}
+
+let LAST_SLIP = [];
+const PROVIDER_NAME = {sportybet: "SportyBet", msport: "MSport"};
+
+async function bookSlip(provider) {
+    const btns = document.querySelectorAll(".book-provider-btn");
+    const out = document.getElementById("book-result");
+    if (!LAST_SLIP.length) return;
+    btns.forEach(b => b.disabled = true);
+    out.innerHTML = `<span class="text-on-surface-variant">Booking on ${PROVIDER_NAME[provider]}…</span>`;
+    try {
+        const d = await PotentialProAPI.generateCode(LAST_SLIP.map(l => ({
+            home_team: l.home_team, away_team: l.away_team,
+            market: l.market, selection: l.selection,
+        })), provider);
+        if (!d.ok) { out.innerHTML = `<span class="text-error">⚠️ ${escapeHtml(d.error)}</span>`; return; }
+        const skipped = d.unmapped.length
+            ? `<div class="text-label-sm text-on-surface-variant mt-1">⚠️ ${d.unmapped.length} leg(s) not on SportyBet (skipped): ${d.unmapped.map(u => escapeHtml(u.home_team + " vs " + u.away_team)).join(", ")}</div>`
+            : "";
+        out.innerHTML = `
+          <div class="bg-secondary-container text-on-secondary-container rounded-lg p-sm flex items-center justify-between gap-sm">
+            <div>
+              <div class="text-label-sm">${PROVIDER_NAME[provider]} booking code (${d.mapped.length} legs)</div>
+              <div class="text-headline-md font-headline-md font-bold tracking-widest">${escapeHtml(d.code)}</div>
+            </div>
+            <button class="bg-surface text-primary rounded-lg px-md py-sm text-label-sm font-bold" onclick="navigator.clipboard.writeText('${escapeHtml(d.code)}').then(()=>this.textContent='Copied!')">Copy</button>
+          </div>${skipped}
+          <div class="text-label-sm text-on-surface-variant mt-1">Paste it in the ${PROVIDER_NAME[provider]} app under “Load Booking Code”. Odds may shift before kickoff.</div>`;
+    } catch (err) {
+        out.innerHTML = `<span class="text-error">⚠️ Couldn't book — is the API running?</span>`;
+        console.error(err);
+    } finally {
+        btns.forEach(b => b.disabled = false);
+    }
+}
+
+async function generateSlip() {
+    const btn = document.getElementById("generate-btn");
+    const out = document.getElementById("slip-output");
+    btn.disabled = true;
+    out.innerHTML = `<div class="text-center text-on-surface-variant py-md">Building your ${selectedRisk.toLowerCase()} slip…</div>`;
+    try {
+        const data = await PotentialProAPI.slip(selectedRisk, selectedCount);
+        renderSlip(data);
+    } catch (err) {
+        out.innerHTML = `<div class="text-center text-error py-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
+        console.error(err);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".risk-btn").forEach(btn =>
+        btn.addEventListener("click", () => { selectedRisk = btn.dataset.risk; paintRisk(); }));
+    document.querySelectorAll(".count-btn").forEach(btn =>
+        btn.addEventListener("click", () => { selectedCount = parseInt(btn.dataset.count); paintCount(); }));
+    document.getElementById("generate-btn").addEventListener("click", generateSlip);
+    paintRisk(); paintCount();
+});
+</script>
+</body></html>

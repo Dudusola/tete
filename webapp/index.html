@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotentialPro - Today's Picks</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = {
+    darkMode: "class",
+    theme: { extend: {
+        "colors": {
+            "inverse-surface": "#2d3133","primary-container": "#131b2e","surface-container-high": "#e6e8ea",
+            "on-error-container": "#93000a","on-secondary-fixed-variant": "#304f00","background": "#f7f9fb",
+            "on-tertiary-fixed-variant": "#38485d","on-error": "#ffffff","on-primary-container": "#7c839b",
+            "secondary-fixed-dim": "#91db2a","on-background": "#191c1e","surface-container-lowest": "#ffffff",
+            "surface": "#f7f9fb","tertiary-fixed-dim": "#b7c8e1","on-primary": "#ffffff",
+            "secondary-container": "#acf847","on-secondary-container": "#457000","inverse-primary": "#bec6e0",
+            "on-secondary-fixed": "#102000","primary-fixed-dim": "#bec6e0","inverse-on-surface": "#eff1f3",
+            "secondary-fixed": "#acf847","on-primary-fixed": "#131b2e","primary-fixed": "#dae2fd",
+            "tertiary-container": "#0b1c30","primary": "#000000","surface-container-highest": "#e0e3e5",
+            "tertiary": "#000000","on-surface": "#191c1e","surface-variant": "#e0e3e5",
+            "on-tertiary-fixed": "#0b1c30","error": "#ba1a1a","surface-container": "#eceef0",
+            "on-secondary": "#ffffff","tertiary-fixed": "#d3e4fe","surface-dim": "#d8dadc",
+            "outline": "#76777d","secondary": "#416900","on-tertiary": "#ffffff",
+            "surface-container-low": "#f2f4f6","outline-variant": "#c6c6cd","error-container": "#ffdad6",
+            "on-surface-variant": "#45464d","surface-bright": "#f7f9fb","surface-tint": "#565e74",
+            "on-tertiary-container": "#75859d","on-primary-fixed-variant": "#3f465c"
+        },
+        "borderRadius": { "DEFAULT": "0.25rem","lg": "0.5rem","xl": "0.75rem","full": "9999px" },
+        "spacing": { "sm":"12px","gutter":"16px","xs":"8px","md":"16px","xl":"32px","container-max":"1280px","base":"4px","lg":"24px" },
+        "fontFamily": { "body-lg":["Inter"],"label-sm":["Inter"],"body-md":["Inter"],"headline-lg":["Inter"],"headline-md":["Inter"],"display-lg":["Inter"],"headline-lg-mobile":["Inter"],"data-tabular":["Inter"] },
+        "fontSize": {
+            "body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],
+            "label-sm":["12px",{"lineHeight":"16px","fontWeight":"500"}],
+            "body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],
+            "headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],
+            "headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],
+            "display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],
+            "headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],
+            "data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]
+        }
+    }}
+}
+</script>
+<style>
+body { background-color: theme('colors.background'); color: theme('colors.on-background'); font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px; padding-top:80px; }
+.glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border:1px solid theme('colors.outline-variant'); }
+.material-symbols-outlined { font-family:'Material Symbols Outlined'; font-weight:normal; font-style:normal; font-size:24px; line-height:1; display:inline-block; -webkit-font-smoothing:antialiased; }
+</style>
+</head>
+<body>
+<!-- Desktop Top Nav -->
+<nav class="hidden md:flex fixed top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm h-16 justify-between items-center px-lg mx-auto">
+<div class="flex items-center gap-xl">
+<div class="flex items-center gap-2">
+  <img src="logo.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+  <span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex gap-md">
+<a class="text-secondary font-bold border-b-2 border-secondary pb-1 text-label-sm" href="index.html">Picks</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary" href="slip.html">Builder</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary" href="record.html">Record</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary" href="consensus.html">Consensus</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary" href="checker.html">Checker</a>
+</div>
+</div>
+</nav>
+<!-- Mobile Header -->
+<header class="md:hidden pt-lg px-gutter pb-sm">
+<div class="flex items-center gap-2">
+  <img src="logo.png" alt="PotentialPro" class="h-8 w-8 object-contain"/>
+  <h1 class="text-headline-lg-mobile font-headline-lg-mobile text-primary">PotentialPro</h1>
+</div>
+<p class="text-body-md text-on-surface-variant mt-base">Data-driven picks for champions</p>
+</header>
+<main class="max-w-container-max mx-auto px-gutter md:px-lg py-md md:py-xl">
+<header class="hidden md:block mb-xl">
+<h1 class="text-headline-lg font-headline-lg text-primary">Today's Picks</h1>
+<p class="text-body-lg text-on-surface-variant mt-base">Data-driven picks for champions</p>
+</header>
+
+<!-- Summary stat strip -->
+<div id="stat-strip" class="grid grid-cols-2 md:grid-cols-4 gap-sm md:gap-md mb-lg"></div>
+
+<!-- Tier filter chips + status -->
+<div class="flex flex-wrap items-center justify-between gap-sm mb-md">
+  <div id="tier-filter" class="flex gap-xs">
+    <button data-tier="ALL"    class="tier-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">All</button>
+    <button data-tier="HIGH"   class="tier-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">High</button>
+    <button data-tier="MEDIUM" class="tier-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">Medium</button>
+  </div>
+  <div id="status" class="text-label-sm text-on-surface-variant"></div>
+</div>
+
+<!-- Prediction feed (cards injected here) -->
+<div id="picks-feed" class="grid grid-cols-1 md:grid-cols-2 gap-md md:gap-lg"></div>
+</main>
+
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 bg-surface-container-lowest border-t border-outline-variant flex justify-around items-center px-4 py-2 shadow-lg">
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl p-2 min-w-[64px]" href="index.html">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings:'FILL' 1;">analytics</span>
+<span class="text-label-sm">Picks</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 min-w-[64px]" href="slip.html">
+<span class="material-symbols-outlined mb-1">receipt_long</span><span class="text-label-sm">Builder</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 min-w-[64px]" href="record.html">
+<span class="material-symbols-outlined mb-1">query_stats</span><span class="text-label-sm">Record</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 min-w-[64px]" href="consensus.html">
+<span class="material-symbols-outlined mb-1">groups</span><span class="text-label-sm">Consensus</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 min-w-[64px]" href="checker.html">
+<span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
+</nav>
+
+<script src="js/api.js?v=8"></script>
+<script>
+// HIGH -> green badge, MEDIUM -> blue badge
+function badgeClasses(conf) {
+    return conf === "HIGH"
+        ? "bg-secondary-container text-on-secondary-container"
+        : "bg-tertiary-fixed-dim text-tertiary-container";
+}
+
+function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, c => (
+        {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
+    ));
+}
+
+// Cross-source agreement badge: shown only when 2+ sources cover the fixture
+function consensusBadge(c) {
+    if (!c) return "";
+    if (c.agree) {
+        return `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Forebet and PredictZ agree on this outcome">
+          <span class="material-symbols-outlined text-[14px]">handshake</span>${c.sources} sources agree</span>`;
+    }
+    return `<span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold" title="Sources disagree on the outcome — extra caution">
+      <span class="material-symbols-outlined text-[14px]">alt_route</span>sources split</span>`;
+}
+
+function renderCard(p) {
+    const conf = p.confidence || "MEDIUM";
+    const prob = Math.round((p.best_bet_prob || 0) * 100);
+    const homePct = Math.round((p.home_win_prob || 0) * 100);
+    const drawPct = Math.round((p.draw_prob || 0) * 100);
+    const awayPct = Math.round((p.away_win_prob || 0) * 100);
+    const analysis = p.gemma_analysis ? escapeHtml(p.gemma_analysis) : "No analysis available for this pick.";
+    const meta = `${escapeHtml(p.league || "")} • ${escapeHtml(p.match_date || "")} ${escapeHtml(p.kickoff_time || "")}`;
+
+    return `
+<article class="glass-card rounded-xl p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group">
+  <div class="absolute left-0 top-0 bottom-0 w-[2px] bg-secondary-container opacity-0 group-hover:opacity-100 transition-opacity"></div>
+  <div class="flex justify-between items-start mb-sm">
+    <div>
+      <span class="text-label-sm text-on-tertiary-container uppercase tracking-wider">${meta}</span>
+      <h2 class="text-headline-md font-headline-md text-primary mt-base">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
+    </div>
+    <div class="flex flex-col items-end gap-xs">
+      <div class="${badgeClasses(conf)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${conf}</div>
+      ${consensusBadge(p.consensus)}
+    </div>
+  </div>
+  <div class="bg-surface p-sm rounded-lg border border-outline-variant mb-md flex justify-between items-center">
+    <div>
+      <div class="text-label-sm text-on-surface-variant mb-base">Recommendation</div>
+      <div class="text-body-lg font-semibold text-primary">${escapeHtml(p.best_bet)}</div>
+      ${p.predicted_home_goals != null ? `<div class="text-label-sm text-on-surface-variant mt-base flex items-center gap-xs">
+        <span class="material-symbols-outlined text-[14px]">scoreboard</span>
+        Expected: ${Math.round(p.predicted_home_goals)} – ${Math.round(p.predicted_away_goals)}</div>` : ""}
+    </div>
+    <div class="text-right flex flex-col items-end">
+      <div class="text-label-sm text-on-surface-variant mb-base">Probability</div>
+      <div class="relative w-12 h-12 flex items-center justify-center">
+        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+          <path class="text-surface-container-high stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"></path>
+          <path class="text-secondary stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-dasharray="${prob}, 100" stroke-width="3"></path>
+        </svg>
+        <span class="absolute text-label-sm font-bold text-primary">${prob}%</span>
+      </div>
+    </div>
+  </div>
+  <div class="flex gap-xs mb-md text-label-sm text-on-surface-variant">
+    <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">H ${homePct}%</span>
+    <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">D ${drawPct}%</span>
+    <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">A ${awayPct}%</span>
+  </div>
+  <div class="border-t border-outline-variant pt-sm">
+    <button class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary focus:outline-none" onclick="this.nextElementSibling.classList.toggle('hidden')">
+      <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> AI Analysis</span>
+      <span class="material-symbols-outlined text-[18px]">expand_more</span>
+    </button>
+    <div class="hidden mt-sm text-body-md text-on-surface-variant leading-relaxed">${analysis}</div>
+  </div>
+</article>`;
+}
+
+// ── Summary stat strip ───────────────────────────────────────────────
+function statTile(label, value, sub, icon, accent) {
+    return `
+    <div class="glass-card rounded-xl p-md flex flex-col justify-between">
+      <div class="flex items-center justify-between">
+        <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">${label}</span>
+        <span class="material-symbols-outlined text-[18px] ${accent || "text-on-surface-variant"}">${icon}</span>
+      </div>
+      <div class="text-headline-md font-headline-md font-bold text-primary mt-base">${value}</div>
+      <div class="text-label-sm text-on-surface-variant">${sub}</div>
+    </div>`;
+}
+
+function renderStatStrip(picks, stats) {
+    const high = picks.filter(p => p.confidence === "HIGH").length;
+    const agree = picks.filter(p => p.consensus && p.consensus.agree).length;
+    const acc = stats && stats.accuracy != null ? `${stats.accuracy}%` : "—";
+    const accSub = stats && stats.scored_picks
+        ? `${stats.correct}/${stats.scored_picks} scored` : "building";
+    document.getElementById("stat-strip").innerHTML =
+        statTile("Today", picks.length, "model picks", "today", "text-secondary") +
+        statTile("High conf.", high, "≥65% probability", "verified", "text-secondary") +
+        statTile("Sources agree", agree, "2+ sources aligned", "handshake", "text-secondary") +
+        statTile("Hit rate", acc, accSub, "target", "text-secondary");
+}
+
+// ── Skeleton loading cards ───────────────────────────────────────────
+function skeletonCard() {
+    return `<article class="glass-card rounded-xl p-md animate-pulse">
+      <div class="h-3 w-1/3 bg-surface-container-high rounded mb-sm"></div>
+      <div class="h-5 w-2/3 bg-surface-container-high rounded mb-md"></div>
+      <div class="h-16 bg-surface-container-high rounded mb-md"></div>
+      <div class="flex gap-xs"><div class="h-6 flex-1 bg-surface-container-high rounded"></div>
+        <div class="h-6 flex-1 bg-surface-container-high rounded"></div>
+        <div class="h-6 flex-1 bg-surface-container-high rounded"></div></div>
+    </article>`;
+}
+
+let ALL_PICKS = [];
+let CURRENT_TIER = "ALL";
+
+function paintTierChips() {
+    document.querySelectorAll(".tier-chip").forEach(c => {
+        const on = c.dataset.tier === CURRENT_TIER;
+        c.classList.toggle("bg-secondary-container", on);
+        c.classList.toggle("text-on-secondary-container", on);
+        c.classList.toggle("border-secondary-container", on);
+        c.classList.toggle("text-on-surface-variant", !on);
+    });
+}
+
+function renderFeed() {
+    const feed = document.getElementById("picks-feed");
+    const status = document.getElementById("status");
+    const shown = CURRENT_TIER === "ALL"
+        ? ALL_PICKS : ALL_PICKS.filter(p => p.confidence === CURRENT_TIER);
+    if (shown.length === 0) {
+        feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
+          No ${CURRENT_TIER === "ALL" ? "" : CURRENT_TIER.toLowerCase() + " "}picks in this view.</div>`;
+    } else {
+        feed.innerHTML = shown.map(renderCard).join("");
+    }
+    status.textContent = `${shown.length} of ${ALL_PICKS.length} shown`;
+}
+
+async function loadPicks() {
+    const feed = document.getElementById("picks-feed");
+    const status = document.getElementById("status");
+    feed.innerHTML = Array(4).fill(skeletonCard()).join("");
+    status.textContent = "Loading…";
+    try {
+        const [data, stats] = await Promise.all([
+            PotentialProAPI.picks(),
+            PotentialProAPI.stats().catch(() => null),
+        ]);
+        ALL_PICKS = data.picks || [];
+        renderStatStrip(ALL_PICKS, stats);
+        if (ALL_PICKS.length === 0) {
+            feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
+              No HIGH or MEDIUM picks right now. The model is sitting today's fixtures out — no bet is also a decision.</div>`;
+            status.textContent = "";
+            return;
+        }
+        renderFeed();
+    } catch (err) {
+        feed.innerHTML = "";
+        status.textContent = "";
+        document.getElementById("stat-strip").innerHTML =
+          `<div class="col-span-full glass-card rounded-xl p-md text-center text-error">
+             ⚠️ Couldn't reach the prediction engine. Start it with: uvicorn api.server:app --port 8080</div>`;
+        console.error(err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".tier-chip").forEach(c =>
+        c.addEventListener("click", () => {
+            CURRENT_TIER = c.dataset.tier; paintTierChips(); renderFeed();
+        }));
+    paintTierChips();
+    loadPicks();
+});
+</script>
+</body></html>

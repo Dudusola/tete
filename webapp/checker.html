@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotentialPro - Slip Checker</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+tailwind.config = { darkMode:"class", theme:{ extend:{
+    "colors":{"inverse-surface":"#2d3133","primary-container":"#131b2e","surface-container-high":"#e6e8ea","on-error-container":"#93000a","on-secondary-fixed-variant":"#304f00","background":"#f7f9fb","on-tertiary-fixed-variant":"#38485d","on-error":"#ffffff","on-primary-container":"#7c839b","secondary-fixed-dim":"#91db2a","on-background":"#191c1e","surface-container-lowest":"#ffffff","surface":"#f7f9fb","tertiary-fixed-dim":"#b7c8e1","on-primary":"#ffffff","secondary-container":"#acf847","on-secondary-container":"#457000","inverse-primary":"#bec6e0","on-secondary-fixed":"#102000","primary-fixed-dim":"#bec6e0","inverse-on-surface":"#eff1f3","secondary-fixed":"#acf847","on-primary-fixed":"#131b2e","primary-fixed":"#dae2fd","tertiary-container":"#0b1c30","primary":"#000000","surface-container-highest":"#e0e3e5","tertiary":"#000000","on-surface":"#191c1e","surface-variant":"#e0e3e5","on-tertiary-fixed":"#0b1c30","error":"#ba1a1a","surface-container":"#eceef0","on-secondary":"#ffffff","tertiary-fixed":"#d3e4fe","surface-dim":"#d8dadc","outline":"#76777d","secondary":"#416900","on-tertiary":"#ffffff","surface-container-low":"#f2f4f6","outline-variant":"#c6c6cd","error-container":"#ffdad6","on-surface-variant":"#45464d","surface-bright":"#f7f9fb","surface-tint":"#565e74","on-tertiary-container":"#75859d","on-primary-fixed-variant":"#3f465c"},
+    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+    "spacing":{"sm":"12px","gutter":"16px","xs":"8px","md":"16px","xl":"32px","container-max":"1280px","base":"4px","lg":"24px"},
+    "fontFamily":{"body-lg":["Inter"],"label-sm":["Inter"],"body-md":["Inter"],"headline-lg":["Inter"],"headline-md":["Inter"],"display-lg":["Inter"],"headline-lg-mobile":["Inter"],"data-tabular":["Inter"]},
+    "fontSize":{"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],"display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],"data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]}
+}}}
+</script>
+<style> body{font-family:'Inter',sans-serif;} .material-symbols-outlined{font-variation-settings:'FILL' 0;} .icon-fill{font-variation-settings:'FILL' 1;} .pb-safe{padding-bottom:env(safe-area-inset-bottom,0.5rem);}</style>
+</head>
+<body class="bg-surface text-on-surface pb-24 md:pt-16">
+
+<!-- Desktop Nav -->
+<nav class="hidden md:flex bg-surface-container-lowest fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 shadow-sm border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<img src="logo.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+<span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex gap-lg items-center">
+<a class="text-on-surface-variant font-medium hover:text-secondary text-label-sm" href="index.html">Picks</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary text-label-sm" href="slip.html">Builder</a>
+<a class="text-secondary font-bold border-b-2 border-secondary pb-1 text-label-sm" href="checker.html">Checker</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary text-label-sm" href="record.html">Record</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary text-label-sm" href="consensus.html">Consensus</a>
+</div>
+</nav>
+
+<main class="max-w-container-max mx-auto px-md md:px-lg pt-md md:pt-xl grid grid-cols-1 lg:grid-cols-2 gap-lg">
+
+<!-- LEFT: fixture picker -->
+<section>
+<header class="mb-md">
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Check a Slip</h1>
+<p class="text-body-md text-on-surface-variant mt-1">Build your slip from today's fixtures. We'll score each leg and the whole accumulator against our model.</p>
+</header>
+
+<!-- Booking-code decoder (SportyBet) -->
+<div class="bg-surface rounded-xl p-md mb-md border border-outline-variant shadow-sm">
+  <div class="flex items-center gap-xs mb-sm">
+    <span class="material-symbols-outlined text-secondary text-[20px]">confirmation_number</span>
+    <span class="text-body-lg font-semibold text-primary">Paste a booking code</span>
+  </div>
+  <div class="flex gap-xs">
+    <select id="bc-provider" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
+      <option value="sportybet">SportyBet</option>
+      <option value="msport">MSport</option>
+    </select>
+    <input id="bc-code" type="text" placeholder="e.g. A1B2C3" class="flex-1 rounded-lg border border-outline-variant px-md py-sm text-body-md uppercase"/>
+    <button id="bc-btn" class="bg-secondary-container text-on-secondary-container rounded-lg px-md py-sm text-label-sm font-bold">Decode</button>
+  </div>
+  <div id="bc-status" class="text-label-sm text-on-surface-variant mt-sm"></div>
+  <div id="bc-legs" class="mt-sm space-y-sm"></div>
+</div>
+<input id="search" type="text" placeholder="Search team…" class="w-full mb-md rounded-lg border border-outline-variant px-md py-sm text-body-md"/>
+<div id="fixture-list" class="space-y-sm max-h-[70vh] overflow-y-auto pr-1">
+<div class="text-on-surface-variant">Loading fixtures…</div>
+</div>
+</section>
+
+<!-- RIGHT: the slip being built -->
+<section class="lg:sticky lg:top-24 self-start w-full">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
+<h2 class="text-body-lg text-primary font-semibold">Your Slip</h2>
+<span id="leg-count" class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">0 legs</span>
+</div>
+<div id="slip-legs" class="divide-y divide-surface-container-high max-h-[45vh] overflow-y-auto">
+<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Pick a market from a fixture on the left.</div>
+</div>
+<div class="bg-primary-container text-on-primary p-md flex justify-between items-center">
+<div>
+<span class="text-body-md text-inverse-primary block">Accumulator Chance</span>
+<span class="text-label-sm text-inverse-primary" id="acc-note"></span>
+</div>
+<span class="text-display-lg font-display-lg text-secondary" id="acc-pct">—</span>
+</div>
+</div>
+<button id="clear-btn" class="mt-sm text-label-sm text-on-surface-variant hover:text-error flex items-center gap-1">
+<span class="material-symbols-outlined text-[16px]">delete</span> Clear slip
+</button>
+</section>
+</main>
+
+<!-- Mobile Nav -->
+<nav class="md:hidden bg-surface-container-lowest fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-2 py-2 border-t border-outline-variant shadow-lg pb-safe">
+<a class="flex flex-col items-center text-on-surface-variant p-2 text-label-sm" href="index.html"><span class="material-symbols-outlined">analytics</span>Picks</a>
+<a class="flex flex-col items-center text-on-surface-variant p-2 text-label-sm" href="slip.html"><span class="material-symbols-outlined">receipt_long</span>Builder</a>
+<a class="flex flex-col items-center bg-secondary-container text-on-secondary-container rounded-xl p-2 text-label-sm shadow-sm" href="checker.html"><span class="material-symbols-outlined icon-fill text-secondary">fact_check</span>Checker</a>
+<a class="flex flex-col items-center text-on-surface-variant p-2 text-label-sm" href="record.html"><span class="material-symbols-outlined">query_stats</span>Record</a>
+<a class="flex flex-col items-center text-on-surface-variant p-2 text-label-sm" href="consensus.html"><span class="material-symbols-outlined">groups</span>Consensus</a>
+</nav>
+
+<script src="js/api.js?v=8"></script>
+<script>
+let FIXTURES = [];
+let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
+
+function esc(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function cleanLeague(l){return esc((l||"").replace(/-/g," ").trim().toUpperCase()||"FOOTBALL");}
+
+function riskColor(r){
+    return r==="LOW" ? "text-on-secondary-container bg-secondary-container"
+        : r==="MEDIUM" ? "text-on-tertiary-fixed bg-tertiary-fixed"
+        : "text-on-error-container bg-error-container";
+}
+
+function renderFixtures(filter="") {
+    const list = document.getElementById("fixture-list");
+    const f = filter.toLowerCase();
+    const shown = FIXTURES.filter(fx =>
+        !f || fx.home_team.toLowerCase().includes(f) || fx.away_team.toLowerCase().includes(f));
+    if (!shown.length) { list.innerHTML = `<div class="text-on-surface-variant">No fixtures match.</div>`; return; }
+    list.innerHTML = shown.map((fx, i) => `
+<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm">
+  <div class="flex justify-between items-start mb-xs">
+    <div>
+      <div class="text-label-sm text-on-surface-variant uppercase">${cleanLeague(fx.league)} • ${esc(fx.match_date)}</div>
+      <div class="text-body-md font-semibold text-primary">${esc(fx.home_team)} vs ${esc(fx.away_team)}</div>
+    </div>
+  </div>
+  <div class="flex flex-wrap gap-xs">
+    ${fx.markets.slice(0,6).map(m => `
+      <button class="add-leg text-label-sm px-2 py-1 rounded-md border border-outline-variant hover:bg-surface-container-high"
+        data-mid="${esc(fx.match_id)}" data-sel="${esc(m.selection)}">
+        ${esc(m.selection)} <span class="text-on-surface-variant">${Math.round(m.probability*100)}%</span>
+      </button>`).join("")}
+  </div>
+</div>`).join("");
+
+    list.querySelectorAll(".add-leg").forEach(btn =>
+        btn.addEventListener("click", () => addLeg(btn.dataset.mid, btn.dataset.sel)));
+}
+
+function addLeg(mid, selection) {
+    const fx = FIXTURES.find(f => f.match_id === mid);
+    if (!fx) return;
+    // one leg per fixture
+    if (SLIP.some(l => l.match_id === mid)) {
+        SLIP = SLIP.filter(l => l.match_id !== mid);  // toggle off if same fixture
+    }
+    const m = fx.markets.find(mm => mm.selection === selection);
+    SLIP.push({match_id: mid, home_team: fx.home_team, away_team: fx.away_team,
+               league: fx.league, market: m.market, selection: m.selection,
+               probability: m.probability});
+    renderSlip();
+}
+
+function removeLeg(mid) { SLIP = SLIP.filter(l => l.match_id !== mid); renderSlip(); }
+
+function renderSlip() {
+    const box = document.getElementById("slip-legs");
+    document.getElementById("leg-count").textContent = `${SLIP.length} leg${SLIP.length===1?"":"s"}`;
+    if (!SLIP.length) {
+        box.innerHTML = `<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Pick a market from a fixture on the left.</div>`;
+        document.getElementById("acc-pct").textContent = "—";
+        document.getElementById("acc-note").textContent = "";
+        return;
+    }
+    box.innerHTML = SLIP.map(l => `
+<div class="p-sm flex justify-between items-center gap-sm">
+  <div class="flex-1">
+    <div class="text-body-md text-primary font-semibold">${esc(l.home_team)} vs ${esc(l.away_team)}</div>
+    <div class="text-label-sm text-on-surface-variant">${esc(l.selection)}</div>
+  </div>
+  <span class="text-body-md font-semibold text-primary">${Math.round(l.probability*100)}%</span>
+  <button class="rm material-symbols-outlined text-on-surface-variant hover:text-error text-[18px]" data-mid="${esc(l.match_id)}">close</button>
+</div>`).join("");
+    box.querySelectorAll(".rm").forEach(b => b.addEventListener("click", () => removeLeg(b.dataset.mid)));
+
+    // combined probability
+    const acc = SLIP.reduce((p, l) => p * l.probability, 1);
+    document.getElementById("acc-pct").textContent = (acc*100).toFixed(1) + "%";
+    document.getElementById("acc-note").textContent =
+        SLIP.length + " legs — all must win";
+}
+
+async function load() {
+    try {
+        const data = await PotentialProAPI.fixtures();
+        FIXTURES = data.fixtures || [];
+        renderFixtures();
+    } catch (err) {
+        document.getElementById("fixture-list").innerHTML =
+            `<div class="text-error">⚠️ Couldn't load fixtures. Is the API running on port 8080?</div>`;
+        console.error(err);
+    }
+}
+
+// ── Booking-code decoder ─────────────────────────────────────────────
+function renderDecodedLeg(l) {
+    const take = l.our_take;
+    let verdict = `<span class="text-label-sm text-on-surface-variant">not in our fixtures</span>`;
+    if (take) {
+        verdict = `<span class="text-label-sm font-bold ${take.confidence === "HIGH" ? "text-secondary" : "text-primary"}">
+            our model: ${esc(take.best_bet)} (${take.confidence}) —
+            H ${Math.round(take.home_win_prob*100)}% / D ${Math.round(take.draw_prob*100)}% / A ${Math.round(take.away_win_prob*100)}%</span>`;
+    }
+    const prob = l.our_probability != null
+        ? `<span class="text-label-sm font-bold ${l.our_probability >= 0.55 ? "text-secondary" : "text-error"}">our chance: ${Math.round(l.our_probability*100)}%${l.matched_selection ? ` (as "${esc(l.matched_selection)}")` : ""}</span>`
+        : "";
+    return `
+    <div class="bg-surface rounded-lg border border-outline-variant p-sm">
+      <div class="flex justify-between items-start gap-sm">
+        <div class="text-body-md font-semibold text-primary">${esc(l.home_team)} vs ${esc(l.away_team)}</div>
+        ${prob}
+      </div>
+      <div class="text-label-sm text-on-surface-variant">${esc(l.market || "")}: ${esc(l.selection || "")}${l.odds ? ` @ ${l.odds}` : ""} • ${esc(l.match_date || "")}</div>
+      <div class="mt-1">${verdict}</div>
+    </div>`;
+}
+
+async function decodeBookingCode() {
+    const status = document.getElementById("bc-status");
+    const legsEl = document.getElementById("bc-legs");
+    const code = document.getElementById("bc-code").value.trim();
+    const provider = document.getElementById("bc-provider").value;
+    if (!code) { status.textContent = "Enter a booking code first."; return; }
+    status.textContent = "Decoding…";
+    legsEl.innerHTML = "";
+    try {
+        const d = await PotentialProAPI.decodeCode(provider, code);
+        if (!d.ok) { status.textContent = `⚠️ ${d.error}`; return; }
+        let summary = `${d.total_legs} leg${d.total_legs === 1 ? "" : "s"} — we cover ${d.covered_legs} of them`;
+        if (d.accumulator_probability != null) {
+            summary += ` • our accumulator chance (${d.scorable_legs} scorable legs): ${(d.accumulator_probability*100).toFixed(1)}%`;
+        }
+        status.textContent = summary;
+        legsEl.innerHTML = d.legs.map(renderDecodedLeg).join("");
+    } catch (err) {
+        status.textContent = "⚠️ Couldn't decode — is the API running?";
+        console.error(err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    load();
+    document.getElementById("search").addEventListener("input", e => renderFixtures(e.target.value));
+    document.getElementById("clear-btn").addEventListener("click", () => { SLIP = []; renderSlip(); });
+    document.getElementById("bc-btn").addEventListener("click", decodeBookingCode);
+    document.getElementById("bc-code").addEventListener("keydown", e => { if (e.key === "Enter") decodeBookingCode(); });
+});
+</script>
+</body></html>

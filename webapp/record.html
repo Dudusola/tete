@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotentialPro - Track Record</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+tailwind.config = { darkMode:"class", theme:{ extend:{
+    "colors":{"inverse-surface":"#2d3133","primary-container":"#131b2e","surface-container-high":"#e6e8ea","on-error-container":"#93000a","on-secondary-fixed-variant":"#304f00","background":"#f7f9fb","on-tertiary-fixed-variant":"#38485d","on-error":"#ffffff","on-primary-container":"#7c839b","secondary-fixed-dim":"#91db2a","on-background":"#191c1e","surface-container-lowest":"#ffffff","surface":"#f7f9fb","tertiary-fixed-dim":"#b7c8e1","on-primary":"#ffffff","secondary-container":"#acf847","on-secondary-container":"#457000","inverse-primary":"#bec6e0","on-secondary-fixed":"#102000","primary-fixed-dim":"#bec6e0","inverse-on-surface":"#eff1f3","secondary-fixed":"#acf847","on-primary-fixed":"#131b2e","primary-fixed":"#dae2fd","tertiary-container":"#0b1c30","primary":"#000000","surface-container-highest":"#e0e3e5","tertiary":"#000000","on-surface":"#191c1e","surface-variant":"#e0e3e5","on-tertiary-fixed":"#0b1c30","error":"#ba1a1a","surface-container":"#eceef0","on-secondary":"#ffffff","tertiary-fixed":"#d3e4fe","surface-dim":"#d8dadc","outline":"#76777d","secondary":"#416900","on-tertiary":"#ffffff","surface-container-low":"#f2f4f6","outline-variant":"#c6c6cd","error-container":"#ffdad6","on-surface-variant":"#45464d","surface-bright":"#f7f9fb","surface-tint":"#565e74","on-tertiary-container":"#75859d","on-primary-fixed-variant":"#3f465c"},
+    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+    "spacing":{"sm":"12px","gutter":"16px","xs":"8px","md":"16px","xl":"32px","container-max":"1280px","base":"4px","lg":"24px"},
+    "fontFamily":{"body-lg":["Inter"],"label-sm":["Inter"],"body-md":["Inter"],"headline-lg":["Inter"],"headline-md":["Inter"],"display-lg":["Inter"],"headline-lg-mobile":["Inter"],"data-tabular":["Inter"]},
+    "fontSize":{"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],"display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],"data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]}
+}}}
+</script>
+<style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;} .icon-fill{font-variation-settings:'FILL' 1;} .pb-safe{padding-bottom:env(safe-area-inset-bottom);}
+.tooltip-wrap{position:relative;display:inline-flex;}
+.tooltip-box{visibility:hidden;opacity:0;transition:opacity .15s;position:absolute;right:0;top:130%;width:260px;z-index:60;background:#131b2e;color:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:13px;line-height:1.4;}
+.tooltip-wrap:hover .tooltip-box, .tooltip-box.show{visibility:visible;opacity:1;}
+</style>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-24" style="font-family:'Inter',sans-serif;">
+
+<!-- Desktop Nav -->
+<nav class="hidden md:flex sticky top-0 z-40 w-full justify-between items-center px-gutter h-16 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant shadow-sm">
+<div class="flex items-center gap-2">
+<img src="logo.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+<span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex space-x-lg">
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="index.html">Picks</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="slip.html">Builder</a>
+<a class="text-secondary font-bold border-b-2 border-secondary pb-1" href="record.html">Record</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="consensus.html">Consensus</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors" href="checker.html">Checker</a>
+</div>
+</nav>
+<header class="md:hidden sticky top-0 z-40 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant px-gutter h-16 flex items-center justify-center shadow-sm">
+<h1 class="text-headline-md font-headline-md text-primary">Track Record</h1>
+</header>
+
+<main class="max-w-container-max mx-auto md:px-lg">
+<!-- Hero -->
+<section class="mt-gutter mx-gutter md:mx-0 p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-center text-center">
+<div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image:radial-gradient(circle at 50% -20%,#acf847 0%,transparent 60%);"></div>
+<span class="text-label-sm text-on-primary-container uppercase tracking-widest mb-xs relative z-10">Overall Hit Rate</span>
+<div class="text-display-lg font-display-lg text-secondary-fixed relative z-10 flex items-baseline">
+<span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
+</div>
+<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10">Verified personal-testing performance</p>
+<div class="w-full h-px bg-surface-tint/30 my-4 relative z-10"></div>
+<div class="flex justify-between w-full max-w-xs relative z-10">
+<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-picks">—</span><span class="text-label-sm text-on-primary-container">Total Picks</span></div>
+<div class="w-px h-full bg-surface-tint/30"></div>
+<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-secondary-fixed" id="total-correct">—</span><span class="text-label-sm text-on-primary-container">Correct</span></div>
+</div>
+</section>
+
+<!-- Per-tier -->
+<section class="mt-xl px-gutter md:px-0">
+<div class="flex items-center justify-between mb-md">
+<h2 class="text-body-lg font-semibold text-primary">Performance by Tier</h2>
+<span class="tooltip-wrap">
+  <button id="info-btn" class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer">info</button>
+  <span class="tooltip-box" id="info-tip">
+    <strong>Confidence tiers</strong> reflect how sure the model is:<br><br>
+    🟢 <strong>HIGH</strong> — ≥65% model confidence. Historically the most reliable.<br>
+    🟡 <strong>MEDIUM</strong> — 55–65%. Solid but more variance.<br>
+    🔴 <strong>LOW</strong> — below 55%. Shown for the record; not recommended bets.<br><br>
+    Tap any tier to see its scored picks.
+  </span>
+</span>
+</div>
+<div id="tier-cards" class="flex flex-col gap-sm md:grid md:grid-cols-3 md:gap-gutter">
+<div class="text-on-surface-variant text-body-md">Loading…</div>
+</div>
+</section>
+
+<!-- Drill-down panel -->
+<section id="drilldown" class="mt-lg px-gutter md:px-0 hidden">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
+<div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
+<h3 class="text-body-lg text-primary font-semibold" id="drill-title">Picks</h3>
+<button id="drill-close" class="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer">close</button>
+</div>
+<div id="drill-list" class="divide-y divide-surface-container-high max-h-[420px] overflow-y-auto"></div>
+</div>
+</section>
+
+<section class="mt-xl px-gutter md:px-0 mb-8">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm text-center text-on-surface-variant text-body-md">
+<span id="record-note">Your track record grows automatically as scored matches accumulate. Early samples are small — accuracy stabilises over time.</span>
+</div>
+</section>
+</main>
+
+<!-- Mobile Nav -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface-container-lowest shadow-lg border-t border-outline-variant md:hidden pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 flex-1" href="index.html"><span class="material-symbols-outlined mb-1">analytics</span><span class="text-label-sm">Picks</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 flex-1" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span><span class="text-label-sm">Builder</span></a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl p-2 flex-1" href="record.html"><span class="material-symbols-outlined mb-1 icon-fill">query_stats</span><span class="text-label-sm">Record</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 flex-1" href="consensus.html"><span class="material-symbols-outlined mb-1">groups</span><span class="text-label-sm">Consensus</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 flex-1" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
+</nav>
+
+<script src="js/api.js?v=8"></script>
+<script>
+const TIER_STYLE = {
+    HIGH:   { bar:"bg-secondary",          badge:"bg-secondary-container text-on-secondary-container", icon:"verified",   border:"hover:border-secondary" },
+    MEDIUM: { bar:"bg-tertiary-container", badge:"bg-tertiary-fixed text-on-tertiary-fixed",          icon:"trending_up", border:"hover:border-tertiary-container" },
+    LOW:    { bar:"bg-error",              badge:"bg-error-container text-on-error-container",         icon:"shield",     border:"hover:border-error" },
+};
+const TIER_ORDER = ["HIGH","MEDIUM","LOW"];
+
+function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function tierCard(tier, d) {
+    const s = TIER_STYLE[tier];
+    const acc = (d && d.accuracy != null) ? Math.round(d.accuracy) : null;
+    const total = d ? d.total : 0;
+    const correct = d ? d.correct : 0;
+    const accLabel = acc != null ? `${acc}%` : "—";
+    const clickable = total > 0;
+    return `
+<div data-tier="${tier}" class="tier-card bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm relative overflow-hidden transition-all hover:shadow-md ${s.border} group ${clickable ? 'cursor-pointer' : 'opacity-80'}">
+  <div class="absolute left-0 top-0 bottom-0 w-1 ${s.bar} group-hover:w-2 transition-all"></div>
+  <div class="flex justify-between items-start mb-4 ml-2">
+    <span class="inline-flex items-center px-2 py-1 rounded-sm ${s.badge} text-label-sm uppercase tracking-wide">
+      <span class="material-symbols-outlined text-[16px] mr-1 icon-fill">${s.icon}</span>${tier}
+    </span>
+    <span class="block text-headline-md font-headline-md text-primary">${accLabel}</span>
+  </div>
+  <div class="flex justify-between text-data-tabular font-data-tabular text-on-surface-variant mb-xs ml-2">
+    <span>Picks: ${total}</span>
+    <span>Correct: <span class="text-primary font-semibold">${correct}</span></span>
+  </div>
+  <div class="w-full h-base bg-surface-container rounded-full overflow-hidden ml-2">
+    <div class="h-full ${s.bar} rounded-full" style="width:${acc != null ? acc : 0}%"></div>
+  </div>
+  ${clickable ? `<div class="text-label-sm text-secondary mt-2 ml-2 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">touch_app</span>Tap to see picks</div>` : ''}
+</div>`;
+}
+
+function renderDrillRow(p) {
+    const won = p.won === 1;
+    const score = (p.home_goals != null) ? `${p.home_goals}-${p.away_goals}` : "—";
+    return `
+<div class="p-md flex items-center justify-between gap-md">
+  <div class="flex-1">
+    <div class="text-body-md text-primary font-semibold">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</div>
+    <div class="text-label-sm text-on-surface-variant">${escapeHtml(p.league)} • ${escapeHtml(p.match_date)} • Pick: ${escapeHtml(p.best_bet)} • FT ${score}</div>
+  </div>
+  <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-bold ${won ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}">
+    <span class="material-symbols-outlined text-[16px]">${won ? 'check_circle' : 'cancel'}</span>${won ? 'WON' : 'LOST'}
+  </span>
+</div>`;
+}
+
+async function openDrill(tier) {
+    const panel = document.getElementById("drilldown");
+    const list = document.getElementById("drill-list");
+    const title = document.getElementById("drill-title");
+    title.textContent = `${tier} tier — scored picks`;
+    list.innerHTML = `<div class="p-md text-on-surface-variant">Loading…</div>`;
+    panel.classList.remove("hidden");
+    panel.scrollIntoView({behavior:"smooth", block:"nearest"});
+    try {
+        const data = await PotentialProAPI.scoredPicks(tier);
+        list.innerHTML = data.picks.length
+            ? data.picks.map(renderDrillRow).join("")
+            : `<div class="p-md text-on-surface-variant">No scored picks in this tier yet.</div>`;
+    } catch (err) {
+        list.innerHTML = `<div class="p-md text-error">Couldn't load picks.</div>`;
+        console.error(err);
+    }
+}
+
+async function loadRecord() {
+    try {
+        const [overall, tiers] = await Promise.all([
+            PotentialProAPI.stats(), PotentialProAPI.statsTiers(),
+        ]);
+        document.getElementById("overall-rate").textContent = overall.accuracy != null ? Math.round(overall.accuracy) : "0";
+        document.getElementById("total-picks").textContent = overall.scored_picks || 0;
+        document.getElementById("total-correct").textContent = overall.correct || 0;
+
+        const container = document.getElementById("tier-cards");
+        container.innerHTML = TIER_ORDER.map(t => tierCard(t, tiers[t])).join("");
+        container.querySelectorAll(".tier-card").forEach(card => {
+            card.addEventListener("click", () => {
+                const tier = card.dataset.tier;
+                const tierData = tiers[tier];
+                if (tierData && tierData.total > 0) openDrill(tier);
+            });
+        });
+
+        if (!overall.scored_picks) {
+            document.getElementById("record-note").textContent =
+                "No scored picks yet. Results fill in automatically once matches you've predicted finish.";
+        }
+    } catch (err) {
+        document.getElementById("tier-cards").innerHTML =
+            `<div class="text-error text-body-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
+        console.error(err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadRecord();
+    document.getElementById("drill-close").addEventListener("click", () =>
+        document.getElementById("drilldown").classList.add("hidden"));
+    // Tap toggle for tooltip (mobile - no hover)
+    document.getElementById("info-btn").addEventListener("click", (e) => {
+        e.stopPropagation();
+        document.getElementById("info-tip").classList.toggle("show");
+    });
+    document.addEventListener("click", () =>
+        document.getElementById("info-tip").classList.remove("show"));
+});
+</script>
+</body></html>

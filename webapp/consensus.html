@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>PotentialPro - Consensus Picks</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+tailwind.config = { darkMode:"class", theme:{ extend:{
+    "colors":{"inverse-surface":"#2d3133","primary-container":"#131b2e","surface-container-high":"#e6e8ea","on-error-container":"#93000a","on-secondary-fixed-variant":"#304f00","background":"#f7f9fb","on-tertiary-fixed-variant":"#38485d","on-error":"#ffffff","on-primary-container":"#7c839b","secondary-fixed-dim":"#91db2a","on-background":"#191c1e","surface-container-lowest":"#ffffff","surface":"#f7f9fb","tertiary-fixed-dim":"#b7c8e1","on-primary":"#ffffff","secondary-container":"#acf847","on-secondary-container":"#457000","inverse-primary":"#bec6e0","on-secondary-fixed":"#102000","primary-fixed-dim":"#bec6e0","inverse-on-surface":"#eff1f3","secondary-fixed":"#acf847","on-primary-fixed":"#131b2e","primary-fixed":"#dae2fd","tertiary-container":"#0b1c30","primary":"#000000","surface-container-highest":"#e0e3e5","tertiary":"#000000","on-surface":"#191c1e","surface-variant":"#e0e3e5","on-tertiary-fixed":"#0b1c30","error":"#ba1a1a","surface-container":"#eceef0","on-secondary":"#ffffff","tertiary-fixed":"#d3e4fe","surface-dim":"#d8dadc","outline":"#76777d","secondary":"#416900","on-tertiary":"#ffffff","surface-container-low":"#f2f4f6","outline-variant":"#c6c6cd","error-container":"#ffdad6","on-surface-variant":"#45464d","surface-bright":"#f7f9fb","surface-tint":"#565e74","on-tertiary-container":"#75859d","on-primary-fixed-variant":"#3f465c"},
+    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
+    "spacing":{"sm":"12px","gutter":"16px","xs":"8px","md":"16px","xl":"32px","container-max":"1280px","base":"4px","lg":"24px"},
+    "fontFamily":{"body-lg":["Inter"],"label-sm":["Inter"],"body-md":["Inter"],"headline-lg":["Inter"],"headline-md":["Inter"],"display-lg":["Inter"],"headline-lg-mobile":["Inter"],"data-tabular":["Inter"]},
+    "fontSize":{"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],"display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],"data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]}
+}}}
+</script>
+<style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;} .icon-fill{font-variation-settings:'FILL' 1;} .pb-safe{padding-bottom:env(safe-area-inset-bottom,0.5rem);}</style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24 md:pb-0 md:pt-16" style="font-family:'Inter',sans-serif;">
+
+<!-- Desktop Nav -->
+<nav class="hidden md:flex bg-surface-container-lowest fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 shadow-sm border-b border-outline-variant">
+<div class="flex items-center gap-2">
+<img src="logo.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+<span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex gap-lg h-full items-center">
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors text-label-sm" href="index.html">Picks</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors text-label-sm" href="slip.html">Builder</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors text-label-sm" href="record.html">Record</a>
+<a class="text-secondary font-bold border-b-2 border-secondary pb-1 text-label-sm" href="consensus.html">Consensus</a>
+<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors text-label-sm" href="checker.html">Checker</a>
+</div>
+</nav>
+
+<main class="max-w-container-max mx-auto px-md md:px-lg pt-md pb-xl">
+<header class="mb-lg pt-md md:pt-xl">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined icon-fill text-secondary text-[32px]">groups</span>
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Strongest Consensus</h1>
+</div>
+<p class="text-on-surface-variant text-body-md max-w-2xl">
+Fixtures where independent prediction sources agree on the outcome. Agreement across sources is a stronger signal than any single source alone.
+</p>
+</header>
+
+<!-- Summary strip -->
+<div id="summary" class="mb-lg flex flex-wrap gap-md text-body-md text-on-surface-variant"></div>
+
+<!-- Cards -->
+<div id="consensus-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-md md:gap-lg">
+<div class="text-on-surface-variant">Loading consensus…</div>
+</div>
+</main>
+
+<!-- Mobile Nav -->
+<nav class="md:hidden bg-surface-container-lowest fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 border-t border-outline-variant shadow-lg pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="index.html"><span class="material-symbols-outlined mb-1">analytics</span>Picks</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span>Builder</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="record.html"><span class="material-symbols-outlined mb-1">query_stats</span>Record</a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl p-2 text-label-sm shadow-sm" href="consensus.html"><span class="material-symbols-outlined icon-fill mb-1 text-secondary">groups</span>Consensus</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span>Checker</a>
+</nav>
+
+<script src="js/api.js?v=8"></script>
+<script>
+const OUTCOME_NAME = {"H": "Home Win", "D": "Draw", "A": "Away Win"};
+const SOURCE_NAME = {"forebet": "Forebet", "predictz": "PredictZ"};
+
+function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+function cleanLeague(league) {
+    // tidy truncated URL-derived names like "world-cup-2026-last-"
+    return escapeHtml((league || "").replace(/-/g, " ").replace(/\s+$/, "").trim().toUpperCase() || "FOOTBALL");
+}
+
+function renderCard(c) {
+    const outcome = OUTCOME_NAME[c.agreed_outcome] || c.agreed_outcome;
+    const sources = Object.keys(c.sources).map(s => SOURCE_NAME[s] || s);
+    const nSources = sources.length;
+    return `
+<article class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col border-l-[3px] border-l-secondary">
+  <div class="p-md border-b border-outline-variant flex justify-between items-start bg-surface-bright">
+    <div>
+      <div class="flex items-center gap-base mb-xs">
+        <span class="material-symbols-outlined text-[16px] text-on-surface-variant">sports_soccer</span>
+        <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">${cleanLeague(c.league)}</span>
+      </div>
+      <h2 class="text-headline-md font-headline-md text-primary flex flex-col gap-1">
+        <span>${escapeHtml(c.home_team)}</span>
+        <span class="text-body-md text-on-surface-variant">vs ${escapeHtml(c.away_team)}</span>
+      </h2>
+    </div>
+    <div class="text-right flex flex-col items-end">
+      <span class="text-label-sm text-on-surface-variant mb-xs">Match Date</span>
+      <span class="text-data-tabular font-data-tabular text-primary">${escapeHtml(c.match_date)}</span>
+    </div>
+  </div>
+  <div class="p-md flex-grow flex items-center justify-between">
+    <div class="flex flex-col">
+      <span class="text-label-sm text-on-surface-variant mb-xs uppercase tracking-wider">Agreed Outcome</span>
+      <div class="bg-secondary-container text-on-secondary-container px-sm py-base rounded-md border border-secondary font-data-tabular text-data-tabular flex items-center gap-xs shadow-sm w-fit">
+        <span class="material-symbols-outlined text-[18px]">verified</span>${escapeHtml(outcome)}
+      </div>
+    </div>
+    <div class="flex flex-col items-end">
+      <span class="text-label-sm text-on-surface-variant mb-xs">Sources Agreeing</span>
+      <div class="flex gap-base">
+        ${Array.from({length: nSources}, () => `<span class="w-8 h-2 bg-secondary rounded-sm"></span>`).join("")}
+      </div>
+      <span class="text-label-sm text-primary mt-xs font-bold">${nSources} of ${nSources} agree</span>
+    </div>
+  </div>
+  <div class="px-md py-sm bg-surface-container flex items-center gap-sm border-t border-outline-variant">
+    <span class="material-symbols-outlined text-[16px] text-on-surface-variant">model_training</span>
+    <span class="text-label-sm text-on-surface-variant">Agreed by: ${sources.join(", ")}</span>
+  </div>
+</article>`;
+}
+
+async function loadConsensus() {
+    const grid = document.getElementById("consensus-grid");
+    const summary = document.getElementById("summary");
+    try {
+        const data = await PotentialProAPI.consensus();
+        summary.innerHTML = `
+            <span><strong class="text-primary">${data.total_fixtures}</strong> upcoming fixtures</span>
+            <span>•</span>
+            <span><strong class="text-primary">${data.covered_by_multiple}</strong> covered by 2+ sources</span>
+            <span>•</span>
+            <span><strong class="text-secondary">${data.agreed_count}</strong> with full agreement</span>`;
+        if (!data.agreed_picks || data.agreed_picks.length === 0) {
+            grid.innerHTML = `<div class="text-on-surface-variant bg-surface-container-lowest border border-outline-variant rounded-xl p-md col-span-full text-center">
+                No consensus picks right now. Agreement appears when both sources cover the same fixtures — coverage grows when league seasons are in full swing.</div>`;
+            return;
+        }
+        grid.innerHTML = data.agreed_picks.map(renderCard).join("");
+    } catch (err) {
+        grid.innerHTML = `<div class="text-error col-span-full">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
+        console.error(err);
+    }
+}
+document.addEventListener("DOMContentLoaded", loadConsensus);
+</script>
+</body></html>
