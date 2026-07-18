@@ -43,6 +43,9 @@ generate predictions on demand.
 - scrapers/predictz.py    Playwright scrape of PredictZ; odds→implied probs. Flaky; pipeline tolerates failure.
 - scrapers/results.py     REAL final scores from Forebet. Hardened vs Cloudflare (retries, stealth, --headed).
 - scrapers/results_api.py Final scores from football-data.org API (free tier). Cloudflare-immune. Covers big leagues only.
+- scrapers/results_espn.py Final scores from ESPN public scoreboard API (no key). Third results source,
+                          Cloudflare-immune; covers leagues football-data misses: MLS, Liga MX, Argentina,
+                          Eliteserien, Allsvenskan, J-League. Only records events ESPN marks completed.
 - models/train.py         Random Forest trainer. 65k historical matches (86 CSVs since 2018 + internationals).
 - models/predict.py       Live predictions + Gemma. TEAM_ALIASES dict for name mismatches.
 - models/markets.py       Derive ~22 markets from H/D/A + Poisson score matrix (1X2, DC, DNB,
@@ -192,3 +195,9 @@ unknown until the honest ledger matures.
 - Cloudflare blocking of Forebet/PredictZ is time-of-day dependent: 07:30 scheduled
   runs got blocked repeatedly; midday/evening runs (~12:00, ~20:00) passed. Prefer
   scheduling around midday; all inserts are INSERT OR IGNORE so retry runs are safe.
+  July 2026: new Task Scheduler task "PotentialPro Daily Pipeline 1200" runs the
+  pipeline at 12:00 daily. The OLD "PotentialPro Daily Pipeline" (07:30) is owned by
+  the "Peculiar" account and couldn't be disabled from Claude's session — disable it
+  manually in Task Scheduler (harmless if it keeps running; duplicate runs are safe).
+- July 2026 off-season: Europe on break, so the ledger depends on Brazil/MLS/Mexico/
+  Scandinavia — that's why results_espn.py exists (football-data free tier lacks MLS).

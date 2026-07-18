@@ -125,6 +125,7 @@ def main():
     #    plus football-data.org API - so a Cloudflare block can't kill scoring)
     run_step("Record results (Forebet)", ["scrapers/results.py"], required=False)
     run_step("Record results (football-data API)", ["scrapers/results_api.py"], required=False)
+    run_step("Record results (ESPN)", ["scrapers/results_espn.py"], required=False)
 
     # 3. Merge cross-source duplicate fixtures BEFORE predicting, so the same
     #    real match never gets two predictions/picks
