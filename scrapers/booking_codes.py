@@ -460,9 +460,82 @@ def decode_msport(code: str) -> list[dict]:
     return legs
 
 
+BET9JA_COUPON_URL = ("https://sports.bet9ja.com/desktop/feapi/CouponAjax/"
+                     "GetBookABetCoupon")
+
+
+def decode_bet9ja(code: str) -> list[dict]:
+    """Bet9ja 'Book a Bet' coupon lookup (endpoint found in their JS bundle,
+    verified live July 2026: R='OK' with coupon data, R='ERROR' code 333 for
+    an unknown coupon). Defensive parse — the exact leg shape needs a REAL
+    code; unknown payloads are dumped to data/raw/ so the parser can be
+    extended, same playbook as MSport."""
+    code = code.strip().upper()
+    if not code or len(code) > 20:
+        raise BookingCodeError("That doesn't look like a booking code.")
+    try:
+        r = requests.get(BET9JA_COUPON_URL, params={"couponCode": code},
+                         headers=HEADERS, timeout=25)
+        payload = r.json()
+    except requests.RequestException as e:
+        raise BookingCodeError(f"Couldn't reach Bet9ja: {e}") from e
+    except ValueError as e:
+        raise BookingCodeError("Bet9ja returned a non-JSON response "
+                               "(possibly blocked).") from e
+
+    if payload.get("R") != "OK":
+        err = (payload.get("D") or {}).get("ERROR_CODE")
+        if err == 333:
+            raise BookingCodeError("Bet9ja doesn't recognize that code "
+                                   "(expired or mistyped?).")
+        raise BookingCodeError(f"Bet9ja error {err}.")
+
+    data = payload.get("D") or {}
+    # Legs typically live under an ODDS/EVENTS-style list; probe the known
+    # candidates and fall back to dumping the payload for a human look.
+    rows = None
+    for key in ("ODDS", "EVENTS", "COUPON_ODDS", "E"):
+        v = data.get(key)
+        if isinstance(v, list) and v:
+            rows = v
+            break
+    if rows is None:
+        path = _dump_raw("bet9ja", code, payload)
+        raise BookingCodeError(
+            f"Valid Bet9ja code but unrecognized slip format - raw payload "
+            f"saved to {path} so the parser can be extended.")
+
+    legs = []
+    for s in rows:
+        if not isinstance(s, dict):
+            continue
+        # Bet9ja event descriptions are usually "Home - Away"
+        desc = s.get("DS") or s.get("EVENT_DESC") or s.get("E_DESC") or ""
+        home, away = (desc.split(" - ", 1) + [None])[:2] if " - " in desc \
+            else (desc or None, None)
+        legs.append({
+            "home_team": home,
+            "away_team": away,
+            "league": s.get("G_DESC") or s.get("GROUP_DESC"),
+            "match_date": s.get("STARTDATE") or s.get("D"),
+            "market": s.get("MG_DESC") or s.get("MARKET_DESC") or s.get("CLS_DESC"),
+            "selection": s.get("SGN_DESC") or s.get("SIGN_DESC") or s.get("OC_DESC"),
+            "odds": float(s["ODD"]) if s.get("ODD") else None,
+            "event_id": s.get("ID_EVENT") or s.get("EVENT_ID"),
+        })
+
+    if not any(l["home_team"] for l in legs):
+        path = _dump_raw("bet9ja", code, payload)
+        raise BookingCodeError(f"Slip found but no legs parsed - raw payload "
+                               f"saved to {path}.")
+    logger.success(f"Decoded Bet9ja code {code}: {len(legs)} legs")
+    return legs
+
+
 PROVIDERS = {
     "sportybet": decode_sportybet,
     "msport": decode_msport,
+    "bet9ja": decode_bet9ja,
 }
 
 

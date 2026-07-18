@@ -187,6 +187,17 @@ unknown until the honest ledger matures.
   dumps unknown shapes to data/raw/ — needs a REAL code to validate the parse.
   MSport is stubbed pending a captured payload. Unofficial API = ToS grey area;
   fine for personal phase, reassess before commercial.
+  **Bet9ja code READING added (July 2026):** GET sports.bet9ja.com/desktop/feapi/
+  CouponAjax/GetBookABetCoupon?couponCode=<CODE> (found in their JS bundle;
+  R="OK"/coupon data, ERROR_CODE 333 = unknown code, -123 = missing param).
+  decode_bet9ja parses defensively and dumps unknown shapes to data/raw/ —
+  NEEDS A REAL CODE to finalize the leg parse. Bet9ja GENERATION found but not
+  built: POST /desktop/feapi/PlacebetAjax/BookABetV2 with {BETSLIP: json, IS_PASSBET:0}
+  — BETSLIP uses Bet9ja's internal event/market/sign IDs (their own palimpsest,
+  NOT Betradar like Sporty/MSport), so it needs a captured real BookABetV2 request
+  (book one bet manually with devtools open, or run a --headed Playwright capture).
+  Their events feed: /desktop/feapi/PalimpsestAjax/GetSports works; GetEventsInDailyBundleV3
+  returned ERROR 319 from curl — params/headers not yet cracked.
 - **Build engine/API before frontend** so screens map to real endpoints.
 - **Consensus** should eventually be a badge on Picks + a confidence booster in the
   engine, not just a standalone screen. Standalone page kept for the transparency story.
