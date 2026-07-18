@@ -22,6 +22,7 @@ Endpoints:
 
 import os
 import sys
+from datetime import datetime
 from fastapi import FastAPI, Query, Body
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
@@ -61,7 +62,10 @@ def _model_predictions(only_strong: bool = True) -> list:
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
                mp.confidence, mp.best_bet, mp.best_bet_prob, mp.gemma_analysis,
                mp.consensus_adj,
-               sp.predicted_home_goals, sp.predicted_away_goals
+               sp.predicted_home_goals, sp.predicted_away_goals,
+               r.home_goals AS result_home_goals,
+               r.away_goals AS result_away_goals,
+               r.outcome AS result_outcome
         FROM matches m
         JOIN model_predictions mp ON mp.id = (
             SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = m.match_id
@@ -71,6 +75,7 @@ def _model_predictions(only_strong: bool = True) -> list:
             WHERE sp2.match_id = m.match_id
               AND sp2.predicted_home_goals IS NOT NULL
         )
+        LEFT JOIN results r ON r.match_id = m.match_id
         WHERE m.match_date >= date('now') {where}
         ORDER BY mp.best_bet_prob DESC
     """).fetchall()
@@ -185,8 +190,40 @@ def get_slip(
             if len(parts) == 4:
                 pinned.append({"home_team": parts[0], "away_team": parts[1],
                                "market": parts[2], "selection": parts[3]})
-    slip = build_slip(all_opts, risk.upper(), games, leagues=league_set,
-                      exclude_keys=exclude_set, pinned=pinned)
+    def build(extra_excludes):
+        keys = (exclude_set or set()) | extra_excludes
+        return build_slip(all_opts, risk.upper(), games, leagues=league_set,
+                          exclude_keys=keys or None, pinned=pinned)
+
+    def sporty_for(slip):
+        return attach_sporty_odds([
+            {"home_team": l.home_team, "away_team": l.away_team,
+             "market": l.market, "selection": l.selection} for l in slip])
+
+    # A leg SportyBet won't price whose kickoff we can't verify as future is
+    # very likely in play / just finished — swap it for the next best rather
+    # than hand the user an unbookable leg. Legs with a known FUTURE kickoff
+    # stay even when unpriced (small leagues simply aren't listed). Two
+    # passes max; only runs when the odds feed is actually up.
+    slip = build(set())
+    sporty = sporty_for(slip)
+    suspects = set()   # accumulates across passes or pass 2 re-admits pass 1's
+    for _ in range(2):
+        if not any(sporty["odds"]):
+            break   # feed down/empty — no signal, keep the slip as-is
+        today = datetime.now().strftime("%Y-%m-%d")
+        new_suspects = {teams_key(l.home_team, l.away_team)
+                        for l, o in zip(slip, sporty["odds"])
+                        if o is None
+                        and l.match_date <= today   # tomorrow's games are safe — just not mapped
+                        and (not l.kickoff_time
+                             or l.kickoff_time.strip() in ("", "00:00", "0:00"))}
+        new_suspects -= suspects
+        if not new_suspects:
+            break
+        suspects |= new_suspects
+        slip = build(suspects)
+        sporty = sporty_for(slip)
     combined = accumulator_probability(slip)
 
     leg_dicts = [
@@ -207,7 +244,6 @@ def get_slip(
         }
         for leg in slip
     ]
-    sporty = attach_sporty_odds(leg_dicts)
     for d, o in zip(leg_dicts, sporty["odds"]):
         d["sporty_odds"] = o
 

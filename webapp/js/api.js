@@ -137,8 +137,8 @@ const API_BASE = "http://localhost:8080";
         }
         const here = location.pathname.split("/").pop() || "index.html";
         const extras = [...bottomNav.querySelectorAll("a")]
-            .filter(a => /consensus\.html|checker\.html/.test(a.getAttribute("href")));
-        const onExtraPage = /consensus\.html|checker\.html/.test(here);
+            .filter(a => /consensus\.html|record\.html/.test(a.getAttribute("href")));
+        const onExtraPage = /consensus\.html|record\.html/.test(here);
 
         const backdrop = document.createElement("div");
         backdrop.id = "pp-backdrop";
@@ -343,7 +343,11 @@ const PotentialProAPI = {
         button:active { transform:scale(.97); }
       }
       button:focus-visible, a:focus-visible {
-        outline:2px solid #91db2a; outline-offset:2px; border-radius:6px; }`;
+        outline:2px solid #91db2a; outline-offset:2px; border-radius:6px; }
+      /* Density: the config pages had 32px between every section — tighten
+         the vertical rhythm so screens feel composed, not sparse. */
+      main.space-y-xl > * + * { margin-top:20px !important; }
+      main section > h2.text-headline-md { font-size:18px; line-height:24px; margin-bottom:10px; }`;
     const s = document.createElement("style");
     s.textContent = MOTION_CSS;
     document.head.appendChild(s);
