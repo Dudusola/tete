@@ -49,7 +49,12 @@ generate predictions on demand.
                           Scandinavia, smaller Europe, China/India/A-League. Only records events ESPN marks
                           completed. Fetches league×day scoreboards in a 10-thread pool (~30s; sequential
                           took 18 min and would hit the 15-min step timeout).
-- models/train.py         Random Forest trainer. 65k historical matches (86 CSVs since 2018 + internationals).
+- models/train.py         Random Forest trainer. 66.8k historical matches (89 CSVs since 2018 + internationals).
+                          July 2026: refreshed all football-data.co.uk extra-league CSVs and added
+                          SwedishLeague/FinlandLeague/IrelandLeague (in-season leagues) — doubled July
+                          pick volume (6→12/day). Refresh source: football-data.co.uk/new/<CODE>.csv
+                          (ARG BRA USA MEX CHN JPN NOR AUT DNK POL ROU RUS SWZ SWE FIN IRL → the
+                          *League.csv names). Note ARG/BRA/USA/MEX lag ~6 weeks at the source itself.
 - models/predict.py       Live predictions + Gemma. TEAM_ALIASES dict for name mismatches.
 - models/markets.py       Derive ~22 markets from H/D/A + Poisson score matrix (1X2, DC, DNB,
                           O/U 1.5/2.5/3.5, BTTS, Asian Handicap ±1.5, Result&Goals). build_slip dedupes by teams + ±1 day.
