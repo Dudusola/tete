@@ -42,11 +42,16 @@ window.chrome = { runtime: {} };
 
 
 def is_cloudflare_challenge(html: str) -> bool:
+    """Only signatures unique to the ACTUAL challenge page. A generic
+    ('challenge' and 'cloudflare') test false-positived on Cloudflare's
+    beacon script (/cdn-cgi/challenge-platform/...) that NORMAL pages embed —
+    which made us discard perfectly good pages and report 'blocked' for days
+    (found 18 July 2026)."""
     if not html:
         return True
     low = html.lower()
     return ("just a moment" in low or "cf-chl" in low
-            or ("challenge" in low and "cloudflare" in low))
+            or "attention required! | cloudflare" in low)
 
 
 def get_rendered_html(url: str, headed: bool = False, attempts: int = 3) -> str | None:

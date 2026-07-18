@@ -20,7 +20,7 @@ from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import insert_match, insert_scraped_prediction
-from scrapers.results import STEALTH_INIT, is_cloudflare_challenge
+from scrapers.results import is_cloudflare_challenge
 
 URLS = {
     "today": "https://www.predictz.com/predictions/today/",
@@ -29,26 +29,19 @@ URLS = {
 
 
 def get_rendered_html(url: str, attempts: int = 3) -> str | None:
-    """PredictZ went behind Cloudflare (July 2026) — same stealth + challenge
-    auto-resolve + retry approach as scrapers/results.py."""
+    """PredictZ went behind Cloudflare (July 2026). Chromium gets challenged
+    even with stealth; Playwright FIREFOX passes cleanly (verified 18 July) —
+    Cloudflare fingerprints Chromium automation much harder. Requires
+    `playwright install firefox` once. Retry/challenge-detect kept as belt
+    and braces."""
     for attempt in range(1, attempts + 1):
         try:
             with sync_playwright() as p:
-                browser = p.chromium.launch(
-                    headless=True,
-                    args=["--disable-blink-features=AutomationControlled",
-                          "--no-sandbox"],
-                )
-                context = browser.new_context(
-                    user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                                "Chrome/125.0.0.0 Safari/537.36"),
-                    locale="en-US",
-                    timezone_id="Africa/Lagos",
-                    viewport={"width": 1366, "height": 768},
-                )
-                page = context.new_page()
-                page.add_init_script(STEALTH_INIT)
+                browser = p.firefox.launch(headless=True)
+                # Plain default page on purpose: timezone/viewport overrides
+                # create a fingerprint mismatch Cloudflare challenges, while
+                # stock Firefox passes (tested both, 18 July 2026).
+                page = browser.new_page()
                 page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
                 # Give Cloudflare's JS challenge time to auto-resolve

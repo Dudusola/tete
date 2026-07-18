@@ -133,7 +133,19 @@ unknown until the honest ledger matures.
    404 pages; run_daily.py has 15-min step timeouts (a Playwright hang once ate
    19h), a post-run ledger health check, and Telegram alerts on failure.
    **A scraper that got nothing must fail loudly — never exit 0 with 0 rows.**
-6. **Train/serve odds mismatch.** The model trains on real bookmaker odds-implied
+6. **False-positive Cloudflare detection (July 2026).** is_cloudflare_challenge
+   used ("challenge" in html and "cloudflare" in html) — but NORMAL pages embed
+   Cloudflare's beacon script (/cdn-cgi/challenge-platform/...), so perfectly good
+   results/PredictZ pages were discarded as "blocked" for days. The results ledger
+   looked Cloudflare-starved when scraping actually worked. FIX: detector now only
+   matches signatures unique to the real challenge page ("just a moment", "cf-chl",
+   "attention required! | cloudflare"). **Never detect a block with substrings that
+   can appear on a healthy page — and when a scraper reports blocked, verify by
+   checking whether the page had rows.** Also: PredictZ challenges Chromium even
+   with stealth, but plain Playwright FIREFOX passes — predictz.py uses firefox
+   (needs `playwright install firefox`); do NOT add timezone/viewport context
+   overrides there, the fingerprint mismatch triggers the challenge.
+7. **Train/serve odds mismatch.** The model trains on real bookmaker odds-implied
    probs, but predict.py used to feed Forebet's percentages into those features —
    making live predictions echo Forebet. FIX: scrapers store real odds
    (odds_home/draw/away in scraped_predictions), predict.py prefers them (source
