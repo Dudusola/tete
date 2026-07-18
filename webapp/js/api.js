@@ -1,7 +1,19 @@
 /* api.js - the glue between the web app and your FastAPI backend.
    Every screen imports this. Change API_BASE in one place if the port/host changes. */
 
-const API_BASE = "http://localhost:8080";
+/* API location, in priority order:
+   1. ?api=<url> in the page URL (handy for testing a deployed API from local)
+   2. window.PP_API_BASE — set by config.js when the PWA is deployed
+   3. same-origin :8080 on localhost (the dev default)
+   4. same origin (when API is reverse-proxied under the web host)  */
+const API_BASE = (function () {
+    const q = new URLSearchParams(location.search).get("api");
+    if (q) { try { localStorage.setItem("pp-api", q); } catch (e) {} return q.replace(/\/$/, ""); }
+    try { const saved = localStorage.getItem("pp-api"); if (saved) return saved.replace(/\/$/, ""); } catch (e) {}
+    if (window.PP_API_BASE) return window.PP_API_BASE.replace(/\/$/, "");
+    if (["localhost", "127.0.0.1"].includes(location.hostname)) return "http://localhost:8080";
+    return location.origin;   // deployed same-origin fallback
+})();
 
 /* ── Theme (dark mode) ────────────────────────────────────────────────
    The Tailwind config bakes fixed light hex values into the token
