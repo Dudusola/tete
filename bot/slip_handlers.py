@@ -24,6 +24,7 @@ from telegram.ext import (CommandHandler, CallbackQueryHandler, ContextTypes)
 
 from db.database import get_connection
 from models.markets import derive_markets, build_slip, accumulator_probability
+from scrapers.booking_codes import attach_sporty_odds
 
 RISK_EMOJI = {"LOW": "🟢", "MEDIUM": "🟡", "HIGH": "🔴"}
 VALID_RISK = {"LOW", "MEDIUM", "HIGH"}
@@ -48,6 +49,8 @@ def load_today_predictions() -> list:
             SELECT MAX(p2.id) FROM scraped_predictions p2 WHERE p2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
+          AND m.status != 'finished'
+          AND m.match_id NOT IN (SELECT match_id FROM results)
         ORDER BY m.match_date, m.kickoff_time
     """).fetchall()
     conn.close()
@@ -68,31 +71,40 @@ def gather_all_markets() -> list:
 def format_slip(slip: list, risk: str) -> str:
     if not slip:
         return (f"{RISK_EMOJI.get(risk,'')} No *{risk}* risk picks available right now.\n\n"
-                "Either no matches are scheduled, or none fit this risk band today. "
-                "Try a different risk level.")
+                "Either no upcoming matches (started games are excluded), or none "
+                "fit this risk band today. Try a different risk level.")
 
     emoji = RISK_EMOJI.get(risk, "")
     lines = [f"{emoji} *{risk} RISK SLIP* — {len(slip)} games\n"]
 
-    for i, leg in enumerate(slip, 1):
+    leg_dicts = [{"home_team": l.home_team, "away_team": l.away_team,
+                  "market": l.market, "selection": l.selection} for l in slip]
+    sporty = attach_sporty_odds(leg_dicts)
+
+    for i, (leg, odds) in enumerate(zip(slip, sporty["odds"]), 1):
+        odds_txt = f" | 💰 @{odds:.2f}" if odds else ""
         lines.append(
             f"*{i}. {leg.home_team} vs {leg.away_team}*\n"
             f"   {leg.league} | {leg.match_date} {leg.kickoff_time}\n"
             f"   🎯 {leg.market}: *{leg.selection}*\n"
-            f"   📊 {leg.probability:.0%} likely"
+            f"   📊 {leg.probability:.0%} likely{odds_txt}"
         )
         lines.append("")
 
     combined = accumulator_probability(slip)
     lines.append(f"🎲 *Accumulator hit chance: {combined:.1%}*")
+    if sporty["total_odds"]:
+        priced = sum(1 for o in sporty["odds"] if o)
+        note = "" if priced == len(slip) else f" ({priced}/{len(slip)} legs priced)"
+        lines.append(f"💰 *SportyBet total odds: ~{sporty['total_odds']:.2f}x*{note}")
     lines.append("_(all legs must win — higher legs = lower combined odds)_")
     lines.append("\n_Bet responsibly. This is a model estimate, not a guarantee._")
     return "\n".join(lines)
 
 
-def make_slip(risk: str, count: int) -> str:
+def make_slip(risk: str, count: int, leagues: set | None = None) -> str:
     all_opts = gather_all_markets()
-    slip = build_slip(all_opts, risk, count)
+    slip = build_slip(all_opts, risk, count, leagues=leagues)
     return format_slip(slip, risk)
 
 
@@ -100,8 +112,9 @@ def make_slip(risk: str, count: int) -> str:
 
 async def cmd_slip(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """
-    /slip            -> show risk buttons
-    /slip high 5     -> direct slip
+    /slip                     -> show risk buttons
+    /slip high 5              -> direct slip
+    /slip high 5 Us1,Serie A  -> restrict to those leagues (names from /api/leagues)
     """
     args = context.args
     if len(args) >= 2:
@@ -115,7 +128,12 @@ async def cmd_slip(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text("Game count must be a number, e.g. /slip high 5")
             return
         count = max(1, min(count, 20))
-        await update.message.reply_text(make_slip(risk, count), parse_mode="Markdown")
+        leagues = None
+        if len(args) >= 3:
+            leagues = {l.strip().lower()
+                       for l in " ".join(args[2:]).split(",") if l.strip()}
+        await update.message.reply_text(make_slip(risk, count, leagues),
+                                        parse_mode="Markdown")
         return
 
     # No args -> button flow

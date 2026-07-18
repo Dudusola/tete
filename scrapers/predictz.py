@@ -12,6 +12,7 @@ Usage:
 import re
 import sys
 import os
+import time
 from datetime import datetime
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
@@ -19,6 +20,7 @@ from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import insert_match, insert_scraped_prediction
+from scrapers.results import STEALTH_INIT, is_cloudflare_challenge
 
 URLS = {
     "today": "https://www.predictz.com/predictions/today/",
@@ -26,45 +28,69 @@ URLS = {
 }
 
 
-def get_rendered_html(url: str) -> str | None:
-    try:
-        with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
-            context = browser.new_context(
-                user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                            "AppleWebKit/537.36 (KHTML, like Gecko) "
-                            "Chrome/125.0.0.0 Safari/537.36"),
-                locale="en-US",
-            )
-            page = context.new_page()
-            page.goto(url, wait_until="domcontentloaded", timeout=45000)
+def get_rendered_html(url: str, attempts: int = 3) -> str | None:
+    """PredictZ went behind Cloudflare (July 2026) — same stealth + challenge
+    auto-resolve + retry approach as scrapers/results.py."""
+    for attempt in range(1, attempts + 1):
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(
+                    headless=True,
+                    args=["--disable-blink-features=AutomationControlled",
+                          "--no-sandbox"],
+                )
+                context = browser.new_context(
+                    user_agent=("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                                "Chrome/125.0.0.0 Safari/537.36"),
+                    locale="en-US",
+                    timezone_id="Africa/Lagos",
+                    viewport={"width": 1366, "height": 768},
+                )
+                page = context.new_page()
+                page.add_init_script(STEALTH_INIT)
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
-            # Dismiss consent banner first (it can block content rendering)
-            for sel in ["button:has-text('Accept')", "button:has-text('AGREE')",
-                        "button:has-text('Consent')", "button:has-text('I Accept')",
-                        ".fc-cta-consent", "[aria-label='Consent']"]:
+                # Give Cloudflare's JS challenge time to auto-resolve
+                for _ in range(10):
+                    html = page.content()
+                    if not is_cloudflare_challenge(html):
+                        break
+                    page.wait_for_timeout(2000)
+
+                # Dismiss consent banner (it can block content rendering)
+                for sel in ["button:has-text('Accept')", "button:has-text('AGREE')",
+                            "button:has-text('Consent')", "button:has-text('I Accept')",
+                            ".fc-cta-consent", "[aria-label='Consent']"]:
+                    try:
+                        page.click(sel, timeout=1500)
+                        page.wait_for_timeout(1000)
+                        break
+                    except Exception:
+                        pass
+
+                # Wait for actual match rows to appear, instead of a fixed sleep
                 try:
-                    page.click(sel, timeout=1500)
-                    page.wait_for_timeout(1000)
-                    break
+                    page.wait_for_selector("div.pttr", timeout=20000)
                 except Exception:
-                    pass
+                    logger.warning(f"No rows appeared on {url} within 20s")
 
-            # Wait for actual match rows to appear, instead of a fixed sleep
-            try:
-                page.wait_for_selector("div.pttr", timeout=20000)
-            except Exception:
-                logger.warning(f"No rows appeared on {url} within 20s")
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                page.wait_for_timeout(2000)
 
-            page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(2000)
+                html = page.content()
+                browser.close()
 
-            html = page.content()
-            browser.close()
-            return html
-    except Exception as e:
-        logger.error(f"Playwright failed on {url}: {e}")
-        return None
+                if is_cloudflare_challenge(html):
+                    logger.warning(f"Cloudflare challenge on {url} "
+                                   f"(attempt {attempt}/{attempts})")
+                    time.sleep(5 * attempt)
+                    continue
+                return html
+        except Exception as e:
+            logger.error(f"Playwright failed on {url}: {e}")
+    logger.error(f"Blocked or failed after {attempts} attempts: {url}")
+    return None
 
 
 def odds_to_implied(oh, od, oa):

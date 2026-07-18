@@ -28,7 +28,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
-from models.markets import derive_markets, build_slip, accumulator_probability
+from models.markets import (derive_markets, build_slip, accumulator_probability,
+                            kickoff_passed)
+from scrapers.booking_codes import attach_sporty_odds
 from models.consensus import build_consensus, _same_match, _sim, _dates_close
 from scrapers.booking_codes import (decode as decode_booking,
                                     generate_code, BookingCodeError)
@@ -100,6 +102,8 @@ def _predictions_with_goals() -> list:
             SELECT MAX(p2.id) FROM scraped_predictions p2 WHERE p2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
+          AND m.status != 'finished'
+          AND m.match_id NOT IN (SELECT match_id FROM results)
     """).fetchall()
     conn.close()
     return [dict(r) for r in rows]
@@ -152,36 +156,60 @@ def get_all_picks():
 def get_slip(
     risk: str = Query("MEDIUM", description="LOW, MEDIUM, or HIGH"),
     games: int = Query(5, ge=1, le=20, description="Number of games"),
+    leagues: str = Query(None, description="Comma-separated league names to restrict to"),
 ):
-    """Build a risk-based betting slip (one bet per match)."""
+    """Build a risk-based betting slip (one bet per match). Started games are
+    excluded; each leg carries SportyBet odds when the bookmaker lists it."""
     preds = _predictions_with_goals()
     all_opts = []
     for p in preds:
         all_opts.extend(derive_markets(p))
 
-    slip = build_slip(all_opts, risk.upper(), games)
+    league_set = ({l.strip().lower() for l in leagues.split(",") if l.strip()}
+                  if leagues else None)
+    slip = build_slip(all_opts, risk.upper(), games, leagues=league_set)
     combined = accumulator_probability(slip)
+
+    leg_dicts = [
+        {
+            "home_team": leg.home_team,
+            "away_team": leg.away_team,
+            "league": leg.league,
+            "match_date": leg.match_date,
+            "kickoff_time": leg.kickoff_time,
+            "market": leg.market,
+            "selection": leg.selection,
+            "probability": round(leg.probability, 4),
+            "risk": leg.risk,
+        }
+        for leg in slip
+    ]
+    sporty = attach_sporty_odds(leg_dicts)
+    for d, o in zip(leg_dicts, sporty["odds"]):
+        d["sporty_odds"] = o
 
     return {
         "risk": risk.upper(),
         "requested_games": games,
         "actual_games": len(slip),
         "accumulator_probability": round(combined, 4),
-        "legs": [
-            {
-                "home_team": leg.home_team,
-                "away_team": leg.away_team,
-                "league": leg.league,
-                "match_date": leg.match_date,
-                "kickoff_time": leg.kickoff_time,
-                "market": leg.market,
-                "selection": leg.selection,
-                "probability": round(leg.probability, 4),
-                "risk": leg.risk,
-            }
-            for leg in slip
-        ],
+        "sporty_total_odds": sporty["total_odds"],
+        "legs": leg_dicts,
     }
+
+
+@app.get("/api/leagues")
+def get_leagues():
+    """Distinct leagues among upcoming (not yet kicked off) predicted matches —
+    feeds the league filter on the slip builder."""
+    preds = _predictions_with_goals()
+    seen = {}
+    for p in preds:
+        if kickoff_passed(p["match_date"], p["kickoff_time"]):
+            continue
+        seen[p["league"]] = seen.get(p["league"], 0) + 1
+    return {"leagues": [{"name": k, "upcoming_matches": v}
+                        for k, v in sorted(seen.items())]}
 
 
 @app.get("/api/consensus")

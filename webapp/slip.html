@@ -78,6 +78,14 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </div>
 </section>
 
+<!-- League filter -->
+<section>
+<h2 class="text-headline-md font-headline-md text-primary mb-md">Leagues <span class="text-label-sm text-on-surface-variant font-normal">(optional — tap to filter, none selected = all)</span></h2>
+<div class="flex flex-wrap gap-sm" id="league-group">
+<span class="text-label-sm text-on-surface-variant">Loading leagues…</span>
+</div>
+</section>
+
 <!-- Generate -->
 <div class="flex justify-end">
 <button id="generate-btn" class="bg-secondary text-on-secondary px-xl py-sm rounded-lg font-semibold text-body-lg shadow-sm hover:bg-secondary-fixed-dim transition active:scale-95 flex items-center gap-2">
@@ -99,10 +107,11 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=10"></script>
+<script src="js/api.js?v=12"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
+let selectedLeagues = new Set();
 
 const SELECTED_RISK = "border-l-2 border-l-secondary bg-secondary/10 shadow-md";
 const SELECTED_COUNT = "bg-primary text-on-primary font-semibold shadow-sm";
@@ -144,6 +153,7 @@ function renderLeg(leg) {
     <div class="text-right">
       <div class="text-body-md text-primary font-semibold">${prob}%</div>
       <div class="text-label-sm text-secondary">probability</div>
+      ${leg.sporty_odds ? `<div class="text-label-sm text-on-surface-variant mt-1">@${leg.sporty_odds.toFixed(2)} on Sporty</div>` : ""}
     </div>
   </div>
 </div>`;
@@ -172,6 +182,11 @@ function renderSlip(data) {
       <span class="text-body-md text-inverse-primary block">Legs</span>
       <span class="text-headline-md font-headline-md font-bold block">${data.actual_games}</span>
     </div>
+    ${data.sporty_total_odds ? `<div class="text-right mt-4 md:mt-0 md:mr-lg">
+      <span class="text-body-md text-inverse-primary block">SportyBet Total Odds</span>
+      <span class="text-headline-md font-headline-md font-bold text-secondary block">~${data.sporty_total_odds.toFixed(2)}x</span>
+      ${data.legs.some(l => !l.sporty_odds) ? `<span class="text-label-sm text-inverse-primary">(${data.legs.filter(l => l.sporty_odds).length}/${data.legs.length} legs priced)</span>` : ""}
+    </div>` : ""}
     <div class="text-right mt-4 md:mt-0">
       <span class="text-body-md text-inverse-primary block">Accumulator Hit Chance</span>
       <div class="flex items-center justify-end gap-2">
@@ -241,7 +256,7 @@ async function generateSlip() {
     out.innerHTML = `<div class="space-y-sm">${ppSkeleton(56)}${ppSkeleton(180)}${ppSkeleton(90)}</div>
       <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${selectedRisk.toLowerCase()} slip…</div>`;
     try {
-        const data = await PotentialProAPI.slip(selectedRisk, selectedCount);
+        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, [...selectedLeagues]);
         renderSlip(data);
     } catch (err) {
         out.innerHTML = `<div class="text-center text-error py-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
@@ -251,13 +266,44 @@ async function generateSlip() {
     }
 }
 
+function paintLeagues() {
+    document.querySelectorAll(".league-btn").forEach(btn => {
+        const on = selectedLeagues.has(btn.dataset.league);
+        btn.className = "league-btn px-md py-xs rounded-full text-label-sm transition " +
+            (on ? "bg-primary text-on-primary font-semibold shadow-sm"
+                : "border border-outline-variant text-on-surface hover:bg-surface-container-high");
+    });
+}
+
+async function loadLeagues() {
+    const group = document.getElementById("league-group");
+    try {
+        const d = await PotentialProAPI.leagues();
+        if (!d.leagues || !d.leagues.length) {
+            group.innerHTML = `<span class="text-label-sm text-on-surface-variant">No upcoming leagues right now.</span>`;
+            return;
+        }
+        group.innerHTML = d.leagues.map(l =>
+            `<button data-league="${escapeHtml(l.name)}" class="league-btn px-md py-xs rounded-full border border-outline-variant text-label-sm text-on-surface hover:bg-surface-container-high transition">${escapeHtml(prettyLeague(l.name))} (${l.upcoming_matches})</button>`
+        ).join("");
+        group.querySelectorAll(".league-btn").forEach(btn =>
+            btn.addEventListener("click", () => {
+                const key = btn.dataset.league;
+                selectedLeagues.has(key) ? selectedLeagues.delete(key) : selectedLeagues.add(key);
+                paintLeagues();
+            }));
+    } catch (err) {
+        group.innerHTML = `<span class="text-label-sm text-on-surface-variant">Couldn't load leagues (API offline?) — slips will use all leagues.</span>`;
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     document.querySelectorAll(".risk-btn").forEach(btn =>
         btn.addEventListener("click", () => { selectedRisk = btn.dataset.risk; paintRisk(); }));
     document.querySelectorAll(".count-btn").forEach(btn =>
         btn.addEventListener("click", () => { selectedCount = parseInt(btn.dataset.count); paintCount(); }));
     document.getElementById("generate-btn").addEventListener("click", generateSlip);
-    paintRisk(); paintCount();
+    paintRisk(); paintCount(); loadLeagues();
 });
 </script>
 </body></html>

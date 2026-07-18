@@ -149,8 +149,7 @@ def fetch_sportybet_events(pages: int = 10, page_size: int = 100) -> list[dict]:
     import time as _time
     if _EVENTS_CACHE["events"] and _time.time() - _EVENTS_CACHE["at"] < _EVENTS_TTL:
         return _EVENTS_CACHE["events"]
-    events = []
-    for page in range(1, pages + 1):
+    def fetch_page(page: int) -> list[dict]:
         d = None
         for attempt in (1, 2):   # one retry - a single failed page must not
             try:                 # truncate (and then cache) a partial list
@@ -165,12 +164,18 @@ def fetch_sportybet_events(pages: int = 10, page_size: int = 100) -> list[dict]:
                 logger.warning(f"SportyBet events page {page} "
                                f"attempt {attempt} failed: {e}")
         if not d or d.get("bizCode") != 10000:
-            continue
-        tournaments = (d.get("data") or {}).get("tournaments") or []
-        if not tournaments:
-            break   # genuine end of listing
-        for t in tournaments:
-            events.extend(t.get("events") or [])
+            return []
+        out = []
+        for t in (d.get("data") or {}).get("tournaments") or []:
+            out.extend(t.get("events") or [])
+        return out
+
+    # Pages fetched in parallel (sequential took 60s+ and slip requests
+    # block on it); pages past the end of the listing just come back empty.
+    from concurrent.futures import ThreadPoolExecutor
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        per_page = list(pool.map(fetch_page, range(1, pages + 1)))
+    events = [e for page_events in per_page for e in page_events]
     logger.info(f"SportyBet events feed: {len(events)} upcoming matches")
     if events:
         _EVENTS_CACHE.update(at=_time.time(), events=events)
@@ -363,6 +368,36 @@ def generate_code(legs: list[dict], provider: str = "sportybet") -> dict:
 
 def generate_sportybet(legs: list[dict]) -> dict:
     return generate_code(legs, "sportybet")
+
+
+def attach_sporty_odds(legs: list[dict]) -> dict:
+    """Best-effort SportyBet odds for slip legs (no booking made).
+    legs: [{home_team, away_team, market, selection}].
+    Returns {"odds": [float|None per leg, same order], "total_odds": float|None}.
+    total_odds multiplies only the legs SportyBet prices; None when none map
+    or the feed is unreachable. Never raises — odds are decoration, not data."""
+    out = {"odds": [None] * len(legs), "total_odds": None}
+    try:
+        events = fetch_sportybet_events()
+    except Exception as e:
+        logger.warning(f"SportyBet odds lookup failed: {e}")
+        return out
+    if not events:
+        return out
+    total, priced = 1.0, 0
+    for i, leg in enumerate(legs):
+        try:
+            m = map_leg_to_sportybet(leg, events)
+            odds = float(m["odds"]) if m and m.get("odds") else None
+        except Exception:
+            odds = None
+        out["odds"][i] = odds
+        if odds:
+            total *= odds
+            priced += 1
+    if priced:
+        out["total_odds"] = round(total, 2)
+    return out
 
 
 MSPORT_URL = "https://www.msport.com/api/ng/orders/share/{code}"

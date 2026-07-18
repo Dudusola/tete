@@ -153,10 +153,31 @@ def _dates_close(d1: str, d2: str, days: int = 1) -> bool:
         return d1 == d2
 
 
-def build_slip(all_options: list, risk: str, num_games: int) -> list:
+def kickoff_passed(match_date: str, kickoff_time: str, grace_min: int = 5) -> bool:
+    """True when we KNOW the game already kicked off. A '00:00' or unparsable
+    kickoff is treated as unknown (kept) — some sources store a placeholder
+    time, and wrongly dropping a bookable game is worse than keeping it;
+    the bookmaker mapping marks truly-started games unmapped anyway."""
+    if not match_date:
+        return False
+    if not kickoff_time or kickoff_time.strip() in ("", "00:00", "0:00"):
+        return match_date < datetime.now().strftime("%Y-%m-%d")
+    try:
+        h, m = kickoff_time.strip().split(":")
+        ko = datetime.strptime(match_date, "%Y-%m-%d").replace(
+            hour=int(h), minute=int(m))
+    except (ValueError, TypeError):
+        return match_date < datetime.now().strftime("%Y-%m-%d")
+    return (datetime.now() - ko).total_seconds() > grace_min * 60
+
+
+def build_slip(all_options: list, risk: str, num_games: int,
+               leagues: set | None = None) -> list:
     """Build a slip of num_games selections at the requested risk level.
     One bet per real fixture, deduped across sources by teams + a +/-1 day
-    window (so the same match filed a day apart by two sources collapses)."""
+    window (so the same match filed a day apart by two sources collapses).
+    Games that have already kicked off are excluded (nobody can bet them).
+    `leagues`: optional set of league names (lowercased) to restrict to."""
     risk = risk.upper()
 
     # Group candidate options by sorted-teams key.
@@ -167,6 +188,10 @@ def build_slip(all_options: list, risk: str, num_games: int) -> list:
     by_teams = {}
     for opt in all_options:
         if opt.risk != risk or opt.probability > MAX_SLIP_PROB:
+            continue
+        if kickoff_passed(opt.match_date, opt.kickoff_time):
+            continue
+        if leagues and opt.league.lower() not in leagues:
             continue
         by_teams.setdefault(_teams_key(opt), []).append(opt)
 

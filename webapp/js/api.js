@@ -275,7 +275,9 @@ async function apiPost(path, body) {
 const PotentialProAPI = {
     picks:       ()          => apiGet("/api/picks"),
     allPicks:    ()          => apiGet("/api/picks/all"),
-    slip:        (risk, n)   => apiGet(`/api/slip?risk=${risk}&games=${n}`),
+    slip:        (risk, n, leagues) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
+                     (leagues && leagues.length ? `&leagues=${encodeURIComponent(leagues.join(","))}` : "")),
+    leagues:     ()          => apiGet("/api/leagues"),
     consensus:   ()          => apiGet("/api/consensus"),
     stats:       ()          => apiGet("/api/stats"),
     statsTiers:  ()          => apiGet("/api/stats/tiers"),
