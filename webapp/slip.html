@@ -107,11 +107,12 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=13"></script>
+<script src="js/api.js?v=14"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
 let selectedLeagues = new Set();
+let excludedPairs = [];   // [{home, away}] fixtures the user removed
 
 const SELECTED_RISK = "border-l-2 border-l-secondary bg-secondary/10 shadow-md";
 const SELECTED_COUNT = "bg-primary text-on-primary font-semibold shadow-sm";
@@ -136,10 +137,14 @@ function paintCount() {
 
 function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
-function renderLeg(leg) {
+function renderLeg(leg, idx) {
     const prob = Math.round((leg.probability||0)*100);
     return `
-<div class="p-md flex flex-col md:flex-row md:items-center justify-between gap-md hover:bg-surface transition">
+<div class="p-md flex flex-col md:flex-row md:items-center justify-between gap-md hover:bg-surface transition relative">
+  <button data-idx="${idx}" title="Remove this game and pull in the next best"
+    class="swap-leg-btn absolute top-2 right-2 md:static md:order-last text-on-surface-variant hover:text-error transition p-1 rounded-full hover:bg-surface-container-high">
+    <span class="material-symbols-outlined" style="font-size:20px">close</span>
+  </button>
   <div class="flex-1">
     <div class="flex items-center gap-2 mb-1">
       <span class="w-2 h-2 rounded-full bg-secondary"></span>
@@ -175,8 +180,13 @@ function renderSlip(data) {
     <span class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">${escapeHtml(data.risk)} Risk • ${data.actual_games} Games</span>
   </div>
   <div class="divide-y divide-surface-container-high">
-    ${data.legs.map(renderLeg).join("")}
+    ${data.legs.map((l, i) => renderLeg(l, i)).join("")}
   </div>
+  ${excludedPairs.length ? `
+  <div class="bg-surface-container-low px-md py-xs border-t border-outline-variant flex items-center justify-between">
+    <span class="text-label-sm text-on-surface-variant">${excludedPairs.length} game(s) removed: ${excludedPairs.map(p => escapeHtml(p.home + " vs " + p.away)).join(", ")}</span>
+    <button id="reset-excluded" class="text-label-sm font-bold text-secondary hover:underline">Restore all</button>
+  </div>` : ""}
   <div class="bg-primary-container text-on-primary p-md flex flex-col md:flex-row justify-between items-center">
     <div>
       <span class="text-body-md text-inverse-primary block">Legs</span>
@@ -212,6 +222,14 @@ function renderSlip(data) {
     LAST_SLIP = data.legs;
     document.querySelectorAll(".book-provider-btn").forEach(b =>
         b.addEventListener("click", () => bookSlip(b.dataset.provider)));
+    document.querySelectorAll(".swap-leg-btn").forEach(b =>
+        b.addEventListener("click", () => {
+            const leg = data.legs[parseInt(b.dataset.idx)];
+            excludedPairs.push({home: leg.home_team, away: leg.away_team});
+            generateSlip();
+        }));
+    const reset = document.getElementById("reset-excluded");
+    if (reset) reset.addEventListener("click", () => { excludedPairs = []; generateSlip(); });
 }
 
 let LAST_SLIP = [];
@@ -256,7 +274,7 @@ async function generateSlip() {
     out.innerHTML = `<div class="space-y-sm">${ppSkeleton(56)}${ppSkeleton(180)}${ppSkeleton(90)}</div>
       <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${selectedRisk.toLowerCase()} slip…</div>`;
     try {
-        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, [...selectedLeagues]);
+        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, [...selectedLeagues], excludedPairs);
         renderSlip(data);
     } catch (err) {
         out.innerHTML = `<div class="text-center text-error py-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;

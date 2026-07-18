@@ -171,8 +171,15 @@ def kickoff_passed(match_date: str, kickoff_time: str, grace_min: int = 5) -> bo
     return (datetime.now() - ko).total_seconds() > grace_min * 60
 
 
+def teams_key(home: str, away: str) -> str:
+    """Public fingerprint for a fixture — used to exclude fixtures a user
+    removed from their slip (matches _teams_key on BetOption)."""
+    return "_".join(sorted([home.lower().strip(), away.lower().strip()]))
+
+
 def build_slip(all_options: list, risk: str, num_games: int,
-               leagues: set | None = None) -> list:
+               leagues: set | None = None,
+               exclude_keys: set | None = None) -> list:
     """Build a slip of num_games selections at the requested risk level.
     One bet per real fixture, deduped across sources by teams + a +/-1 day
     window (so the same match filed a day apart by two sources collapses).
@@ -193,7 +200,10 @@ def build_slip(all_options: list, risk: str, num_games: int,
             continue
         if leagues and opt.league.lower() not in leagues:
             continue
-        by_teams.setdefault(_teams_key(opt), []).append(opt)
+        key = _teams_key(opt)
+        if exclude_keys and key in exclude_keys:
+            continue
+        by_teams.setdefault(key, []).append(opt)
 
     chosen = []
     for team_key, opts in by_teams.items():

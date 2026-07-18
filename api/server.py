@@ -29,7 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.markets import (derive_markets, build_slip, accumulator_probability,
-                            kickoff_passed)
+                            kickoff_passed, teams_key)
 from scrapers.booking_codes import attach_sporty_odds
 from models.consensus import build_consensus, _same_match, _sim, _dates_close
 from scrapers.booking_codes import (decode as decode_booking,
@@ -157,9 +157,12 @@ def get_slip(
     risk: str = Query("MEDIUM", description="LOW, MEDIUM, or HIGH"),
     games: int = Query(5, ge=1, le=20, description="Number of games"),
     leagues: str = Query(None, description="Comma-separated league names to restrict to"),
+    exclude: str = Query(None, description="Fixtures to leave out, as 'Home||Away' pairs separated by ';;'"),
 ):
     """Build a risk-based betting slip (one bet per match). Started games are
-    excluded; each leg carries SportyBet odds when the bookmaker lists it."""
+    excluded; each leg carries SportyBet odds when the bookmaker lists it.
+    build_slip is deterministic, so re-requesting with one fixture excluded
+    keeps the other legs and back-fills the next best option ('swap a leg')."""
     preds = _predictions_with_goals()
     all_opts = []
     for p in preds:
@@ -167,7 +170,15 @@ def get_slip(
 
     league_set = ({l.strip().lower() for l in leagues.split(",") if l.strip()}
                   if leagues else None)
-    slip = build_slip(all_opts, risk.upper(), games, leagues=league_set)
+    exclude_set = None
+    if exclude:
+        exclude_set = set()
+        for pair in exclude.split(";;"):
+            if "||" in pair:
+                h, a = pair.split("||", 1)
+                exclude_set.add(teams_key(h, a))
+    slip = build_slip(all_opts, risk.upper(), games, leagues=league_set,
+                      exclude_keys=exclude_set)
     combined = accumulator_probability(slip)
 
     leg_dicts = [
