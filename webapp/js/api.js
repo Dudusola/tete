@@ -320,3 +320,59 @@ const PotentialProAPI = {
     decodeCode:  (provider, code) => apiPost("/api/booking/decode", {provider, code}),
     generateCode: (legs, provider) => apiPost("/api/booking/generate", {legs, provider: provider || "sportybet"}),
 };
+/* ── Motion / UI-consistency layer (July 2026) ────────────────────────────
+   One injected stylesheet + tiny helpers so all five pages share the same
+   feel: content *arrives* (fade-up, staggered) instead of popping in, cards
+   lift subtly on hover, buttons press consistently. Applies automatically to
+   static sections on load AND to content pages inject later (slip results,
+   pick cards) via a MutationObserver — no per-page code needed.
+   Respects prefers-reduced-motion. Keep this in api.js so the whole app
+   stays consistent from one place. */
+(function () {
+    const MOTION_CSS = `
+      @media (prefers-reduced-motion: no-preference) {
+        .pp-enter { opacity:0; transform:translateY(10px); }
+        .pp-enter.pp-in { opacity:1; transform:none;
+          transition:opacity .45s cubic-bezier(.2,.7,.3,1), transform .45s cubic-bezier(.2,.7,.3,1); }
+        main .rounded-xl.border { transition:box-shadow .25s ease, transform .25s ease; }
+        main .rounded-xl.border:hover { transform:translateY(-2px);
+          box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+        html.dark main .rounded-xl.border:hover { box-shadow:0 6px 20px rgba(0,0,0,0.45); }
+        button { transition:transform .12s ease, background-color .2s ease,
+                 color .2s ease, box-shadow .2s ease, border-color .2s ease; }
+        button:active { transform:scale(.97); }
+      }
+      button:focus-visible, a:focus-visible {
+        outline:2px solid #91db2a; outline-offset:2px; border-radius:6px; }`;
+    const s = document.createElement("style");
+    s.textContent = MOTION_CSS;
+    document.head.appendChild(s);
+
+    function enter(el, delay) {
+        if (el._ppEntered) return;
+        el._ppEntered = true;
+        el.classList.add("pp-enter");
+        requestAnimationFrame(() => requestAnimationFrame(() =>
+            setTimeout(() => el.classList.add("pp-in"), delay || 0)));
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        const main = document.querySelector("main");
+        if (!main) return;
+        [...main.children].forEach((el, i) => enter(el, i * 70));
+        // Content injected later (slips, pick lists, stats) enters the same way
+        new MutationObserver(muts => {
+            for (const m of muts) {
+                for (const n of m.addedNodes) {
+                    if (n.nodeType !== 1) continue;
+                    if (n.matches && n.matches("section, .rounded-xl")) enter(n, 40);
+                    else if (n.querySelectorAll) {
+                        let i = 0;
+                        for (const c of n.querySelectorAll(":scope > section, :scope > .rounded-xl"))
+                            enter(c, 40 + (i++ * 60));
+                    }
+                }
+            }
+        }).observe(main, {childList: true, subtree: true});
+    });
+})();
