@@ -68,7 +68,12 @@ generate predictions on demand.
 - db/purge_results.py     wipe contaminated results table (used once after the fake-scores fix)
 - db/inspect_scores.py    read-only: show scored picks vs recorded scores
 - models/model_vs_source.py  read-only: how often model disagrees with Forebet
-- webapp/                 the PWA. index.html (Picks), slip.html (Builder), record.html (Track Record),
+- webapp/                 the PWA. slip.html Builder (July 2026): league multi-select chips ("All leagues"
+                          default), per-leg SportyBet odds + total, remove/swap legs (✕ excludes the
+                          fixture and back-fills next best — build_slip is deterministic so other legs
+                          stay put), and Bankers (📌 pin locks a leg's exact market+selection through
+                          risk/count/league changes and re-rolls; served via /api/slip pin= param).
+                          index.html (Picks), slip.html (Builder), record.html (Track Record),
                           consensus.html, checker.html (Slip Checker). js/api.js = fetch glue. logo.png in header.
                           Picks page has a summary stat strip, tier filter chips (All/High/Medium),
                           skeleton loaders, and per-card "Expected: H–A" scoreline. Dark mode lives in

@@ -179,13 +179,31 @@ def teams_key(home: str, away: str) -> str:
 
 def build_slip(all_options: list, risk: str, num_games: int,
                leagues: set | None = None,
-               exclude_keys: set | None = None) -> list:
+               exclude_keys: set | None = None,
+               pinned: list | None = None) -> list:
     """Build a slip of num_games selections at the requested risk level.
     One bet per real fixture, deduped across sources by teams + a +/-1 day
     window (so the same match filed a day apart by two sources collapses).
     Games that have already kicked off are excluded (nobody can bet them).
-    `leagues`: optional set of league names (lowercased) to restrict to."""
+    `leagues`: optional set of league names (lowercased) to restrict to.
+    `pinned` (Bankers): [{home_team, away_team, market, selection}] legs the
+    user locked — force-included first (bypassing risk band and league
+    filter, but NOT the started-game check), rest of the slip fills around
+    them. A pinned fixture that kicked off silently drops out."""
     risk = risk.upper()
+
+    pinned_legs, pinned_keys = [], set()
+    for p in (pinned or []):
+        want_key = teams_key(p["home_team"], p["away_team"])
+        for opt in all_options:
+            if (_teams_key(opt) == want_key
+                    and opt.market == p.get("market")
+                    and opt.selection == p.get("selection")
+                    and not kickoff_passed(opt.match_date, opt.kickoff_time)):
+                if want_key not in pinned_keys:
+                    pinned_legs.append(opt)
+                    pinned_keys.add(want_key)
+                break
 
     # Group candidate options by sorted-teams key.
     # Cap at 92%: above that a bet is a near-certainty bookmakers barely
@@ -203,6 +221,8 @@ def build_slip(all_options: list, risk: str, num_games: int,
         key = _teams_key(opt)
         if exclude_keys and key in exclude_keys:
             continue
+        if key in pinned_keys:
+            continue   # fixture already locked in by a Banker
         by_teams.setdefault(key, []).append(opt)
 
     chosen = []
@@ -223,7 +243,7 @@ def build_slip(all_options: list, risk: str, num_games: int,
             chosen.append(c["best"])
 
     chosen.sort(key=lambda o: o.probability, reverse=True)
-    return chosen[:num_games]
+    return pinned_legs + chosen[:max(0, num_games - len(pinned_legs))]
 
 
 def accumulator_probability(slip: list) -> float:

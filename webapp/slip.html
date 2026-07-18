@@ -107,12 +107,19 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=14"></script>
+<script src="js/api.js?v=15"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
 let selectedLeagues = new Set();
 let excludedPairs = [];   // [{home, away}] fixtures the user removed
+let pinnedLegs = [];      // Bankers: [{home_team, away_team, market, selection}]
+
+function isPinned(leg) {
+    return pinnedLegs.some(p => p.home_team === leg.home_team &&
+        p.away_team === leg.away_team && p.market === leg.market &&
+        p.selection === leg.selection);
+}
 
 const SELECTED_RISK = "border-l-2 border-l-secondary bg-secondary/10 shadow-md";
 const SELECTED_COUNT = "bg-primary text-on-primary font-semibold shadow-sm";
@@ -139,12 +146,19 @@ function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&
 
 function renderLeg(leg, idx) {
     const prob = Math.round((leg.probability||0)*100);
+    const pinned = isPinned(leg);
     return `
-<div class="p-md flex flex-col md:flex-row md:items-center justify-between gap-md hover:bg-surface transition relative">
-  <button data-idx="${idx}" title="Remove this game and pull in the next best"
-    class="swap-leg-btn absolute top-2 right-2 md:static md:order-last text-on-surface-variant hover:text-error transition p-1 rounded-full hover:bg-surface-container-high">
-    <span class="material-symbols-outlined" style="font-size:20px">close</span>
-  </button>
+<div class="p-md flex flex-col md:flex-row md:items-center justify-between gap-md hover:bg-surface transition relative ${pinned ? "border-l-2 border-l-secondary" : ""}">
+  <div class="absolute top-2 right-2 md:static md:order-last flex items-center gap-1">
+    <button data-idx="${idx}" title="${pinned ? "Unpin this Banker" : "Pin as Banker — survives re-rolls and filter changes"}"
+      class="pin-leg-btn transition p-1 rounded-full hover:bg-surface-container-high ${pinned ? "text-secondary" : "text-on-surface-variant hover:text-secondary"}">
+      <span class="material-symbols-outlined" style="font-size:20px;${pinned ? "font-variation-settings:'FILL' 1;" : ""}">push_pin</span>
+    </button>
+    <button data-idx="${idx}" title="Remove this game and pull in the next best"
+      class="swap-leg-btn text-on-surface-variant hover:text-error transition p-1 rounded-full hover:bg-surface-container-high">
+      <span class="material-symbols-outlined" style="font-size:20px">close</span>
+    </button>
+  </div>
   <div class="flex-1">
     <div class="flex items-center gap-2 mb-1">
       <span class="w-2 h-2 rounded-full bg-secondary"></span>
@@ -226,6 +240,21 @@ function renderSlip(data) {
         b.addEventListener("click", () => {
             const leg = data.legs[parseInt(b.dataset.idx)];
             excludedPairs.push({home: leg.home_team, away: leg.away_team});
+            pinnedLegs = pinnedLegs.filter(p =>
+                !(p.home_team === leg.home_team && p.away_team === leg.away_team));
+            generateSlip();
+        }));
+    document.querySelectorAll(".pin-leg-btn").forEach(b =>
+        b.addEventListener("click", () => {
+            const leg = data.legs[parseInt(b.dataset.idx)];
+            if (isPinned(leg)) {
+                pinnedLegs = pinnedLegs.filter(p =>
+                    !(p.home_team === leg.home_team && p.away_team === leg.away_team &&
+                      p.market === leg.market && p.selection === leg.selection));
+            } else {
+                pinnedLegs.push({home_team: leg.home_team, away_team: leg.away_team,
+                                 market: leg.market, selection: leg.selection});
+            }
             generateSlip();
         }));
     const reset = document.getElementById("reset-excluded");
@@ -274,7 +303,7 @@ async function generateSlip() {
     out.innerHTML = `<div class="space-y-sm">${ppSkeleton(56)}${ppSkeleton(180)}${ppSkeleton(90)}</div>
       <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${selectedRisk.toLowerCase()} slip…</div>`;
     try {
-        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, [...selectedLeagues], excludedPairs);
+        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, [...selectedLeagues], excludedPairs, pinnedLegs);
         renderSlip(data);
     } catch (err) {
         out.innerHTML = `<div class="text-center text-error py-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;

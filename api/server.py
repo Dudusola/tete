@@ -158,6 +158,7 @@ def get_slip(
     games: int = Query(5, ge=1, le=20, description="Number of games"),
     leagues: str = Query(None, description="Comma-separated league names to restrict to"),
     exclude: str = Query(None, description="Fixtures to leave out, as 'Home||Away' pairs separated by ';;'"),
+    pin: str = Query(None, description="Banker legs to lock in, as 'Home||Away||Market||Selection' separated by ';;'"),
 ):
     """Build a risk-based betting slip (one bet per match). Started games are
     excluded; each leg carries SportyBet odds when the bookmaker lists it.
@@ -177,8 +178,15 @@ def get_slip(
             if "||" in pair:
                 h, a = pair.split("||", 1)
                 exclude_set.add(teams_key(h, a))
+    pinned = []
+    if pin:
+        for item in pin.split(";;"):
+            parts = item.split("||")
+            if len(parts) == 4:
+                pinned.append({"home_team": parts[0], "away_team": parts[1],
+                               "market": parts[2], "selection": parts[3]})
     slip = build_slip(all_opts, risk.upper(), games, leagues=league_set,
-                      exclude_keys=exclude_set)
+                      exclude_keys=exclude_set, pinned=pinned)
     combined = accumulator_probability(slip)
 
     leg_dicts = [
@@ -192,6 +200,10 @@ def get_slip(
             "selection": leg.selection,
             "probability": round(leg.probability, 4),
             "risk": leg.risk,
+            "pinned": any(p["home_team"] == leg.home_team
+                          and p["away_team"] == leg.away_team
+                          and p["market"] == leg.market
+                          and p["selection"] == leg.selection for p in pinned),
         }
         for leg in slip
     ]

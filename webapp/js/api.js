@@ -302,10 +302,13 @@ async function apiPost(path, body) {
 const PotentialProAPI = {
     picks:       ()          => apiGet("/api/picks"),
     allPicks:    ()          => apiGet("/api/picks/all"),
-    slip:        (risk, n, leagues, excludePairs) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
+    slip:        (risk, n, leagues, excludePairs, pinnedLegs) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
                      (leagues && leagues.length ? `&leagues=${encodeURIComponent(leagues.join(","))}` : "") +
                      (excludePairs && excludePairs.length
                         ? `&exclude=${encodeURIComponent(excludePairs.map(p => `${p.home}||${p.away}`).join(";;"))}`
+                        : "") +
+                     (pinnedLegs && pinnedLegs.length
+                        ? `&pin=${encodeURIComponent(pinnedLegs.map(p => `${p.home_team}||${p.away_team}||${p.market}||${p.selection}`).join(";;"))}`
                         : "")),
     leagues:     ()          => apiGet("/api/leagues"),
     consensus:   ()          => apiGet("/api/consensus"),
