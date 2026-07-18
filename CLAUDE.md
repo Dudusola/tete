@@ -44,8 +44,11 @@ generate predictions on demand.
 - scrapers/results.py     REAL final scores from Forebet. Hardened vs Cloudflare (retries, stealth, --headed).
 - scrapers/results_api.py Final scores from football-data.org API (free tier). Cloudflare-immune. Covers big leagues only.
 - scrapers/results_espn.py Final scores from ESPN public scoreboard API (no key). Third results source,
-                          Cloudflare-immune; covers leagues football-data misses: MLS, Liga MX, Argentina,
-                          Eliteserien, Allsvenskan, J-League. Only records events ESPN marks completed.
+                          Cloudflare-immune; ~30 leagues football-data misses: MLS/USL, Liga MX, South
+                          America (Arg 1+2, Bra 2, Ecu, Col, Uru, Par, Chi, Per), UEFA comps (qualifiers!),
+                          Scandinavia, smaller Europe, China/India/A-League. Only records events ESPN marks
+                          completed. Fetches league×day scoreboards in a 10-thread pool (~30s; sequential
+                          took 18 min and would hit the 15-min step timeout).
 - models/train.py         Random Forest trainer. 65k historical matches (86 CSVs since 2018 + internationals).
 - models/predict.py       Live predictions + Gemma. TEAM_ALIASES dict for name mismatches.
 - models/markets.py       Derive ~22 markets from H/D/A + Poisson score matrix (1X2, DC, DNB,

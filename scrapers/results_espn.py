@@ -14,6 +14,7 @@ Usage:
 import argparse
 import os
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 import requests
@@ -25,7 +26,9 @@ from scrapers.results_api import team_match, dates_close
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
 
-# ESPN league slugs → label (leagues the football-data free tier does NOT cover)
+# ESPN league slugs → label (leagues the football-data free tier does NOT cover,
+# plus UEFA comps whose qualifiers football-data misses). Slugs verified July 2026;
+# an unknown slug returns HTTP 400 and is just logged as a warning.
 LEAGUES = {
     "usa.1": "MLS",
     "mex.1": "Liga MX",
@@ -33,6 +36,35 @@ LEAGUES = {
     "nor.1": "Eliteserien",
     "swe.1": "Allsvenskan",
     "jpn.1": "J-League",
+    # UEFA (qualifying rounds run all July)
+    "uefa.champions": "Champions League",
+    "uefa.europa": "Europa League",
+    "uefa.europa.conf": "Conference League",
+    # South America
+    "bra.2": "Brazil Serie B",
+    "arg.2": "Argentina Nacional B",
+    "arg.copa": "Copa Argentina",
+    "ecu.1": "Ecuador LigaPro",
+    "col.1": "Colombia Primera A",
+    "uru.1": "Uruguay Primera",
+    "par.1": "Paraguay Primera",
+    "chi.1": "Chile Primera",
+    "per.1": "Peru Liga 1",
+    # North America lower divisions
+    "usa.usl.1": "USL Championship",
+    "usa.usl.l1": "USL League One",
+    # Europe smaller leagues
+    "sco.1": "Scottish Premiership",
+    "irl.1": "Ireland Premier",
+    "fin.1": "Veikkausliiga",
+    "den.1": "Danish Superliga",
+    "sui.1": "Swiss Super League",
+    "aut.1": "Austrian Bundesliga",
+    "rus.1": "Russian Premier",
+    # Asia/Oceania
+    "chn.1": "Chinese Super League",
+    "ind.1": "Indian Super League",
+    "aus.1": "A-League",
 }
 
 
@@ -42,18 +74,29 @@ def fetch_finished(days_back: int = 4) -> list | None:
     out, ok_requests = [], 0
     days = [(datetime.now() - timedelta(days=i)).strftime("%Y%m%d")
             for i in range(days_back + 1)]
-    for slug, label in LEAGUES.items():
-        for day in days:
-            try:
-                resp = requests.get(BASE.format(league=slug),
-                                    params={"dates": day}, timeout=20)
-                resp.raise_for_status()
-                data = resp.json()
-            except (requests.RequestException, ValueError) as e:
-                logger.warning(f"ESPN {label} {day}: {e}")
-                continue
-            ok_requests += 1
-            for ev in data.get("events", []):
+    session = requests.Session()
+
+    def fetch_one(job):
+        slug, label, day = job
+        try:
+            resp = session.get(BASE.format(league=slug),
+                               params={"dates": day}, timeout=20)
+            resp.raise_for_status()
+            return resp.json()
+        except (requests.RequestException, ValueError) as e:
+            logger.warning(f"ESPN {label} {day}: {e}")
+            return None
+
+    jobs = [(slug, label, day)
+            for slug, label in LEAGUES.items() for day in days]
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        responses = list(pool.map(fetch_one, jobs))
+
+    for data in responses:
+        if data is None:
+            continue
+        ok_requests += 1
+        for ev in data.get("events", []):
                 comp = ev.get("competitions", [{}])[0]
                 status = comp.get("status", {}).get("type", {})
                 if not status.get("completed"):
