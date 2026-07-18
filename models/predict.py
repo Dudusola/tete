@@ -27,7 +27,7 @@ MODEL_PATH = "./models/random_forest_v1.joblib"
 # form includes our own recorded results. Bumped so the ledger separates eras.
 # rf_v1c = same model, but the confidence TIER is now consensus-adjusted
 # (see apply_consensus_modifier). Probabilities are untouched.
-MODEL_VERSION = "rf_v1c"
+MODEL_VERSION = "rf_v1d"  # rf_v1d = July 2026 data refresh (+SWE/FIN/IRL leagues)
 
 # Confidence tiers calibrated from training evaluation (12 June 2026):
 #   >=65% model prob -> ~75% historical accuracy -> HIGH
