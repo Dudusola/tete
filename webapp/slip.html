@@ -80,7 +80,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 
 <!-- League filter -->
 <section>
-<h2 class="text-headline-md font-headline-md text-primary mb-md">Leagues <span class="text-label-sm text-on-surface-variant font-normal">(optional — tap to filter, none selected = all)</span></h2>
+<h2 class="text-headline-md font-headline-md text-primary mb-md">Leagues</h2>
 <div class="flex flex-wrap gap-sm" id="league-group">
 <span class="text-label-sm text-on-surface-variant">Loading leagues…</span>
 </div>
@@ -107,7 +107,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 rounded-xl" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
 </nav>
 
-<script src="js/api.js?v=12"></script>
+<script src="js/api.js?v=13"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
@@ -268,7 +268,9 @@ async function generateSlip() {
 
 function paintLeagues() {
     document.querySelectorAll(".league-btn").forEach(btn => {
-        const on = selectedLeagues.has(btn.dataset.league);
+        const on = btn.dataset.league === "__all__"
+            ? selectedLeagues.size === 0
+            : selectedLeagues.has(btn.dataset.league);
         btn.className = "league-btn px-md py-xs rounded-full text-label-sm transition " +
             (on ? "bg-primary text-on-primary font-semibold shadow-sm"
                 : "border border-outline-variant text-on-surface hover:bg-surface-container-high");
@@ -283,15 +285,19 @@ async function loadLeagues() {
             group.innerHTML = `<span class="text-label-sm text-on-surface-variant">No upcoming leagues right now.</span>`;
             return;
         }
-        group.innerHTML = d.leagues.map(l =>
+        group.innerHTML =
+            `<button data-league="__all__" class="league-btn px-md py-xs rounded-full text-label-sm transition">All leagues</button>` +
+            d.leagues.map(l =>
             `<button data-league="${escapeHtml(l.name)}" class="league-btn px-md py-xs rounded-full border border-outline-variant text-label-sm text-on-surface hover:bg-surface-container-high transition">${escapeHtml(prettyLeague(l.name))} (${l.upcoming_matches})</button>`
         ).join("");
         group.querySelectorAll(".league-btn").forEach(btn =>
             btn.addEventListener("click", () => {
                 const key = btn.dataset.league;
-                selectedLeagues.has(key) ? selectedLeagues.delete(key) : selectedLeagues.add(key);
+                if (key === "__all__") selectedLeagues.clear();
+                else selectedLeagues.has(key) ? selectedLeagues.delete(key) : selectedLeagues.add(key);
                 paintLeagues();
             }));
+        paintLeagues();
     } catch (err) {
         group.innerHTML = `<span class="text-label-sm text-on-surface-variant">Couldn't load leagues (API offline?) — slips will use all leagues.</span>`;
     }

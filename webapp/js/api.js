@@ -191,7 +191,34 @@ if ("serviceWorker" in navigator) {
 /* Shared display helper: turn scraped league slugs like
    "world-cup-2026-last-" into "World Cup 2026 Last". Pages that render
    in ALL CAPS keep doing so via their `uppercase` CSS class. */
+/* Forebet's short league codes -> human names. Codes not listed fall through
+   to the slug prettifier below. */
+const LEAGUE_CODES = {
+    Us1: "MLS", Us2: "USL Championship", Us4: "USL League Two",
+    Mx1: "Liga MX", Br1: "Brazil Serie A", Br2: "Brazil Serie B",
+    Br3: "Brazil Serie C", Br4: "Brazil Serie D", BrC: "Copa do Brasil",
+    BrM: "Brazil Mineiro", BrP: "Brazil Paulista", BrB: "Brazil Baiano",
+    BrW: "Brazil Women", Ar1: "Argentina Primera", Ar2: "Argentina Nacional B",
+    Ar3: "Argentina Metro B", ArR: "Argentina Regional", ArC: "Copa Argentina",
+    No1: "Eliteserien", No2: "Norway OBOS", Se1: "Allsvenskan",
+    Se2: "Superettan", Fi1: "Veikkausliiga", Fi2: "Finland Ykkonen",
+    Fi3: "Finland Kakkonen", Dk1: "Danish Superliga", Ir1: "Ireland Premier",
+    Ir2: "Ireland First Div", Is1: "Iceland Besta", Cn1: "Chinese Super League",
+    Cn2: "China League One", Cn3: "China League Two", Jp1: "J1 League",
+    Jp2: "J2 League", Kr1: "K League 1", KrC: "Korea Cup",
+    In3: "India I-League", Ec1: "Ecuador LigaPro", Co1: "Colombia Primera",
+    Ur1: "Uruguay Primera", Pa1: "Paraguay Primera", Ch1: "Chile Primera",
+    Pe1: "Peru Liga 1", Bo1: "Bolivia Primera", Uz1: "Uzbekistan Super",
+    Kz1: "Kazakhstan Premier", Kz2: "Kazakhstan First", Ru1: "Russian Premier",
+    RuY: "Russia Youth", So1: "Somalia League", Mz1: "Mozambique",
+    Au1: "A-League", AuQ: "Australia Queensland", AuW: "Australia West",
+    AuV: "Australia Victoria", AuN: "Australia NSW", AuS: "Australia South",
+    AuT: "Australia Tasmania", Sc1: "Scottish Premiership", ScC: "Scottish Cup",
+    Nz2: "New Zealand", UCL: "Champions League", ECL: "Conference League",
+};
+
 function prettyLeague(s) {
+    if (LEAGUE_CODES[s]) return LEAGUE_CODES[s];
     const cleaned = (s || "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
     if (!cleaned) return "Football";
     return cleaned.replace(/\b[a-z]/g, c => c.toUpperCase());
