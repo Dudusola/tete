@@ -138,7 +138,7 @@ def _attach_consensus(picks: list) -> list:
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
-@app.get("/")
+@app.get("/healthz")
 def health():
     return {"status": "ok", "service": "PotentialPro API"}
 
@@ -509,3 +509,15 @@ def booking_generate(legs: List[dict] = Body(..., embed=True),
     except BookingCodeError as e:
         return {"ok": False, "error": str(e)}
     return {"ok": True, "provider": provider, **res}
+
+# ─── Serve the PWA from the API (single-origin deploy) ────────────────────────
+# Mounting the web app here means ONE tunnel/host exposes both the site and the
+# API at the same origin: config.js can stay blank (api.js falls back to the
+# page's own origin), so a changing quick-tunnel URL needs no redeploy. Mounted
+# last so every /api/... route above still takes precedence. html=True serves
+# index.html at / and handles the other .html pages.
+from fastapi.staticfiles import StaticFiles  # noqa: E402
+
+_WEBAPP_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "webapp")
+if os.path.isdir(_WEBAPP_DIR):
+    app.mount("/", StaticFiles(directory=_WEBAPP_DIR, html=True), name="webapp")

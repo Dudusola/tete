@@ -1,8 +1,36 @@
 # Deploying PotentialPro for testers
 
-**Chosen shape (July 2026):** the daily pipeline + SQLite DB stay on the
-laptop (free, already working, keeps the honest ledger local). Only two things
-go public:
+## Current setup (single-origin tunnel — SIMPLEST, use this now)
+
+The FastAPI now **also serves the web app** (StaticFiles mount at the bottom of
+api/server.py). So ONE tunnel exposes the whole thing — site + API at the same
+origin — and `webapp/config.js` stays blank (api.js falls back to the page's
+own origin). A changing quick-tunnel URL needs **no edits and no redeploy**;
+just share the new URL.
+
+**To go live:**
+```
+start_public.bat
+```
+It starts the API (which serves the PWA), the bot, waits for health, then opens
+the cloudflare tunnel. Copy the `https://<random>.trycloudflare.com` URL it
+prints and share THAT — it's the whole app.
+
+Notes baked into start_public.bat (learned the hard way, July 2026):
+- `--protocol http2` — this network blocks cloudflared's default QUIC/UDP path
+  (port 7844); without this the tunnel keeps dropping ("control stream failure").
+- `http://127.0.0.1:8080` not `localhost` — cloudflared resolves localhost to
+  IPv6 ::1 first, but uvicorn listens on IPv4, giving a 530 origin error.
+
+Quick tunnels mint a NEW url each run. That's the only downside — fixed with a
+named tunnel once you own a domain (~$1-12/yr). See "Named tunnel" below.
+
+---
+
+## Alternative: separate static host (needs redeploy on URL change)
+
+Only if you'd rather host the PWA on Cloudflare Pages/Netlify instead of serving
+it from the API. Then the two pieces are:
 
 1. **The PWA** (webapp/) → a free static host (Cloudflare Pages / Netlify).
 2. **The FastAPI** → exposed from the laptop through a secure tunnel so the
@@ -71,6 +99,20 @@ app.netlify.com/drop. Done.
 - Keep `start_all.bat` (API + web + bot) and the tunnel running for testers to
   have access. If the laptop sleeps, access pauses — that's the tradeoff we
   accepted vs. paying for a VPS (~$5/mo) for true 24/7. See CLAUDE.md.
+
+## Named tunnel (fixed URL — do once you have a domain)
+
+Quick tunnels change URL each run. A named tunnel keeps a permanent hostname,
+but Cloudflare needs a domain you own on its (free) plan:
+```
+cloudflared tunnel login                       # browser auth; pick your domain
+cloudflared tunnel create potentialpro         # makes a persistent tunnel + creds
+cloudflared tunnel route dns potentialpro app.YOURDOMAIN.com
+cloudflared tunnel run --url http://127.0.0.1:8080 potentialpro
+```
+Then `app.YOURDOMAIN.com` always points at the laptop's API. A `.xyz`/`.site`
+domain is often ~$1-3 first year; Cloudflare Registrar sells `.com` at ~$10/yr
+wholesale.
 
 ## Before commercial / real launch
 - Move to a small VPS (~$5/mo) so it's laptop-independent.

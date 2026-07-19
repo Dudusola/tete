@@ -2,4 +2,6 @@
    When you deploy the PWA, set this to your public API URL (the tunnel or
    cloud host that fronts your laptop's FastAPI). Locally it can stay blank —
    api.js falls back to http://localhost:8080. */
-window.PP_API_BASE = "https://music-parenting-cordless-mailed.trycloudflare.com";   // quick-tunnel URL (changes each cloudflared restart)
+window.PP_API_BASE = "";   // blank on purpose: the API serves the PWA too, so
+                           // api.js uses the page's own origin. One tunnel = whole
+                           // app, no rewrite when the tunnel URL changes.
