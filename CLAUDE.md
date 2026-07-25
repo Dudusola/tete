@@ -157,6 +157,23 @@ unknown until the honest ledger matures.
    pct only as fallback), MODEL_VERSION bumped to rf_v1b so ledger eras are
    separable. Team form at predict time also now includes our own recorded
    results, not just the historical CSVs.
+8. **Silent results-COVERAGE gap (July 2026).** The pipeline ran daily and
+   scored promptly, yet ~half of all predicted matches were never graded — so
+   the tier hit-rates were computed on a flattering subset (the picks we COULD
+   score skewed toward the ones we got right). Root cause: results_espn.py
+   queried only the main UEFA slugs (uefa.europa/champions/conf), which are
+   EMPTY in summer because ESPN keeps qualifying rounds under SEPARATE slugs
+   (uefa.europa_qual, uefa.champions_qual, uefa.europa.conf_qual). The World
+   Cup had no slug at all. FIX: added fifa.world + the three _qual slugs +
+   swe.2; widened default lookback 4→7 days (a single failed run no longer
+   permanently loses matches >4 days old). Backfill (results_espn.py --days 45)
+   took graded 1X2 picks 55→88 and — tellingly — dropped the HIGH tier from
+   57% to 38%, i.e. the missing data was mostly losses. Residual ungraded =
+   Veikkausliiga/Superettan/Copa Sudamericana, which ESPN lists but publishes
+   NO scores for (need another source or don't serve them as gradeable).
+   **Grading COVERAGE is a first-class health metric, not just cadence —
+   check `python db/track_record_health.py`. A tier % means nothing if the
+   picks it omits are the ones that lost. Run it before trusting calibration.**
 
 ## Decisions & their reasoning
 - **Web app / PWA, not React Native** — free deploy, one codebase, installable. RN deferred to paying-users phase.
