@@ -227,16 +227,24 @@ unknown until the honest ledger matures.
    /api/picks/all attach a `consensus` field per pick ({sources, agree,
    agreed_outcome} or null); index.html shows "N sources agree" / "sources split"
    badges. Reuses consensus.py's fuzzy ±1 day matching via _attach_consensus.
-3. ~~Consensus as a confidence modifier in predict.py~~ DONE (July 2026):
-   apply_consensus_modifier — MEDIUM→HIGH when 2+ sources agree WITH the model,
-   HIGH→MEDIUM when they agree AGAINST it, LOW never promoted, probabilities
-   untouched. Adjustment stored in model_predictions.consensus_adj
-   ('boosted'/'demoted'/NULL) so the ledger can answer "do boosts win?";
-   MODEL_VERSION bumped to rf_v1c to separate eras. /api/picks serves
-   consensus_adj; index.html shows "consensus boost"/"tier lowered" chips.
-4. Model-vs-Forebet-on-real-results tracker (needs mature ledger) — validates the premise.
-5. Polish: truncated league names ("world-cup-2026-last-"), add "Checker" to all navs.
-6. DEFERRED until football is validated: second sport, cloud 24/7 deploy, real booking codes.
+3. ~~Consensus as a confidence modifier in predict.py~~ DONE then PARTLY
+   REVERTED (July 2026): apply_consensus_modifier stored consensus_adj
+   ('boosted'/'demoted'/NULL) so the ledger could answer "do boosts win?".
+   Answer: NO — the MEDIUM→HIGH **boost went 0/3 and every one lost badly**
+   (1-5, 0-4, 4-3), dragging marginal 56-61% picks into HIGH and tanking the
+   tier (HIGH → 5/13). **Boost DISABLED in rf_v1e**; the protective HIGH→MEDIUM
+   demote is kept. Re-enable only if a matured ledger shows agreement-with-model
+   wins. index.html still renders the chips; boosted picks simply won't occur.
+4. **Investigate the HIGH-tier inversion (NEW top priority).** With honest
+   coverage, HIGH 5/13 (38%) < MEDIUM 15/20 (75%). Beyond the boost, the tier is
+   polluted by 60-70% picks: the ≥73% picks are ~4/1, everything ≤70% is ~1/7,
+   and WC/MLS favorites drew or got upset (3 WC "Home Win" HIGH picks ended 0-0).
+   Candidate fixes once the sample matures: raise the HIGH threshold from ≥65% to
+   ~72%, and/or league-aware confidence (MLS parity, WC draw-proneness). Do NOT
+   hard-change calibration on 13 samples — let rf_v1e accumulate first.
+5. Model-vs-Forebet-on-real-results tracker (needs mature ledger) — validates the premise.
+6. Polish: truncated league names ("world-cup-2026-last-"), add "Checker" to all navs.
+7. DEFERRED until football is validated: second sport, cloud 24/7 deploy, real booking codes.
 
 ## Gotchas
 - PowerShell `Out-File` writes null bytes → "source code string cannot contain null bytes". Use New-Item for empty files.

@@ -27,7 +27,8 @@ MODEL_PATH = "./models/random_forest_v1.joblib"
 # form includes our own recorded results. Bumped so the ledger separates eras.
 # rf_v1c = same model, but the confidence TIER is now consensus-adjusted
 # (see apply_consensus_modifier). Probabilities are untouched.
-MODEL_VERSION = "rf_v1d"  # rf_v1d = July 2026 data refresh (+SWE/FIN/IRL leagues)
+MODEL_VERSION = "rf_v1e"  # rf_v1e = consensus BOOST disabled (was 0/3, harmed
+                          # HIGH tier); demote kept. rf_v1d = July data refresh.
 
 # Confidence tiers calibrated from training evaluation (12 June 2026):
 #   >=65% model prob -> ~75% historical accuracy -> HIGH
@@ -198,13 +199,22 @@ def apply_consensus_modifier(match: dict, best_outcome: str,
 
     Rules (deliberately conservative — the tier calibration story depends on
     these staying rare and defensible):
-      - boost:  MEDIUM -> HIGH when 2+ sources agree WITH the model's outcome.
       - demote: HIGH -> MEDIUM when 2+ sources agree on a DIFFERENT outcome.
+        Protective: it only ever REMOVES a doubtful pick from HIGH.
       - LOW is never promoted: sources agreeing on a coin-flip doesn't make it
         bettable. Probabilities are never changed, only the tier label.
 
+    BOOST DISABLED (rf_v1e, July 2026). The MEDIUM->HIGH boost went 0/3 on the
+    honest ledger and every one lost badly (1-5, 0-4, 4-3 against): it was
+    dragging genuinely-marginal 56-61% picks into HIGH and tanking the tier's
+    calibration (HIGH fell to 5/13). Since the boost is the ONLY mechanism that
+    promotes a pick INTO HIGH, disabling it is the single cleanest lever on
+    HIGH-tier honesty. Kept the code path but neutered the promotion; re-enable
+    only if a matured ledger shows agreement-with-model actually wins. See the
+    track record via db/track_record_health.py.
+
     Returns (confidence, consensus_adj) where consensus_adj is
-    'boosted' / 'demoted' / None — stored in the ledger so we can later
+    'demoted' / None — stored in the ledger so we can later
     measure whether these adjustments actually win.
     """
     for entry in consensus:
@@ -212,8 +222,7 @@ def apply_consensus_modifier(match: dict, best_outcome: str,
             continue
         if len(entry["sources"]) < 2 or not entry["agree"]:
             return confidence, None
-        if entry["agreed_outcome"] == best_outcome and confidence == "MEDIUM":
-            return "HIGH", "boosted"
+        # BOOST DISABLED: no longer promote MEDIUM -> HIGH (was 0/3, net-harmful).
         if entry["agreed_outcome"] != best_outcome and confidence == "HIGH":
             return "MEDIUM", "demoted"
         return confidence, None
