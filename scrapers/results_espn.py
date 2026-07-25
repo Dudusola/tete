@@ -35,11 +35,23 @@ LEAGUES = {
     "arg.1": "Argentina Primera",
     "nor.1": "Eliteserien",
     "swe.1": "Allsvenskan",
+    "swe.2": "Superettan",  # valid slug; ESPN carries fixtures but often no scores
     "jpn.1": "J-League",
-    # UEFA (qualifying rounds run all July)
+    # FIFA World Cup — national-team names match our fixtures directly. Our
+    # biggest single ungraded block (~29 picks) was the 2026 WC going unscored.
+    "fifa.world": "World Cup",
+    # UEFA main competitions
     "uefa.champions": "Champions League",
     "uefa.europa": "Europa League",
     "uefa.europa.conf": "Conference League",
+    # UEFA QUALIFYING — SEPARATE slugs (verified July 2026). The bulk of our
+    # July/August European picks are qualifiers, and ESPN keeps them OUT of the
+    # main-competition slugs above (uefa.europa is EMPTY in summer). Omitting
+    # these silently dropped every Europa/Conf/Champions qualifier we predicted.
+    # Confirmed: uefa.europa_qual/20260716 returns our exact fixtures, completed.
+    "uefa.champions_qual": "Champions League Qualifying",
+    "uefa.europa_qual": "Europa League Qualifying",
+    "uefa.europa.conf_qual": "Conference League Qualifying",
     # South America
     "bra.2": "Brazil Serie B",
     "arg.2": "Argentina Nacional B",
@@ -56,7 +68,9 @@ LEAGUES = {
     # Europe smaller leagues
     "sco.1": "Scottish Premiership",
     "irl.1": "Ireland Premier",
-    "fin.1": "Veikkausliiga",
+    "fin.1": "Veikkausliiga",  # valid slug but ESPN publishes NO scores for it
+                               # (verified July 2026) — kept in case that changes;
+                               # Veikkausliiga picks currently go ungraded here.
     "den.1": "Danish Superliga",
     "sui.1": "Swiss Super League",
     "aut.1": "Austrian Bundesliga",
@@ -68,7 +82,7 @@ LEAGUES = {
 }
 
 
-def fetch_finished(days_back: int = 4) -> list | None:
+def fetch_finished(days_back: int = 7) -> list | None:
     """Finished matches from ESPN across LEAGUES for the last N days.
     Returns None only if every request failed (network/API down)."""
     out, ok_requests = [], 0
@@ -169,7 +183,7 @@ def score_our_fixtures(api_results: list) -> int:
     return inserted
 
 
-def run(days_back: int = 4):
+def run(days_back: int = 7):
     api_results = fetch_finished(days_back)
     if api_results is None:
         logger.error("Every ESPN request failed — exiting non-zero")
@@ -182,5 +196,5 @@ def run(days_back: int = 4):
 
 if __name__ == "__main__":
     p = argparse.ArgumentParser()
-    p.add_argument("--days", type=int, default=4)
+    p.add_argument("--days", type=int, default=7)
     run(p.parse_args().days)
