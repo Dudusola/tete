@@ -27,6 +27,7 @@ Usage:
 
 import argparse
 import os
+import time
 import sys
 from datetime import date, timedelta
 
@@ -48,6 +49,11 @@ SOURCE = "apifootball"
 # project keeps getting bitten by (bugs #5, #8, #9).
 MAX_REQUESTS = int(os.getenv("APIFOOTBALL_MAX_REQUESTS", "60"))
 _requests_used = 0
+
+# Seconds between calls. The free plan caps requests per MINUTE, not just
+# per day; 7s keeps us under ~9/min with room to spare.
+MIN_INTERVAL = float(os.getenv("APIFOOTBALL_MIN_INTERVAL", "7"))
+_last_call = 0.0
 
 # The FREE plan rejects page > 3 outright ("Free plans are limited to a maximum
 # value of 3 for the Page parameter"), so a date-wide odds sweep tops out around
@@ -87,13 +93,22 @@ LEAGUE_IDS = {
 
 
 def _get(path: str, params: dict) -> dict:
-    """One API call, with budget accounting and loud failure."""
-    global _requests_used
+    """One API call, with budget accounting, pacing, and loud failure."""
+    global _requests_used, _last_call
     if _requests_used >= MAX_REQUESTS:
         raise RuntimeError(
             f"Request budget exhausted ({MAX_REQUESTS}). Refusing to continue — "
             "a partial fetch must not be mistaken for an empty day."
         )
+
+    # The free plan limits requests PER MINUTE as well as per day. Firing a
+    # burst got this project's account flagged as suspended on 6 Aug 2026 while
+    # the dashboard still showed only 49% of the daily quota used — so the daily
+    # budget above is not sufficient protection on its own.
+    gap = time.monotonic() - _last_call
+    if gap < MIN_INTERVAL:
+        time.sleep(MIN_INTERVAL - gap)
+    _last_call = time.monotonic()
     r = requests.get(f"{BASE}{path}", headers={"x-apisports-key": API_KEY},
                      params=params, timeout=40)
     _requests_used += 1
