@@ -58,6 +58,33 @@ MAX_ODDS_PAGES = int(os.getenv("APIFOOTBALL_MAX_ODDS_PAGES", "3"))
 # 1X2 market. API-Football calls it "Match Winner" (id 1).
 MATCH_WINNER = "Match Winner"
 
+# Leagues we hold historical training data for (data/historical/*.csv). Querying
+# ONLY these is the whole point: a date-wide sweep returns fixtures ordered by
+# id, which handed us Copa Ecuador and Bolivian Primera División — leagues whose
+# teams aren't in the model, so 45 of 60 fixtures were unusable.
+#
+# Ids resolved live from /leagues?current=true on 6 Aug 2026 (all 34 matched).
+# Regenerate with:  python scrapers/fixtures_api.py --discover
+LEAGUE_IDS = {
+    39:  "England Premier League",   40:  "England Championship",
+    41:  "England League One",       42:  "England League Two",
+    140: "Spain La Liga",            141: "Spain Segunda Division",
+    78:  "Germany Bundesliga",       79:  "Germany 2. Bundesliga",
+    135: "Italy Serie A",            136: "Italy Serie B",
+    61:  "France Ligue 1",           62:  "France Ligue 2",
+    88:  "Netherlands Eredivisie",   144: "Belgium Jupiler Pro League",
+    94:  "Portugal Primeira Liga",   203: "Turkey Super Lig",
+    197: "Greece Super League 1",    179: "Scotland Premiership",
+    128: "Argentina Liga Profesional", 71: "Brazil Serie A",
+    253: "USA Major League Soccer",  262: "Mexico Liga MX",
+    169: "China Super League",       98:  "Japan J1 League",
+    103: "Norway Eliteserien",       218: "Austria Bundesliga",
+    119: "Denmark Superliga",        106: "Poland Ekstraklasa",
+    283: "Romania Liga I",           235: "Russia Premier League",
+    207: "Switzerland Super League", 113: "Sweden Allsvenskan",
+    244: "Finland Veikkausliiga",    357: "Ireland Premier Division",
+}
+
 
 def _get(path: str, params: dict) -> dict:
     """One API call, with budget accounting and loud failure."""
@@ -90,16 +117,29 @@ def fetch_fixtures(day: str) -> list:
     return fixtures
 
 
-def fetch_odds(day: str) -> dict:
-    """1X2 odds for a date, keyed by fixture id. Paginated ~10 per page.
+def fetch_odds(day: str, league_id: int = None, season: int = None) -> dict:
+    """1X2 odds keyed by fixture id, for one league-day.
 
-    Takes the FIRST bookmaker offering Match Winner. We only need a market
-    consensus for the odds-implied probability feature, not the best price.
+    Scoped to a league on purpose. A date-wide sweep is paginated and the free
+    plan rejects page > 3, so it returned an arbitrary ~30 fixtures — mostly
+    leagues the model has never seen. Per-league queries fit in one page and
+    hit the fixtures we can actually predict.
+
+    Takes the FIRST bookmaker offering Match Winner: we need a market consensus
+    for the odds-implied probability feature, not the best available price.
     """
     odds_by_fixture = {}
     page = 1
     while True:
-        data = _get("/odds", {"date": day, "page": page})
+        params = {"date": day, "page": page}
+        if league_id:
+            # The API rejects `league` without `season` ("The Season field is
+            # required"), and the season year is NOT always the calendar year
+            # (J1 League is on 2027) — so it's taken from the fixture itself,
+            # never assumed.
+            params["league"] = league_id
+            params["season"] = season
+        data = _get("/odds", params)
         for entry in data.get("response") or []:
             fid = entry["fixture"]["id"]
             if fid in odds_by_fixture:
@@ -132,7 +172,6 @@ def fetch_odds(day: str) -> dict:
             break
         page += 1
 
-    logger.info(f"[{day}] odds for {len(odds_by_fixture)} fixtures")
     return odds_by_fixture
 
 
@@ -207,7 +246,33 @@ def run(days: int = 2) -> int:
         fixtures = fetch_fixtures(day)
         if not fixtures:
             continue
-        all_rows.extend(build_rows(fixtures, fetch_odds(day)))
+
+        # Keep only leagues the model has history for — everything else would
+        # be skipped downstream anyway ("teams not in historical data") and
+        # would pad the fixtures table with matches we can neither predict nor
+        # reliably grade (the coverage trap of bug #8).
+        ours = [f for f in fixtures if f["league"]["id"] in LEAGUE_IDS]
+        # (league id, season) — season comes from the fixture, see fetch_odds.
+        leagues_today = sorted({(f["league"]["id"], f["league"]["season"])
+                                for f in ours})
+        logger.info(f"[{day}] {len(ours)} fixtures in {len(leagues_today)} "
+                    f"of our leagues (from {len(fixtures)} total)")
+        if not ours:
+            continue
+
+        # Odds must be fetched date-wide, NOT per league. The free plan rejects
+        # any season-scoped query for the current season ("Free plans do not
+        # have access to this season, try from 2022 to 2024"), and `league`
+        # requires `season` — so per-league targeting is impossible here.
+        # We therefore sweep by date and filter to our leagues ourselves. The
+        # sweep is capped at 3 pages by the plan, so coverage is partial and
+        # essentially arbitrary: treat whatever arrives as a bonus second
+        # opinion, never as the fixture feed.
+        odds = fetch_odds(day)
+        logger.info(f"[{day}] odds sweep returned {len(odds)} fixtures "
+                    f"(capped at {MAX_ODDS_PAGES} pages by the free plan)")
+
+        all_rows.extend(build_rows(ours, odds))
 
     logger.info(f"API requests used: {_requests_used}/{MAX_REQUESTS}")
     if not all_rows:
@@ -223,7 +288,19 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=2,
                     help="how many days from today (default 2 = today+tomorrow)")
+    ap.add_argument("--discover", action="store_true",
+                    help="re-resolve LEAGUE_IDS from the API and print them")
     args = ap.parse_args()
+
+    if args.discover:
+        data = _get("/leagues", {"current": "true"})
+        for x in data.get("response") or []:
+            lg, co = x["league"], x["country"]["name"]
+            if lg["id"] in LEAGUE_IDS:
+                seasons = [s for s in x["seasons"] if s.get("current")]
+                yr = seasons[0]["year"] if seasons else "?"
+                print(f"{lg['id']:<5} {co} {lg['name']} (season {yr})")
+        sys.exit(0)
 
     saved = run(args.days)
     sys.exit(0 if saved else 1)
