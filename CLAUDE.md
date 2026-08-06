@@ -287,3 +287,15 @@ unknown until the honest ledger matures.
   manually in Task Scheduler (harmless if it keeps running; duplicate runs are safe).
 - July 2026 off-season: Europe on break, so the ledger depends on Brazil/MLS/Mexico/
   Scandinavia — that's why results_espn.py exists (football-data free tier lacks MLS).
+- **Piping a secret to a CLI in PowerShell 5.1 prepends a BOM.** `$v | gh secret set X`
+  stores "﻿<value>" — the token then dies server-side with
+  `UnicodeEncodeError: 'latin-1' codec can't encode character '﻿'` when it
+  goes into an HTTP header. The local .env was clean; PS added the BOM at the
+  pipe. Use `gh secret set X --body $v` instead (PS 5.1 has no `<` redirection
+  for native commands). Applies to any value piped into any native exe.
+- **GitHub Actions IP reality (probed 6 Aug 2026, twice, same result):**
+  Forebet = BLOCKED (0 rows, both today and tomorrow pages);
+  PredictZ = WORKS (166 matches — Firefox stealth survives datacenter IPs);
+  football-data.org API = WORKS; ESPN API = WORKS. So the cloud can run
+  everything EXCEPT Forebet fixture scraping. Re-probe with the
+  "Probe scrapers" workflow before assuming this still holds.
