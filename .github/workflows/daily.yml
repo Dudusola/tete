@@ -83,6 +83,19 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python run_daily.py
 
+      # Sending is one HTTPS call — it never needed the long-running bot.
+      # telegram_bot.py still serves the interactive commands; this only
+      # replaces the 08:00 push that used to depend on that process being up
+      # on a laptop that was often off.
+      - name: Send picks to Telegram
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+          PYTHONIOENCODING: utf-8
+        run: python bot/send_daily.py
+
       - name: Ledger health
         if: always()
         run: python db/track_record_health.py
