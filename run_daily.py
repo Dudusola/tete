@@ -115,15 +115,27 @@ def main():
 
     ok = True
 
-    # 1. Fresh fixtures from both sources
+    # 1. Fresh fixtures from all sources
     #    Scrapers are flaky by nature, so they're non-required - if one source
     #    fails, the pipeline still runs on whatever data we have.
-    run_step("Scrape Forebet fixtures", ["scrapers/forebet.py"], required=False)
+    #    Forebet is EXPECTED to fail in the cloud: Cloudflare 403s datacenter
+    #    IPs (verified from GitHub Actions - plain HTTP, Chromium and Firefox
+    #    all blocked). Skipped there via PP_SKIP_FOREBET so a known, unfixable
+    #    block doesn't masquerade as a pipeline problem every single day.
+    if os.getenv("PP_SKIP_FOREBET", "").strip() == "1":
+        logger.info("⏭  Skipping Forebet (PP_SKIP_FOREBET=1 — IP-blocked here)")
+    else:
+        run_step("Scrape Forebet fixtures", ["scrapers/forebet.py"], required=False)
     run_step("Scrape PredictZ fixtures", ["scrapers/predictz.py"], required=False)
+    run_step("Fixtures + odds (API-Football)", ["scrapers/fixtures_api.py"],
+             required=False)
 
     # 2. Score finished matches (two independent sources - Forebet scrape
     #    plus football-data.org API - so a Cloudflare block can't kill scoring)
-    run_step("Record results (Forebet)", ["scrapers/results.py"], required=False)
+    if os.getenv("PP_SKIP_FOREBET", "").strip() == "1":
+        logger.info("⏭  Skipping Forebet results (same IP block)")
+    else:
+        run_step("Record results (Forebet)", ["scrapers/results.py"], required=False)
     run_step("Record results (football-data API)", ["scrapers/results_api.py"], required=False)
     run_step("Record results (ESPN)", ["scrapers/results_espn.py"], required=False)
 

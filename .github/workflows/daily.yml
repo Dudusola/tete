@@ -77,9 +77,14 @@ jobs:
           FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          APIFOOTBALL_KEY: ${{ secrets.APIFOOTBALL_KEY }}
           AI_PROVIDER: gemini
           GEMINI_MODEL: gemini-3.5-flash-lite
           DB_PATH: ./db/sports_predictor.db
+          # Forebet is Cloudflare-403'd from GitHub's IPs — verified, not
+          # assumed. Skipping keeps a known-unfixable block from looking like
+          # a daily failure. It still runs locally, where it works.
+          PP_SKIP_FOREBET: '1'
           PYTHONUTF8: '1'
           PYTHONIOENCODING: utf-8
         run: python run_daily.py
