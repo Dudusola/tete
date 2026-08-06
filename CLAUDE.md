@@ -298,6 +298,18 @@ unknown until the honest ledger matures.
   goes into an HTTP header. The local .env was clean; PS added the BOM at the
   pipe. Use `gh secret set X --body $v` instead (PS 5.1 has no `<` redirection
   for native commands). Applies to any value piped into any native exe.
+- **Forebet IP block: every free route is now ruled out (6 Aug 2026).**
+  GitHub Actions = HTTP 403 challenge (plain requests, Chromium AND Firefox —
+  so it is IP reputation, not browser fingerprint). Cloudflare Workers =
+  error 1042, Cloudflare's loop protection refusing a Worker subrequest to a
+  Cloudflare-proxied site. Forebet is itself behind Cloudflare, so no free
+  cloud egress we can reach will scrape it. Remaining options are all paid
+  (residential proxy ~$50/mo) or self-hosted (a runner on Boss's own IP).
+  The pipeline therefore skips Forebet in the cloud via PP_SKIP_FOREBET=1.
+  **Cost of losing it is small and measured**: PredictZ supplies MORE rows and
+  MORE odds; Forebet's only unique field is over_2_5_pct, which feeds the
+  analysis text, not the model. Do not spend more time on this without a
+  budget — it has been tested to exhaustion.
 - **GitHub Actions IP reality (probed 6 Aug 2026, twice, same result):**
   Forebet = BLOCKED (0 rows, both today and tomorrow pages);
   PredictZ = WORKS (166 matches — Firefox stealth survives datacenter IPs);
