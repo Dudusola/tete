@@ -7,8 +7,11 @@ venv/
 __pycache__/
 *.pyc
 
-# Data & artifacts (rebuilt by pipeline / too big for git)
-data/
+# Data & artifacts
+# data/historical IS tracked (21 MB of football-data.co.uk CSVs) — it is the
+# model's training input, so a fresh clone can run models/train.py unaided.
+data/raw/
+data/*.log
 db/*.db
 db/*.db-journal
 db/*.db-wal
