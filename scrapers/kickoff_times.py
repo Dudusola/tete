@@ -33,12 +33,96 @@ from loguru import logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.consensus import _sim
-from scrapers.results_espn import LEAGUES
+from scrapers.results_espn import LEAGUES as RESULT_LEAGUES
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
 
-# Same threshold consensus.py uses for "these are the same two teams".
-SIM_THRESHOLD = 0.80
+# results_espn.py's list exists to cover leagues football-data.org MISSES, so it
+# deliberately omits the big European leagues and the domestic cups. For kickoff
+# times we want the opposite: every competition we actually predict. Omitting
+# them is why "time TBC" dominated — EFL Cup, Conference League and the European
+# top flights all fell outside the results-oriented list.
+EXTRA_LEAGUES = {
+    # England
+    "eng.1", "eng.2", "eng.3", "eng.4", "eng.league_cup", "eng.fa",
+    # Europe's big five + others we hold data for
+    "esp.1", "esp.2", "ger.1", "ger.2", "ita.1", "ita.2",
+    "fra.1", "fra.2", "ned.1", "por.1", "bel.1", "tur.1", "gre.1",
+    # Cups and continental competitions
+    "concacaf.leagues.cup", "uefa.super_cup", "concacaf.champions",
+    "conmebol.libertadores", "conmebol.sudamericana",
+    # Domestic cups for leagues already in the results list
+    "esp.copa_del_rey", "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france",
+}
+
+LEAGUES = set(RESULT_LEAGUES) | EXTRA_LEAGUES
+
+# Matching thresholds. A pure min(sim) >= 0.80 rule rejected real matches:
+# ESPN writes "Wolverhampton Wanderers" where PredictZ writes "Wolves", and
+# "Santos" where we hold "Santos Laguna". Both are unambiguous to a human.
+# So: BOTH sides must be plausible, and the PAIR must be strong on average —
+# one exact name plus one abbreviation now matches, but two vague names don't.
+SIM_FLOOR = 0.55        # neither side may be worse than this
+SIM_MEAN = 0.86         # ...and the two together must average this
+# 0.86 not 0.82: "Manchester United" vs "Manchester City" scores 0.81 on
+# raw string similarity, which is unavoidable. Requiring a high PAIR mean
+# means a wrong fixture would need the OTHER team to match strongly too.
+
+# Noise words that carry no identity ("FC Thun" vs "Thun").
+# NOTE: "united" and "city" are NOT here. Dropping them made
+# "Manchester United" and "Manchester City" both normalise to "manchester"
+# and score 1.00 — they carry identity, they are not noise.
+_NOISE = {"fc", "cf", "sc", "afc", "ac", "club", "de", "the",
+          "sv", "bk", "if", "fk", "cd", "ca", "us", "ss"}
+
+
+def _norm(name: str) -> str:
+    """Lowercase, strip accents and punctuation, drop noise words."""
+    import re
+    import unicodedata
+    s = unicodedata.normalize("NFKD", name or "")
+    s = "".join(c for c in s if not unicodedata.combining(c)).lower()
+    s = re.sub(r"[^a-z0-9 ]+", " ", s)
+    tokens = [t for t in s.split() if t and t not in _NOISE]
+    return " ".join(tokens) or s.strip()
+
+
+def team_sim(a: str, b: str) -> float:
+    """Similarity that understands abbreviations.
+
+    Beyond raw string similarity, treat a shared leading stem of >=4 chars as
+    strong evidence ("wolves" / "wolverhampton"), and full containment as near
+    certain ("santos" inside "santos laguna"). Both are how these feeds
+    actually differ; neither matches two genuinely different clubs.
+    """
+    na, nb = _norm(a), _norm(b)
+    if not na or not nb:
+        return 0.0
+    if na == nb:
+        return 1.0
+
+    best = _sim(na, nb)
+
+    # One name fully contained in the other, on a token boundary.
+    ta, tb = set(na.split()), set(nb.split())
+    if ta and tb and (ta <= tb or tb <= ta):
+        best = max(best, 0.92)
+
+    # Shared leading stem: wolves / wolverhampton. Restricted to cases where
+    # one side is a SINGLE word, otherwise shared first words fire wrongly —
+    # "Real Madrid" vs "Real Sociedad" and "Inter Turku" vs "Inter Milan" both
+    # scored 0.88 on the stem "real" / "inter" alone.
+    if len(ta) == 1 or len(tb) == 1:
+        fa, fb = na.split()[0], nb.split()[0]
+        stem = 0
+        for ca, cb in zip(fa, fb):
+            if ca != cb:
+                break
+            stem += 1
+        if stem >= 5 and stem >= min(len(fa), len(fb)) * 0.6:
+            best = max(best, 0.88)
+
+    return best
 
 # ESPN marks a fixture 'pre' (not started), 'in' (live) or 'post' (finished).
 NOT_STARTED = "pre"
@@ -116,12 +200,15 @@ def enrich(days: int = 2) -> int:
             # +/-1 day: sources disagree on date near midnight (bug #2's rule).
             if abs((ref_date - our_date).days) > 1:
                 continue
-            score = min(_sim(row["home_team"], ref_home),
-                        _sim(row["away_team"], ref_away))
+            sh = team_sim(row["home_team"], ref_home)
+            sa = team_sim(row["away_team"], ref_away)
+            if sh < SIM_FLOOR or sa < SIM_FLOOR:
+                continue          # one side is clearly a different club
+            score = (sh + sa) / 2
             if score > best_score:
                 best, best_state, best_score = ref_utc, state, score
 
-        if not (best and best_score >= SIM_THRESHOLD):
+        if not (best and best_score >= SIM_MEAN):
             continue
 
         if row["kickoff_utc"] is None:

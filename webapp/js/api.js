@@ -282,7 +282,10 @@ function kickoffLabel(matchDate, kickoffTime, kickoffUtc) {
     } else if (/^\d{1,2}:\d{2}/.test(kickoffTime || "") && kickoffTime !== "00:00") {
         time = " " + kickoffTime;
     } else {
-        time = " • time TBC";
+        // No time text at all. The card adds a quiet "time TBC" marker itself —
+        // baking it in here rendered as a shouty "TIME TBC", because the meta
+        // line is styled uppercase.
+        time = "";
     }
     if (diff === 0) return "Today" + time;
     if (diff === 1) return "Tomorrow" + time;
