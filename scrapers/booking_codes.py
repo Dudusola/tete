@@ -130,6 +130,9 @@ def decode_sportybet(code: str) -> list[dict]:
 
 EVENTS_URL = "https://www.sportybet.com/api/ng/factsCenter/pcUpcomingEvents"
 SHARE_POST_URL = "https://www.sportybet.com/api/ng/orders/share"
+# Hard ceiling so a feed glitch can never make us fetch forever.
+MAX_PAGES = int(os.getenv("SPORTY_MAX_PAGES", "40"))
+
 GEN_MARKET_IDS = "1,10,11,16,18,29"   # 1X2, DC, DNB, Asian Handicap, O/U, GG/NG
 
 from difflib import SequenceMatcher
@@ -143,9 +146,22 @@ _EVENTS_CACHE = {"at": 0.0, "events": []}
 _EVENTS_TTL = 300   # odds move, but event/market IDs are stable - 5 min is safe
 
 
-def fetch_sportybet_events(pages: int = 10, page_size: int = 100) -> list[dict]:
+def fetch_sportybet_events(pages: int = 0, page_size: int = 100) -> list[dict]:
     """Flatten SportyBet's upcoming football events (with main markets).
-    Cached for a few minutes so repeated bookings don't refetch ~8 pages."""
+
+    pages=0 (default) means ASK the feed how many there are.
+
+    This used to be a hardcoded 10 pages, which was right when written and
+    silently wrong later: the feed grew past it, so whole competitions fell off
+    the end. Legs then came back "unmapped" and users saw games dropped from
+    their booking code for no visible reason — Portland Timbers v Club Puebla
+    and Austin FC v Club Tijuana were both present in the feed, just beyond
+    page 10. The response carries data.totalNum, so the page count is derived
+    rather than guessed and cannot rot again.
+
+    Cached for a few minutes so repeated bookings don't refetch the whole list.
+    """
+    import math
     import time as _time
     if _EVENTS_CACHE["events"] and _time.time() - _EVENTS_CACHE["at"] < _EVENTS_TTL:
         return _EVENTS_CACHE["events"]
@@ -181,12 +197,33 @@ def fetch_sportybet_events(pages: int = 10, page_size: int = 100) -> list[dict]:
     # inside the budget and move on rather than hanging the whole endpoint.
     from concurrent.futures import ThreadPoolExecutor, wait
 
-    budget = float(os.getenv("SPORTY_BUDGET_SECONDS", "12"))
+    # Ask the feed how big it is instead of guessing. Page 1 is fetched on its
+    # own for this; it is also a real page, so nothing is wasted.
+    if not pages:
+        first = fetch_page(1)
+        total = 0
+        try:
+            probe = requests.get(EVENTS_URL, headers=HEADERS, timeout=25,
+                                 params={"sportId": "sr:sport:1",
+                                         "marketId": GEN_MARKET_IDS,
+                                         "pageSize": page_size,
+                                         "pageNum": 1, "option": 1})
+            total = ((probe.json().get("data") or {}).get("totalNum")) or 0
+        except (requests.RequestException, ValueError):
+            pass
+        # +2 pages of slack: totalNum counts events, and events-per-page varies
+        # because they arrive grouped by tournament.
+        pages = min(math.ceil(total / page_size) + 2, MAX_PAGES) if total else 12
+        logger.info(f"SportyBet feed reports {total} events -> fetching {pages} pages")
+    else:
+        first = None
+
+    budget = float(os.getenv("SPORTY_BUDGET_SECONDS", "25"))
     # NOT a `with` block: ThreadPoolExecutor.__exit__ calls shutdown(wait=True),
     # which blocks until in-flight pages finish — so the budget would leak by up
     # to one request timeout. shutdown(wait=False) lets stragglers die in the
     # background (daemon-ish) while we answer now.
-    pool = ThreadPoolExecutor(max_workers=5)
+    pool = ThreadPoolExecutor(max_workers=8)   # more pages now, same budget
     try:
         futures = [pool.submit(fetch_page, p) for p in range(1, pages + 1)]
         done, pending = wait(futures, timeout=budget)
@@ -196,10 +233,20 @@ def fetch_sportybet_events(pages: int = 10, page_size: int = 100) -> list[dict]:
                 f"{budget}s budget — continuing with partial odds"
             )
         per_page = [f.result() for f in done if not f.cancelled()]
+        if first:
+            per_page.append(first)
         complete = not pending
     finally:
         pool.shutdown(wait=False, cancel_futures=True)
-    events = [e for page_events in per_page for e in page_events]
+    # Page 1 can appear twice (probe + parallel sweep); events carry a stable
+    # eventId, so de-duplicate on it rather than shipping doubles to the mapper.
+    seen, events = set(), []
+    for page_events in per_page:
+        for e in page_events:
+            eid = e.get("eventId") or id(e)
+            if eid not in seen:
+                seen.add(eid)
+                events.append(e)
     logger.info(f"SportyBet events feed: {len(events)} upcoming matches")
     # Only cache a COMPLETE fetch. Caching a partial one would serve degraded
     # odds for the whole TTL, and slip building treats an unpriced leg as a
