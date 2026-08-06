@@ -20,6 +20,30 @@ The layers are decoupled on purpose: the bot and web app are just two faces on
 the same API. The API serves whatever the daily pipeline last wrote; it does not
 generate predictions on demand.
 
+## Where it runs (LIVE since 6 Aug 2026 — nothing depends on Boss's laptop)
+| Piece | Host | URL / entry point |
+|---|---|---|
+| Daily pipeline | GitHub Actions | `.github/workflows/daily.yml`, 11:00 UTC = 12:00 Lagos |
+| API (the real FastAPI) | Render free tier | https://potentialpro-api.onrender.com (`/docs`, `/healthz`) |
+| Web app (PWA) | Cloudflare Pages | https://potentialpro.pages.dev |
+| Telegram bot (interactive) | Cloudflare Worker | https://potentialpro-bot.potentialpro.workers.dev |
+| Telegram daily push | pipeline step | `bot/send_daily.py` — no running bot needed |
+| Repo | GitHub (private) | https://github.com/Dudusola/tete |
+
+- **The ledger lives in the repo.** `db/sports_predictor.db` is COMMITTED and the
+  workflow writes it daily. One writer. Never run the local pipeline and the
+  cloud one at once, and `git pull` before touching the DB.
+- Render free tier SLEEPS after ~15 min idle (~50s cold start). Deploys are
+  automatic on push to main (`render.yaml`).
+- Frontend deploy is manual: `wrangler pages deploy webapp --project-name potentialpro`.
+  **Bump `api.js?v=N` in all 5 HTML files first** or browsers serve stale JS.
+- Worker secrets (BOT_TOKEN, GITHUB_TOKEN, WEBHOOK_SECRET) are write-only —
+  `wrangler secret list` shows names, never values. GITHUB_TOKEN is a
+  fine-grained read-only PAT; when it expires `/picks` says "couldn't reach the
+  picks feed".
+- Local Task Scheduler jobs are DISABLED. Re-enabling one without disabling the
+  cron gives two pipelines writing two diverging ledgers.
+
 ## Environment
 - Windows + PowerShell, Python 3.13, venv
 - Project root: `C:\Users\OWNER\Desktop\PECULIAR DESKTOP\projects\files`
@@ -274,7 +298,32 @@ unknown until the honest ledger matures.
    hard-change calibration on 13 samples — let rf_v1e accumulate first.
 5. Model-vs-Forebet-on-real-results tracker (needs mature ledger) — validates the premise.
 6. Polish: truncated league names ("world-cup-2026-last-"), add "Checker" to all navs.
-7. DEFERRED until football is validated: second sport, cloud 24/7 deploy, real booking codes.
+7. **Web push notifications for the PWA — DESIGNED, DEFERRED ON PURPOSE (Aug 2026).**
+   Not built because Telegram ALREADY delivers a real push notification to the
+   phone every day (bot/send_daily.py, from the cloud pipeline). Web push would
+   be a second channel carrying the same payload. It earns its keep only when
+   there are testers who won't join a Telegram bot — i.e. at the invite stage,
+   not before. Prerequisite already satisfied: iOS only permits web push for
+   INSTALLED PWAs, and the app is installable (manifest.json + icons/).
+   Design when it's time:
+     - VAPID keypair; public key ships in the client, private key is a Worker
+       secret (`wrangler secret put VAPID_PRIVATE_KEY`). Never commit either.
+     - Permission prompt in the UI — request it on a user gesture, never on
+       page load, or browsers hard-block it for the origin.
+     - Each subscribing device returns a PushSubscription; store it in
+       Cloudflare Workers KV (free tier), keyed by endpoint hash.
+     - Sending: the existing Worker (worker/index.js) signs a JWT per push
+       (Web Crypto can do ES256) and POSTs to the endpoint in each
+       subscription. Apple/Google/Mozilla each have quirks; expect to test on
+       real devices, not just Chrome desktop.
+     - sw.js needs a `push` listener + `notificationclick` to focus the app.
+       Keep it NETWORK-FIRST — don't let a push change bug #6's caching rule.
+     - **The trap to watch:** subscriptions expire silently. A 404/410 from the
+       push endpoint means "delete this subscription" — if that isn't handled,
+       sends fail quietly and nobody notices, which is exactly the failure
+       pattern behind bugs #5, #8 and #9. Log delivery counts, and treat a drop
+       to zero as an alert, not as "nobody used it today".
+8. DEFERRED until football is validated: second sport, real booking codes.
 
 ## Gotchas
 - PowerShell `Out-File` writes null bytes → "source code string cannot contain null bytes". Use New-Item for empty files.
