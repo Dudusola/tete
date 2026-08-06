@@ -172,12 +172,40 @@ def fetch_sportybet_events(pages: int = 10, page_size: int = 100) -> list[dict]:
 
     # Pages fetched in parallel (sequential took 60s+ and slip requests
     # block on it); pages past the end of the listing just come back empty.
-    from concurrent.futures import ThreadPoolExecutor
-    with ThreadPoolExecutor(max_workers=5) as pool:
-        per_page = list(pool.map(fetch_page, range(1, pages + 1)))
+    #
+    # HARD WALL-CLOCK BUDGET: 10 pages x 25s timeout x 2 attempts can run past
+    # 100s. On a laptop that is merely slow; behind a hosted platform the
+    # request is killed and /api/slip returns 502 — which is exactly what
+    # happened on Render the first time the cache was cold. Odds are
+    # decoration (the docstring says so), so we take whatever pages finished
+    # inside the budget and move on rather than hanging the whole endpoint.
+    from concurrent.futures import ThreadPoolExecutor, wait
+
+    budget = float(os.getenv("SPORTY_BUDGET_SECONDS", "12"))
+    # NOT a `with` block: ThreadPoolExecutor.__exit__ calls shutdown(wait=True),
+    # which blocks until in-flight pages finish — so the budget would leak by up
+    # to one request timeout. shutdown(wait=False) lets stragglers die in the
+    # background (daemon-ish) while we answer now.
+    pool = ThreadPoolExecutor(max_workers=5)
+    try:
+        futures = [pool.submit(fetch_page, p) for p in range(1, pages + 1)]
+        done, pending = wait(futures, timeout=budget)
+        if pending:
+            logger.warning(
+                f"SportyBet events: {len(done)}/{len(futures)} pages within "
+                f"{budget}s budget — continuing with partial odds"
+            )
+        per_page = [f.result() for f in done if not f.cancelled()]
+        complete = not pending
+    finally:
+        pool.shutdown(wait=False, cancel_futures=True)
     events = [e for page_events in per_page for e in page_events]
     logger.info(f"SportyBet events feed: {len(events)} upcoming matches")
-    if events:
+    # Only cache a COMPLETE fetch. Caching a partial one would serve degraded
+    # odds for the whole TTL, and slip building treats an unpriced leg as a
+    # signal (it swaps legs SportyBet won't price) — so incomplete data doesn't
+    # just look worse, it changes which legs get picked.
+    if events and complete:
         _EVENTS_CACHE.update(at=_time.time(), events=events)
     return events
 

@@ -29,3 +29,9 @@ services:
         value: Dudusola/tete
       - key: LEDGER_REFRESH_MINUTES
         value: "30"
+      # Wall-clock budget for the SportyBet events feed. A cold fetch of 10
+      # pages can exceed 100s and the platform kills the request (/api/slip
+      # returned 502 on the first cold call). Odds are decoration, so we ship
+      # partial odds rather than no response.
+      - key: SPORTY_BUDGET_SECONDS
+        value: "10"
