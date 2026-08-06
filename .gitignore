@@ -29,3 +29,6 @@ Thumbs.db
 # Worker deps (wrangler installs locally)
 worker/node_modules/
 worker/.wrangler/
+
+# wrangler build artefacts (Pages/Worker deploys)
+.wrangler/
