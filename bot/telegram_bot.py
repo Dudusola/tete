@@ -54,6 +54,9 @@ def fetch_todays_picks() -> list:
             WHERE mp2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
+          -- Don't push picks for matches that already kicked off.
+          -- NULL kickoff_utc = unknown, so it stays visible.
+          AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
           AND mp.confidence IN ('HIGH', 'MEDIUM')
         ORDER BY mp.best_bet_prob DESC
     """).fetchall()

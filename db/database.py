@@ -122,6 +122,19 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # already exists
 
+    # Kickoff as a full UTC timestamp ('YYYY-MM-DD HH:MM').
+    #
+    # kickoff_time alone can't be filtered on: it is a bare 'HH:MM' with no
+    # timezone, and PredictZ — the primary fixture source in the cloud — leaves
+    # it at '00:00' for ~88% of fixtures, meaning UNKNOWN, not midnight. That is
+    # why picks for already-played matches were still being recommended.
+    # API-Football provides exact UTC kickoffs and is used to fill this in.
+    # NULL means genuinely unknown; never treat NULL as midnight.
+    try:
+        cursor.execute("ALTER TABLE matches ADD COLUMN kickoff_utc TEXT")
+    except sqlite3.OperationalError:
+        pass  # already exists
+
     conn.commit()
     conn.close()
     logger.success("✅ Database initialized")

@@ -143,6 +143,12 @@ def main():
     #    real match never gets two predictions/picks
     run_step("Dedupe fixtures", ["db/dedupe_fixtures.py", "--apply"], required=False)
 
+    # 3b. Real UTC kickoff times (ESPN, keyless). Without these the app
+    #     recommends matches that already kicked off: PredictZ leaves
+    #     kickoff_time at '00:00' for ~88% of fixtures, which means UNKNOWN.
+    #     Runs after dedupe so merged rows get timed once, not twice.
+    run_step("Kickoff times (ESPN)", ["scrapers/kickoff_times.py"], required=False)
+
     # 4. Model predictions (+ Gemma analysis unless skipped)
     predict_args = ["models/predict.py"]
     if args.no_gemma:

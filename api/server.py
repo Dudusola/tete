@@ -77,6 +77,9 @@ def _model_predictions(only_strong: bool = True) -> list:
         )
         LEFT JOIN results r ON r.match_id = m.match_id
         WHERE m.match_date >= date('now') {where}
+          -- Already-started matches are not recommendable. NULL
+          -- kickoff_utc = unknown time, so it stays visible.
+          AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
         ORDER BY mp.best_bet_prob DESC
     """).fetchall()
     conn.close()
@@ -109,6 +112,9 @@ def _predictions_with_goals() -> list:
         WHERE m.match_date >= date('now')
           AND m.status != 'finished'
           AND m.match_id NOT IN (SELECT match_id FROM results)
+          -- Same kickoff guard as /api/picks: a slip must never contain a
+          -- match that has already started.
+          AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
     """).fetchall()
     conn.close()
     return [dict(r) for r in rows]
