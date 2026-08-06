@@ -40,17 +40,53 @@ TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 
 
+# Telegram hard-rejects a sendMessage body over 4096 characters with
+# "Bad Request: message is too long". A day with ~20 picks blows straight past
+# it, so the message has to be split. Kept under the limit with headroom.
+TELEGRAM_LIMIT = 3900
+
+
+def split_message(text: str) -> list:
+    """Split on blank lines so a pick is never cut in half.
+
+    Markdown is per-message in Telegram: an unclosed * would render as a
+    literal asterisk in one chunk, so chunks must break between picks, never
+    inside one.
+    """
+    if len(text) <= TELEGRAM_LIMIT:
+        return [text]
+
+    chunks, current = [], ""
+    for block in text.split("\n\n"):
+        candidate = f"{current}\n\n{block}" if current else block
+        if len(candidate) > TELEGRAM_LIMIT and current:
+            chunks.append(current)
+            current = block
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
+
+
 def send(text: str) -> bool:
-    r = requests.post(
-        f"https://api.telegram.org/bot{TOKEN}/sendMessage",
-        json={"chat_id": CHAT_ID, "text": text, "parse_mode": "Markdown"},
-        timeout=30,
-    )
-    if r.status_code != 200:
-        # Telegram puts the real reason in the body; the status alone is not
-        # actionable (a bad chat_id and a revoked token both give 4xx).
-        logger.error(f"Telegram HTTP {r.status_code}: {r.text[:200]}")
-        return False
+    parts = split_message(text)
+    for i, part in enumerate(parts, 1):
+        if len(parts) > 1:
+            part = f"{part}\n\n_({i}/{len(parts)})_"
+        r = requests.post(
+            f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+            json={"chat_id": CHAT_ID, "text": part, "parse_mode": "Markdown"},
+            timeout=30,
+        )
+        if r.status_code != 200:
+            # Telegram puts the real reason in the body; the status alone is
+            # not actionable (a bad chat_id and a revoked token both give 4xx).
+            logger.error(f"Telegram HTTP {r.status_code} on part {i}/"
+                         f"{len(parts)}: {r.text[:200]}")
+            return False
+    if len(parts) > 1:
+        logger.info(f"Message split into {len(parts)} parts (4096-char limit)")
     return True
 
 
