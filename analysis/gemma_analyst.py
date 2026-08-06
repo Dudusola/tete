@@ -24,7 +24,13 @@ import os
 import time
 
 import requests
+from dotenv import load_dotenv
 from loguru import logger
+
+# Callers (predict.py, main.py) load .env themselves, but this module is also
+# run directly (--list-models, smoke test) — without this the API key silently
+# reads as empty and the provider falls back to Ollama for no visible reason.
+load_dotenv()
 
 # --- Ollama (local fallback) ---------------------------------------------
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
@@ -32,8 +38,15 @@ OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "gemma3:4b")
 
 # --- Gemini (hosted, free tier) ------------------------------------------
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
-GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip()
 GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
+
+# Thinking models (gemini-3.x-flash, -pro) spend ~760 tokens reasoning BEFORE
+# emitting prose, and those count against this cap — at 800 the analysis is
+# truncated mid-sentence with finishReason=MAX_TOKENS. The *-lite models don't
+# think at all (thoughts=0), so 800 is plenty. Raise to ~2000 if you switch to
+# a thinking model. Verified against the live API, Aug 2026.
+GEMINI_MAX_TOKENS = int(os.getenv("GEMINI_MAX_TOKENS", "800"))
 
 AI_PROVIDER = os.getenv("AI_PROVIDER", "auto").strip().lower()
 
@@ -184,12 +197,11 @@ def _analyze_gemini(prompt: str, _attempt: int = 0) -> str:
                 "contents": [{"parts": [{"text": prompt}]}],
                 "generationConfig": {
                     "temperature": 0.3,
-                    "maxOutputTokens": 500,
-                    # 2.5-series models "think" before answering, and thinking
-                    # tokens count against maxOutputTokens — leave this on and a
-                    # short budget gets eaten before any prose is emitted,
-                    # returning empty text with finishReason MAX_TOKENS.
-                    "thinkingConfig": {"thinkingBudget": 0},
+                    "maxOutputTokens": GEMINI_MAX_TOKENS,
+                    # Do NOT add thinkingConfig here: thinkingBudget=0 is
+                    # rejected outright by the 3.x models (HTTP 400 "invalid
+                    # argument"), and thinkingLevel isn't a field in v1beta.
+                    # Budget the tokens instead — see GEMINI_MAX_TOKENS.
                 },
             },
             timeout=90,
@@ -203,7 +215,16 @@ def _analyze_gemini(prompt: str, _attempt: int = 0) -> str:
             time.sleep(wait)
             return _analyze_gemini(prompt, _attempt + 1)
 
-        r.raise_for_status()
+        if r.status_code >= 400:
+            # The API puts the ACTUAL reason in the body; the status alone is
+            # useless ("400 Bad Request" told us nothing about thinkingBudget).
+            try:
+                reason = r.json().get("error", {}).get("message", "")[:200]
+            except ValueError:
+                reason = r.text[:200]
+            logger.error(f"Gemini HTTP {r.status_code} for '{GEMINI_MODEL}': {reason}")
+            return UNAVAILABLE
+
         data = r.json()
 
         candidates = data.get("candidates") or []
@@ -219,7 +240,9 @@ def _analyze_gemini(prompt: str, _attempt: int = 0) -> str:
         if not text:
             logger.warning(
                 f"Gemini returned empty text (finishReason="
-                f"{cand.get('finishReason')}) — raise maxOutputTokens if this persists"
+                f"{cand.get('finishReason')}). If MAX_TOKENS, this model thinks "
+                f"before answering — raise GEMINI_MAX_TOKENS (currently "
+                f"{GEMINI_MAX_TOKENS}) to ~2000 or use a *-lite model."
             )
             return UNAVAILABLE
         return text
