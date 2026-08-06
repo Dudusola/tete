@@ -1,0 +1,89 @@
+# Why is Forebet returning 0 rows from GitHub's IPs?
+#
+# "Blocked" is currently the scraper's GUESS — it infers a block from an empty
+# result. Bug #6 in CLAUDE.md is exactly the cost of that assumption (a bad
+# detector discarded good pages for days), so this measures instead of guessing.
+#
+# Hypothesis: it's the BROWSER, not the IP. forebet.py uses Chromium;
+# predictz.py switched to Firefox precisely because Chromium got challenged —
+# and PredictZ is the scraper that works from Actions. If Firefox loads Forebet
+# here, the fix is a one-line engine swap and the cloud gets full parity.
+
+name: Diagnose Forebet
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium firefox
+
+      - name: Fetch Forebet three ways and report what came back
+        run: |
+          python - <<'PY'
+          import re
+          import requests
+          from playwright.sync_api import sync_playwright
+
+          URL = "https://www.forebet.com/en/football-tips-and-predictions-for-today"
+          UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                "(KHTML, like Gecko) Chrome/120.0 Safari/537.36")
+
+          # Signatures unique to the REAL challenge page. Never match on
+          # "challenge"+"cloudflare" alone — healthy pages embed the CF beacon
+          # (that was bug #6).
+          SIGS = ["just a moment", "cf-chl", "attention required! | cloudflare",
+                  "enable javascript and cookies to continue"]
+
+          def report(label, html, title=""):
+              low = (html or "").lower()
+              hits = [s for s in SIGS if s in low]
+              rows = len(re.findall(r'class="[^"]*rcnt[^"]*"', html or ""))
+              print(f"\n--- {label}")
+              print(f"    title        : {title[:80]!r}")
+              print(f"    html bytes   : {len(html or '')}")
+              print(f"    match rows   : {rows}")
+              print(f"    challenge    : {hits or 'NO challenge signature'}")
+              body = re.sub(r"<[^>]+>", " ", (html or "")[:4000])
+              body = re.sub(r"\s+", " ", body).strip()
+              print(f"    text head    : {body[:220]!r}")
+
+          # 1. Plain HTTP — no browser at all
+          try:
+              r = requests.get(URL, headers={"User-Agent": UA}, timeout=30)
+              print(f"\n--- plain requests: HTTP {r.status_code}, "
+                    f"server={r.headers.get('server')}, cf-ray={r.headers.get('cf-ray')}")
+              report("plain requests body", r.text)
+          except Exception as e:
+              print(f"plain requests failed: {e}")
+
+          # 2 & 3. Chromium (current) vs Firefox (what PredictZ uses)
+          for engine in ("chromium", "firefox"):
+              try:
+                  with sync_playwright() as p:
+                      browser = getattr(p, engine).launch(headless=True)
+                      ctx = browser.new_context(user_agent=UA)
+                      page = ctx.new_page()
+                      resp = page.goto(URL, wait_until="domcontentloaded", timeout=45000)
+                      page.wait_for_timeout(6000)
+                      html = page.content()
+                      report(f"{engine} (HTTP {resp.status if resp else '?'})",
+                             html, page.title())
+                      browser.close()
+              except Exception as e:
+                  print(f"\n--- {engine} FAILED: {type(e).__name__}: {e}")
+          PY
