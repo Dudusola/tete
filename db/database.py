@@ -135,6 +135,15 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # already exists
 
+    # Live state from ESPN: 'pre' (not started), 'in' (playing), 'post'
+    # (finished). This catches what a kickoff time alone cannot — delayed or
+    # rescheduled matches, and anything already in play. NULL = unknown.
+    for col in ("live_state TEXT", "live_checked_at TEXT"):
+        try:
+            cursor.execute(f"ALTER TABLE matches ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # already exists
+
     conn.commit()
     conn.close()
     logger.success("✅ Database initialized")

@@ -61,7 +61,7 @@ def _model_predictions(only_strong: bool = True) -> list:
                m.match_date, m.kickoff_time,
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
                mp.confidence, mp.best_bet, mp.best_bet_prob, mp.gemma_analysis,
-               mp.consensus_adj,
+               mp.consensus_adj, m.kickoff_utc, m.live_state,
                sp.predicted_home_goals, sp.predicted_away_goals,
                r.home_goals AS result_home_goals,
                r.away_goals AS result_away_goals,
@@ -80,6 +80,10 @@ def _model_predictions(only_strong: bool = True) -> list:
           -- Already-started matches are not recommendable. NULL
           -- kickoff_utc = unknown time, so it stays visible.
           AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
+          -- ESPN's live state catches what a timestamp cannot:
+          -- delayed or rescheduled matches, and anything already
+          -- in play. NULL = unknown, so it stays visible.
+          AND (m.live_state IS NULL OR m.live_state = 'pre')
         ORDER BY mp.best_bet_prob DESC
     """).fetchall()
     conn.close()
@@ -115,6 +119,10 @@ def _predictions_with_goals() -> list:
           -- Same kickoff guard as /api/picks: a slip must never contain a
           -- match that has already started.
           AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
+          -- ESPN's live state catches what a timestamp cannot:
+          -- delayed or rescheduled matches, and anything already
+          -- in play. NULL = unknown, so it stays visible.
+          AND (m.live_state IS NULL OR m.live_state = 'pre')
     """).fetchall()
     conn.close()
     return [dict(r) for r in rows]

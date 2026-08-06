@@ -238,31 +238,73 @@ function prettyLeague(s) {
 
 /* ── Kickoff time helpers ─────────────────────────────────────────────
    match_date is "YYYY-MM-DD", kickoff_time is "HH:MM" (may be missing). */
-function kickoffDate(matchDate, kickoffTime) {
+/* Kickoff handling.
+
+   kickoff_utc (set by scrapers/kickoff_times.py from ESPN) is AUTHORITATIVE:
+   a full UTC timestamp. kickoff_time is a bare 'HH:MM' with no timezone that
+   PredictZ leaves at '00:00' for ~88% of fixtures, meaning UNKNOWN — treating
+   that as midnight marked every fixture as already kicked off. Prefer the UTC
+   value; fall back only when it is absent, and never invent a time. */
+function kickoffDate(matchDate, kickoffTime, kickoffUtc) {
+    if (kickoffUtc) {
+        const d = new Date(kickoffUtc.replace(" ", "T") + "Z");
+        if (!isNaN(d)) return d;
+    }
     if (!matchDate) return null;
-    const t = /^\d{1,2}:\d{2}/.test(kickoffTime || "") ? kickoffTime : "00:00";
-    const d = new Date(`${matchDate}T${t.padStart(5, "0")}`);
+    // No usable time: return the DATE only, and let callers treat the time as
+    // unknown rather than midnight.
+    if (!/^\d{1,2}:\d{2}/.test(kickoffTime || "") || kickoffTime === "00:00") {
+        const d = new Date(`${matchDate}T12:00`);   // midday: a neutral anchor
+        return isNaN(d) ? null : d;
+    }
+    const d = new Date(`${matchDate}T${kickoffTime.padStart(5, "0")}`);
     return isNaN(d) ? null : d;
 }
 
-function kickoffLabel(matchDate, kickoffTime) {
-    const d = kickoffDate(matchDate, kickoffTime);
+/* Do we actually KNOW the kickoff time? '00:00' from PredictZ does not count. */
+function hasKnownKickoff(p) {
+    return !!(p && (p.kickoff_utc ||
+        (/^\d{1,2}:\d{2}/.test(p.kickoff_time || "") && p.kickoff_time !== "00:00")));
+}
+
+function kickoffLabel(matchDate, kickoffTime, kickoffUtc) {
+    const d = kickoffDate(matchDate, kickoffTime, kickoffUtc);
     if (!d) return matchDate || "";
     const now = new Date();
     const day = new Date(d); day.setHours(0, 0, 0, 0);
     const today = new Date(now); today.setHours(0, 0, 0, 0);
     const diff = Math.round((day - today) / 86400000);
-    const time = /^\d{1,2}:\d{2}/.test(kickoffTime || "") ? " " + kickoffTime : "";
+    // Show the time in the VIEWER's timezone when we have a real UTC kickoff;
+    // say "time TBC" rather than displaying a fake 00:00.
+    let time = "";
+    if (kickoffUtc) {
+        time = " " + d.toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"});
+    } else if (/^\d{1,2}:\d{2}/.test(kickoffTime || "") && kickoffTime !== "00:00") {
+        time = " " + kickoffTime;
+    } else {
+        time = " • time TBC";
+    }
     if (diff === 0) return "Today" + time;
     if (diff === 1) return "Tomorrow" + time;
     if (diff === -1) return "Yesterday" + time;
     return d.toLocaleDateString("en-GB", {weekday: "short", day: "numeric", month: "short"}) + time;
 }
 
-function hasKickedOff(matchDate, kickoffTime) {
-    if (!/^\d{1,2}:\d{2}/.test(kickoffTime || "")) return false;
-    const d = kickoffDate(matchDate, kickoffTime);
+/* Has this match started? Takes the whole pick so it can use the authoritative
+   fields. ESPN's live_state wins when present ('in'/'post' = under way or done)
+   because it also catches delays and reschedules a timestamp cannot. Unknown
+   stays FALSE: hiding a match we merely failed to time is worse than showing it. */
+function hasKickedOff(p) {
+    if (!p) return false;
+    if (p.live_state === "in" || p.live_state === "post") return true;
+    if (!hasKnownKickoff(p)) return false;
+    const d = kickoffDate(p.match_date, p.kickoff_time, p.kickoff_utc);
     return d ? d < new Date() : false;
+}
+
+/* Is it being played right now? Drives the LIVE badge. */
+function isLive(p) {
+    return !!p && p.live_state === "in";
 }
 
 /* "x min ago" for SQLite UTC timestamps like "2026-07-17 06:05:12" */
@@ -363,6 +405,69 @@ const PotentialProAPI = {
     const s = document.createElement("style");
     s.textContent = MOTION_CSS;
     document.head.appendChild(s);
+
+    /* ── Cross-device layout fixes ────────────────────────────────────────
+       Injected here rather than edited into five HTML files, so the rules
+       can't drift page to page. Each one fixes a concrete failure, not a
+       hypothetical: verified against the actual markup.                    */
+    const RESPONSIVE_CSS = `
+      /* 1. The mobile bottom nav is position:fixed with py-2 and no safe-area
+            padding, so on iPhones with a home indicator (and Android gesture
+            bars) the last few pixels sit under the system UI and taps land on
+            the wrong thing. */
+      nav.md\:hidden.fixed.bottom-0 {
+        padding-bottom: max(8px, env(safe-area-inset-bottom)) !important;
+      }
+
+      /* 2. That same fixed nav overlaps the end of the page — the last card was
+            unreachable behind it. Reserve its height plus the safe area. */
+      @media (max-width: 767px) {
+        body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+      }
+
+      /* 3. Never scroll the page sideways. Long team names and league slugs
+            ("world-cup-2026-last-16") force grid children wider than their
+            track unless min-width is cleared — the classic CSS-grid overflow. */
+      html, body { overflow-x: hidden; max-width: 100%; }
+      main, main * { min-width: 0; }
+
+      /* 4. Touch targets. The nav links are min-w-[64px] but only ~40px tall;
+            44px is the accessibility floor on both iOS and Android. */
+      nav a, nav button, .theme-toggle { min-height: 44px; }
+
+      /* 5. Very small phones (360px and below are still common in Nigeria):
+            stop headline text forcing horizontal overflow. */
+      @media (max-width: 380px) {
+        .text-headline-md { font-size: 17px !important; line-height: 22px !important; }
+        .text-display-sm  { font-size: 24px !important; line-height: 30px !important; }
+      }
+
+      /* 6. Large screens: the container maxed out narrow, leaving desktop users
+            with a thin column of cards and a lot of empty space. */
+      @media (min-width: 1280px) {
+        .max-w-container { max-width: 1200px !important; }
+      }
+
+      /* 7. Landscape phones are short: the sticky header ate a third of the
+            viewport. */
+      @media (max-height: 480px) and (orientation: landscape) {
+        header.md\:hidden { position: static !important; }
+      }
+
+      /* 8. LIVE badge dot — pulses so an in-play match is obvious at a glance. */
+      .pp-live-dot {
+        width: 7px; height: 7px; border-radius: 50%;
+        background: currentColor; display: inline-block;
+        animation: pp-pulse 1.4s ease-in-out infinite;
+      }
+      @keyframes pp-pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+      /* Respect users who ask for less motion. */
+      @media (prefers-reduced-motion: reduce) {
+        .pp-live-dot { animation: none; }
+      }`;
+    const rs = document.createElement("style");
+    rs.textContent = RESPONSIVE_CSS;
+    document.head.appendChild(rs);
 
     function enter(el, delay) {
         if (el._ppEntered) return;

@@ -25,7 +25,7 @@ import argparse
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import requests
 from loguru import logger
@@ -97,17 +97,21 @@ def enrich(days: int = 2) -> int:
         return 0
 
     conn = get_connection()
+    # Every upcoming match is re-checked, not just untimed ones: live state
+    # changes through the day, and a match that was 'pre' an hour ago may be
+    # 'in' now. The kickoff itself is only written once (it doesn't move).
     rows = conn.execute("""
-        SELECT match_id, home_team, away_team, match_date
+        SELECT match_id, home_team, away_team, match_date, kickoff_utc
         FROM matches
-        WHERE match_date >= date('now') AND kickoff_utc IS NULL
+        WHERE match_date >= date('now')
     """).fetchall()
 
-    updated = 0
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    updated = live = 0
     for row in rows:
-        best, best_score = None, 0.0
+        best, best_state, best_score = None, None, 0.0
         our_date = datetime.strptime(row["match_date"], "%Y-%m-%d").date()
-        for ref_home, ref_away, ref_utc, _state in reference:
+        for ref_home, ref_away, ref_utc, state in reference:
             ref_date = datetime.strptime(ref_utc[:10], "%Y-%m-%d").date()
             # +/-1 day: sources disagree on date near midnight (bug #2's rule).
             if abs((ref_date - our_date).days) > 1:
@@ -115,12 +119,20 @@ def enrich(days: int = 2) -> int:
             score = min(_sim(row["home_team"], ref_home),
                         _sim(row["away_team"], ref_away))
             if score > best_score:
-                best, best_score = ref_utc, score
+                best, best_state, best_score = ref_utc, state, score
 
-        if best and best_score >= SIM_THRESHOLD:
+        if not (best and best_score >= SIM_THRESHOLD):
+            continue
+
+        if row["kickoff_utc"] is None:
             conn.execute("UPDATE matches SET kickoff_utc = ? WHERE match_id = ?",
                          (best, row["match_id"]))
             updated += 1
+        conn.execute(
+            "UPDATE matches SET live_state = ?, live_checked_at = ? "
+            "WHERE match_id = ?", (best_state, now, row["match_id"]))
+        if best_state in ("in", "post"):
+            live += 1
 
     conn.commit()
     remaining = conn.execute("""
@@ -129,9 +141,10 @@ def enrich(days: int = 2) -> int:
     """).fetchone()[0]
     conn.close()
 
-    logger.success(f"Kickoff times set for {updated} matches "
-                   f"({remaining} still unknown — these stay visible, because "
-                   f"'unknown' must never be read as 'already played')")
+    logger.success(f"Kickoff times set for {updated} matches; {live} marked "
+                   f"in-play/finished ({remaining} still without a time — these "
+                   f"stay visible, because 'unknown' must never be read as "
+                   f"'already played')")
     return updated
 
 

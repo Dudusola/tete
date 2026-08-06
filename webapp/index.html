@@ -123,7 +123,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=18"></script>
+<script src="js/api.js?v=19"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -156,7 +156,8 @@ function renderCard(p) {
     const drawPct = Math.round((p.draw_prob || 0) * 100);
     const awayPct = Math.round((p.away_win_prob || 0) * 100);
     const analysis = p.gemma_analysis ? escapeHtml(p.gemma_analysis) : "No analysis available for this pick.";
-    const started = hasKickedOff(p.match_date, p.kickoff_time);
+    const started = hasKickedOff(p);
+    const live = isLive(p);
     const finished = p.result_home_goals != null;
     // For finished games: did the model's 1X2 lean match the real outcome?
     let ftBadge = "";
@@ -167,8 +168,9 @@ function renderCard(p) {
         ftBadge = ` <span class="inline-flex items-center gap-xs px-sm rounded-full normal-case font-bold ${hit ? "bg-secondary-container text-on-secondary-container" : "bg-error-container text-on-error-container"}"
             title="Full time — ${hit ? "model called the outcome" : "model missed the outcome"}">FT ${p.result_home_goals}–${p.result_away_goals} ${hit ? "✓" : "✗"}</span>`;
     }
-    const meta = `${escapeHtml(prettyLeague(p.league))} • ${escapeHtml(kickoffLabel(p.match_date, p.kickoff_time))}`
+    const meta = `${escapeHtml(prettyLeague(p.league))} • ${escapeHtml(kickoffLabel(p.match_date, p.kickoff_time, p.kickoff_utc))}`
         + (finished ? ftBadge
+           : live ? ` <span class="inline-flex items-center gap-xs bg-error-container text-on-error-container px-sm rounded-full normal-case font-bold" title="Being played right now — too late to bet"><span class="pp-live-dot"></span>LIVE</span>`
            : started ? ` <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm rounded-full normal-case" title="Kickoff has passed — too late to bet this one">started</span>` : "");
 
     return `
@@ -298,7 +300,7 @@ async function loadPicks() {
             PotentialProAPI.stats().catch(() => null),
         ]);
         ALL_PICKS = (data.picks || []).slice().sort((a, b) =>
-            (kickoffDate(a.match_date, a.kickoff_time) || 0) - (kickoffDate(b.match_date, b.kickoff_time) || 0));
+            (kickoffDate(a.match_date, a.kickoff_time, a.kickoff_utc) || 0) - (kickoffDate(b.match_date, b.kickoff_time, b.kickoff_utc) || 0));
         UPDATED_AT = data.generated_at || null;
         renderStatStrip(ALL_PICKS, stats);
         if (ALL_PICKS.length === 0) {
