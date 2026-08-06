@@ -102,6 +102,16 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python bot/send_daily.py
 
+      # Feed for the always-on webhook worker (worker/index.js). Everything it
+      # serves is computed here, so /picks and /stats can never disagree with
+      # the ledger.
+      - name: Publish bot feed
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+          PYTHONIOENCODING: utf-8
+        run: python bot/export_feed.py
+
       - name: Ledger health
         if: always()
         run: python db/track_record_health.py
@@ -113,7 +123,7 @@ jobs:
           git config user.email "actions@github.com"
           # db/*.db is gitignored on purpose (it's per-developer locally);
           # -f is deliberate — in the cloud this file IS the ledger.
-          git add -f db/sports_predictor.db
+          git add -f db/sports_predictor.db feed/bot_feed.json
           if git diff --cached --quiet; then
             echo "No ledger changes to commit."
           else

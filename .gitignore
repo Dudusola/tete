@@ -25,3 +25,7 @@ models/*.joblib
 # OS / editor noise
 Thumbs.db
 .DS_Store
+
+# Worker deps (wrangler installs locally)
+worker/node_modules/
+worker/.wrangler/
