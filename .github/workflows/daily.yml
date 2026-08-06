@@ -1,0 +1,110 @@
+# Daily pipeline in the cloud — so the ledger doesn't depend on one laptop
+# being awake, on mains power, and online at noon (see CLAUDE.md bug #9).
+#
+# DO NOT enable the schedule until the probe workflow shows the scrapers work
+# from here, AND the local Task Scheduler job is disabled. Two pipelines writing
+# two copies of the ledger is how the track record becomes untrustworthy.
+#
+# The DB is committed back to the repo after each run: that makes THIS the
+# authoritative ledger. It is a real architectural change, not a deployment
+# detail — CONTRIBUTING.md says the DB lives on Boss's machine, and that stops
+# being true the moment this workflow owns it.
+
+name: Daily pipeline
+
+on:
+  workflow_dispatch:
+  # SCHEDULE INTENTIONALLY DISABLED until (a) the probe shows the scrapers work
+  # from GitHub's IPs and (b) the local Task Scheduler job is off. Uncomment to
+  # go live — 11:00 UTC = 12:00 Africa/Lagos (UTC+1, no DST), matching the local
+  # midday slot chosen because 07:30 runs were Cloudflare-blocked. GitHub cron is
+  # best-effort and can lag 10+ minutes; every insert is INSERT OR IGNORE, so a
+  # late or repeated run is harmless.
+  #
+  # schedule:
+  #   - cron: '0 11 * * *'
+
+# Never let two runs write the ledger at once.
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: write   # to commit the updated DB back
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          playwright install --with-deps chromium firefox
+
+      # The 27 MB model is gitignored, but data/historical IS committed — so
+      # rebuild it here and cache it. Key on the trainer + CSVs: refresh a CSV
+      # or edit train.py and it retrains, otherwise it's restored in seconds.
+      - name: Restore trained model
+        id: model-cache
+        uses: actions/cache@v4
+        with:
+          path: models/*.joblib
+          key: rf-model-${{ hashFiles('models/train.py', 'data/historical/**') }}
+
+      - name: Train model (only on cache miss)
+        if: steps.model-cache.outputs.cache-hit != 'true'
+        run: python models/train.py
+
+      - name: Ensure DB schema exists
+        run: python db/database.py
+
+      - name: Run pipeline
+        env:
+          # Add these under Settings -> Secrets and variables -> Actions.
+          # Missing ones degrade gracefully: no Gemini key falls back to Ollama
+          # (absent here, so analysis is skipped), no Telegram = no alerts.
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          AI_PROVIDER: gemini
+          GEMINI_MODEL: gemini-3.5-flash-lite
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+          PYTHONIOENCODING: utf-8
+        run: python run_daily.py
+
+      - name: Ledger health
+        if: always()
+        run: python db/track_record_health.py
+
+      - name: Commit the updated ledger
+        if: always()
+        run: |
+          git config user.name  "potentialpro-bot"
+          git config user.email "actions@github.com"
+          # db/*.db is gitignored on purpose (it's per-developer locally);
+          # -f is deliberate — in the cloud this file IS the ledger.
+          git add -f db/sports_predictor.db
+          if git diff --cached --quiet; then
+            echo "No ledger changes to commit."
+          else
+            git commit -m "ledger: automated run $(date -u +'%Y-%m-%d %H:%M UTC')"
+            # Rebase in case a human pushed while we ran; the DB is binary, so
+            # a conflict here means someone else wrote the ledger too — fail
+            # loudly rather than silently picking a side.
+            git pull --rebase --no-edit || {
+              echo "::error::Ledger conflict — another writer touched the DB."
+              exit 1
+            }
+            git push
+          fi

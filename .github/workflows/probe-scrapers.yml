@@ -1,0 +1,92 @@
+# Probe: do the scrapers survive GitHub's datacenter IPs?
+#
+# Run this MANUALLY (Actions tab -> "Probe scrapers" -> Run workflow) before
+# trusting the daily pipeline in the cloud. Cloudflare treats datacenter IPs far
+# more harshly than a home connection, and this project's own notes show that
+# blocking varies even by time of day from a residential IP.
+#
+# It answers one question: which of our four sources still return rows from here?
+# Nothing is written back to the repo — this is read-only reconnaissance.
+
+name: Probe scrapers
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          # Chromium for Forebet, Firefox for PredictZ (Chromium gets challenged
+          # there even with stealth — see CLAUDE.md bug #6).
+          playwright install --with-deps chromium firefox
+
+      - name: Create empty database
+        run: python db/database.py
+
+      # Each probe is continue-on-error: a blocked scraper is a RESULT, not a
+      # failure of the probe. Scrapers exit non-zero on zero rows (bug #5), so
+      # the exit code is the signal.
+      - name: Probe Forebet (Cloudflare-prone)
+        id: forebet
+        continue-on-error: true
+        run: python scrapers/forebet.py
+
+      - name: Probe PredictZ (Cloudflare-prone)
+        id: predictz
+        continue-on-error: true
+        run: python scrapers/predictz.py
+
+      - name: Probe football-data.org API (expected OK)
+        id: fdapi
+        continue-on-error: true
+        env:
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+        run: python scrapers/results_api.py
+
+      - name: Probe ESPN API (expected OK)
+        id: espn
+        continue-on-error: true
+        run: python scrapers/results_espn.py --days 3
+
+      - name: What actually landed in the DB
+        if: always()
+        run: |
+          python - <<'PY'
+          import sqlite3
+          c = sqlite3.connect("db/sports_predictor.db")
+          q = lambda s: c.execute(s).fetchone()[0]
+          print(f"matches rows              : {q('SELECT COUNT(*) FROM matches')}")
+          print(f"scraped_predictions rows  : {q('SELECT COUNT(*) FROM scraped_predictions')}")
+          for src, n in c.execute(
+              "SELECT source, COUNT(*) FROM scraped_predictions GROUP BY source"):
+              print(f"  by source: {src:12} {n}")
+          print(f"results rows              : {q('SELECT COUNT(*) FROM results')}")
+          PY
+
+      - name: Verdict
+        if: always()
+        run: |
+          echo "### Scraper probe from GitHub Actions" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Source | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Forebet (scrape) | ${{ steps.forebet.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| PredictZ (scrape) | ${{ steps.predictz.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| football-data.org (API) | ${{ steps.fdapi.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| ESPN (API) | ${{ steps.espn.outcome }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "\`failure\` on a scrape usually means Cloudflare blocked this IP." >> $GITHUB_STEP_SUMMARY
+          echo "Check the step log for 'just a moment' / 'cf-chl' before concluding." >> $GITHUB_STEP_SUMMARY
