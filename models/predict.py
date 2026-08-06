@@ -157,9 +157,18 @@ def build_live_features(home_hist: list, away_hist: list,
     if oh and od and oa:
         h, d, a = 1 / oh, 1 / od, 1 / oa
     else:
-        h = (forebet.get("home_win_pct") or 33.3) / 100
-        d = (forebet.get("draw_pct") or 33.3) / 100
-        a = (forebet.get("away_win_pct") or 33.3) / 100
+        hp, dp, ap = (forebet.get("home_win_pct"), forebet.get("draw_pct"),
+                      forebet.get("away_win_pct"))
+        if not (hp and dp and ap):
+            # No odds AND no source percentages. The old code substituted
+            # 33.3/33.3/33.3 here — a flat prior fed into features the model
+            # trained on real bookmaker odds. It never errored: it just made
+            # quietly worse predictions that still got graded and still moved
+            # the tier stats. Refuse instead; the caller skips the match.
+            # (Fixture sources without odds — e.g. football-data.org's free
+            # tier — would otherwise poison the ledger silently. See bug #7.)
+            return None
+        h, d, a = hp / 100, dp / 100, ap / 100
     total = h + d + a
 
     return {
@@ -266,6 +275,7 @@ def run(use_gemma: bool = True):
 
     predictions = []
     skipped = 0
+    no_odds = 0
     boosted = demoted = 0
 
     for match in scraped:
@@ -283,6 +293,11 @@ def run(use_gemma: bool = True):
             team_history[home_match], team_history[away_match],
             home_match, away_match, match
         )
+        if feats is None:
+            # No odds and no source percentages — predicting here would mean
+            # inventing a uniform prior. Better no pick than a fake one.
+            no_odds += 1
+            continue
 
         X = pd.DataFrame([feats])[columns]
         probs_arr = model.predict_proba(X)[0]
@@ -352,6 +367,7 @@ def run(use_gemma: bool = True):
 
     logger.success(f"✅ Predicted {len(predictions)} matches "
                    f"({skipped} skipped - teams not in historical data; "
+                   f"{no_odds} skipped - no odds/percentages; "
                    f"consensus: {boosted} boosted, {demoted} demoted)")
 
     # Display, best picks first
