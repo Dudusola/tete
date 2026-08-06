@@ -14,15 +14,16 @@ name: Daily pipeline
 
 on:
   workflow_dispatch:
-  # SCHEDULE INTENTIONALLY DISABLED until (a) the probe shows the scrapers work
-  # from GitHub's IPs and (b) the local Task Scheduler job is off. Uncomment to
-  # go live — 11:00 UTC = 12:00 Africa/Lagos (UTC+1, no DST), matching the local
-  # midday slot chosen because 07:30 runs were Cloudflare-blocked. GitHub cron is
-  # best-effort and can lag 10+ minutes; every insert is INSERT OR IGNORE, so a
-  # late or repeated run is harmless.
+  # LIVE since 6 Aug 2026. 11:00 UTC = 12:00 Africa/Lagos (UTC+1, no DST),
+  # matching the local midday slot chosen because 07:30 runs were
+  # Cloudflare-blocked. GitHub cron is best-effort and can lag 10+ minutes;
+  # every insert is INSERT OR IGNORE, so a late or repeated run is harmless.
   #
-  # schedule:
-  #   - cron: '0 11 * * *'
+  # The local Task Scheduler job was disabled when this went live — if you
+  # ever re-enable it, disable this, or two pipelines will write two diverging
+  # copies of the ledger.
+  schedule:
+    - cron: '0 11 * * *'
 
 # Never let two runs write the ledger at once.
 concurrency:

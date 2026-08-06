@@ -29,6 +29,11 @@ generate predictions on demand.
 - DB: SQLite at ./db/sports_predictor.db
 
 ## Run commands
+- **Pipeline now runs in the CLOUD** (GitHub Actions, .github/workflows/daily.yml,
+  11:00 UTC = 12:00 Lagos). The local Task Scheduler jobs are DISABLED — do not
+  re-enable them without disabling the cron, or two pipelines write two diverging
+  ledgers. db/sports_predictor.db is COMMITTED and the workflow updates it daily.
+  Forebet is excluded in the cloud (IP-blocked); PredictZ + API-Football cover it.
 - Full daily pipeline:  `python run_daily.py`  (add `--no-gemma` to skip AI text, faster)
 - API:                  `uvicorn api.server:app --reload --port 8080`  (docs at /docs)
 - Web app:              `cd webapp; python -m http.server 3000`  (NOT file:// — breaks fetch)

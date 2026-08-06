@@ -44,16 +44,32 @@ Install Ollama, then `ollama pull gemma3:4b`. Without it, run the pipeline with
 
 | Missing | Why | How to get it |
 |---|---|---|
-| `db/sports_predictor.db` | the live ledger; would conflict constantly | `python db/database.py`, then `python run_daily.py` to populate |
 | `models/*.joblib` | 27 MB binary, regenerated on every retrain | `python models/train.py` (~a few minutes; reads `data/historical/`) |
 | `data/raw/`, `*.log` | debug dumps and noise | created as you run things |
 
 The training CSVs in `data/historical/` **are** committed, so `train.py` works on
 a fresh clone with no downloads.
 
-> **The database is per-developer.** There is one real track record and it lives
-> on Boss's machine, where the scheduled pipeline runs. Your local DB is a
-> scratch copy — never treat your local hit-rates as the project's numbers.
+### The ledger lives in the repo (changed 6 Aug 2026)
+
+`db/sports_predictor.db` **is committed**, and the GitHub Actions pipeline
+(`.github/workflows/daily.yml`) writes it every day at 11:00 UTC / 12:00 Lagos.
+That file is the authoritative track record — the thing the product's
+credibility rests on.
+
+Practical consequences:
+
+- **Pull before you work.** The bot commits the ledger daily, so `main` moves
+  without either of you touching it.
+- **Don't commit your own DB changes.** Running the pipeline locally will
+  modify the file. Unless you're deliberately backfilling, restore it before
+  committing: `git checkout db/sports_predictor.db`.
+- **It's a binary file — git can't merge it.** If both the workflow and a human
+  change it, you get a conflict that has to be resolved by choosing one side.
+  The workflow fails loudly rather than guessing; prefer taking the bot's copy
+  and re-running whatever you needed.
+- `db/*.db` is still gitignored in general, so a scratch database of your own is
+  never committed by accident. Only this one file is force-added.
 
 ---
 
