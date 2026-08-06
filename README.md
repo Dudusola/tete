@@ -192,8 +192,9 @@ plausible-looking numbers rather than errors.
   predicted leagues with scoreable ones is the fix, not re-keying.
 - **Interactive bot commands are `/picks`, `/stats`, `/help`** — `/slip` is not
   ported to the webhook yet.
-- Booking-code generation from the hosted API is **untested** — SportyBet and
-  MSport are Nigerian endpoints and may reject Render's European IPs.
+- Booking-code generation is **verified working** from both the laptop and
+  Render (codes UFDQE5 and ZW74P1 loaded in SportyBet). SportyBet does not
+  geo-block Render's European IPs.
 
 ---
 

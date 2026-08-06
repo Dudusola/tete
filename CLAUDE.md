@@ -228,6 +228,23 @@ unknown until the honest ledger matures.
    LastTaskResult of 0x800710E0 means it was refused, not that it failed.
    Note the alert channel shares fate with the pipeline (same box, same
    network); a truly independent watchdog would have to live off-machine.
+10. **Truncated SportyBet feed → games silently dropped from booking codes
+    (Aug 2026).** Users reported that "some games aren't picked" when
+    generating a code. fetch_sportybet_events() fetched a HARDCODED 10 pages —
+    accurate when written ("~8 pages" per its own comment), silently wrong
+    later because the feed grew to 1537 events. Ten pages returned 843, so
+    whole competitions fell off the end (MLS, Leagues Cup). Those legs came
+    back "unmapped", which READS as "SportyBet doesn't offer this match" — so
+    the label actively hid the cause. Verified: Portland Timbers v Club Puebla
+    and Austin FC v Club Tijuana were in the feed the whole time, just past
+    page 10. It failed identically on the laptop and in the cloud, ruling out
+    geo-blocking. FIX: page count is DERIVED from `data.totalNum` in the
+    response (+2 pages slack, since events arrive grouped by tournament so
+    per-page counts vary), capped by SPORTY_MAX_PAGES. Same 6-leg slip went
+    2/6 bookable → 6/6; codes UFDQE5 and ZW74P1 confirmed loading in SportyBet.
+    **A hardcoded limit against a third-party feed is a time bomb — derive it
+    from the response, or it will be right today and wrong in six weeks. And
+    never let a "not found" label stand in for "we didn't look far enough".**
 
 ## Decisions & their reasoning
 - **Web app / PWA, not React Native** — free deploy, one codebase, installable. RN deferred to paying-users phase.
