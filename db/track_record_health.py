@@ -178,12 +178,46 @@ def main():
             for r in by_league:
                 print(f"       {(r['league'] or '?')[:24]:<24} {r['n']} ungraded")
 
+    # ---- Liveness: judge by DATA, never by the log ------------------------
+    # Bug #9 (Aug 2026): the log said "4 days" while the DB had been frozen for
+    # 12 — a run that scrapes nothing still touches the log, and a run that is
+    # REFUSED by Task Scheduler (on battery) writes no log at all. Freshness is
+    # "did new rows land?", so ask the tables.
+    print("\n  PIPELINE LIVENESS (freshness of the data itself)")
+    freshness = {
+        "fixtures scraped":  "SELECT MAX(DATE(scraped_at))   FROM scraped_predictions",
+        "predictions made":  "SELECT MAX(DATE(predicted_at)) FROM model_predictions",
+        "results recorded":  "SELECT MAX(DATE(recorded_at))  FROM results",
+    }
+    worst = 0
+    for label, q in freshness.items():
+        last = conn.execute(q).fetchone()[0]
+        if not last:
+            print(f"    {label:<18} never")
+            worst = max(worst, 999)
+            continue
+        age = (date.today() - date.fromisoformat(last)).days
+        worst = max(worst, age)
+        flag = "OK" if age <= 1 else ("stale" if age <= 3 else "!! STALLED")
+        print(f"    {label:<18} {last}  ({age}d ago)  {flag}")
+
+    if worst > 3:
+        print(f"\n  !! The ledger has not moved in {worst} days. Before blaming the")
+        print("     scrapers, check the task was allowed to START at all:")
+        print('       Get-ScheduledTaskInfo -TaskName "PotentialPro Daily Pipeline 1200"')
+        print("     LastTaskResult 2147946720 (0x800710E0) = refused, never ran")
+        print("     (Task Scheduler defaults refuse to start on battery).")
+
     log = "./data/daily_pipeline.log"
     if os.path.exists(log):
         stale = (date.today()
                  - date.fromtimestamp(os.path.getmtime(log))).days
-        msg = "OK" if stale <= 1 else f"!! {stale} days old — did the daily task run?"
-        print(f"\n  Pipeline log last written {stale} day(s) ago: {msg}")
+        # Log mtime is a WEAK signal — kept only to spot log/data disagreement,
+        # which is itself diagnostic (log fresh + data stale = runs doing nothing).
+        note = ""
+        if stale <= 1 < worst:
+            note = "  <- log looks fresh but NO data landed: runs are no-ops"
+        print(f"\n  Pipeline log last written {stale} day(s) ago{note}")
 
     # ---- Verdict -----------------------------------------------------------
     print("\n" + "="*64 + "\n  READINESS VERDICT")

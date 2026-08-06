@@ -174,6 +174,31 @@ unknown until the honest ledger matures.
    **Grading COVERAGE is a first-class health metric, not just cadence —
    check `python db/track_record_health.py`. A tier % means nothing if the
    picks it omits are the ones that lost. Run it before trusting calibration.**
+9. **The 12-day silent stall — Task Scheduler, not the code (Aug 2026).** Between
+   26 Jul and 6 Aug NOTHING entered the DB: no fixtures, no predictions, no
+   results. rf_v1e (shipped late July to disable the harmful consensus boost)
+   had produced **zero predictions ever** — the whole point of the change was
+   generating no evidence, silently. Every fix from bug #5 worked as designed
+   (scrapers exit non-zero, health check fired, Telegram alert attempted) and
+   it STILL went unnoticed for 12 days, because:
+   - The task "PotentialPro Daily Pipeline 1200" had `DisallowStartIfOnBatteries
+     = True` (Task Scheduler's DEFAULT). On battery the task is refused before
+     python ever starts — last-run result 2147946720 (0x800710E0, "operator or
+     administrator has refused the request"). No log line, because nothing ran.
+   - `StartWhenAvailable = False` (also default) meant a missed 12:00 run — PC
+     asleep or off — was skipped permanently, never caught up.
+   - The one run that did fire (2 Aug) hit a genuine network outage, so even
+     the failure alert couldn't send: DNS wouldn't resolve api.telegram.org.
+   FIX: task now has `StartWhenAvailable=True`, `DisallowStartIfOnBatteries=False`,
+   `StopIfGoingOnBatteries=False`, ExecutionTimeLimit 2h (was 72h).
+   **A pipeline that never STARTS produces no logs and no alerts — the bug #5
+   hardening only covers runs that begin. Health is "did fresh rows land
+   today?", checked against the DB, not "did the last run succeed?". Task
+   Scheduler defaults are hostile on a laptop.** Verify with:
+   `Get-ScheduledTaskInfo -TaskName "PotentialPro Daily Pipeline 1200"` — a
+   LastTaskResult of 0x800710E0 means it was refused, not that it failed.
+   Note the alert channel shares fate with the pipeline (same box, same
+   network); a truly independent watchdog would have to live off-machine.
 
 ## Decisions & their reasoning
 - **Web app / PWA, not React Native** — free deploy, one codebase, installable. RN deferred to paying-users phase.
