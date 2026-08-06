@@ -1,0 +1,31 @@
+# Render Blueprint — deploys the PotentialPro API as a free web service.
+#
+# Render reads this automatically when you point it at the repo, so the service
+# is defined in version control rather than clicked together in a dashboard.
+#
+# NOTE on the free plan: the instance sleeps after ~15 minutes of inactivity and
+# takes roughly 50 seconds to wake. That is fine for personal use and testers;
+# revisit if the app ever gets real traffic.
+
+services:
+  - type: web
+    name: potentialpro-api
+    runtime: docker
+    plan: free
+    region: frankfurt          # closest free region to Nigeria
+    dockerfilePath: ./deploy/render/Dockerfile
+    dockerContext: .           # repo root, so the Dockerfile copies real source
+    # The API has no route at "/" (404) — pointing the health check there would
+    # fail every deploy. /healthz is the endpoint built for this.
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      # Read-only PAT so a long-running instance can pull the ledger the daily
+      # pipeline commits. Optional: without it the API still serves the ledger
+      # baked into the image at build time.
+      - key: GITHUB_TOKEN
+        sync: false            # set in the Render dashboard, never committed
+      - key: LEDGER_REPO
+        value: Dudusola/tete
+      - key: LEDGER_REFRESH_MINUTES
+        value: "30"

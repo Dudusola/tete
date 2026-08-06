@@ -1,0 +1,7 @@
+# Exactly what the API imports: fastapi (+uvicorn to serve), requests for the
+# booking-code calls and ledger sync, loguru for logging. No pandas, no
+# scikit-learn, no playwright — the pipeline does the predicting elsewhere.
+fastapi>=0.138.1
+uvicorn>=0.49.0
+requests>=2.34.2
+loguru>=0.7.3
