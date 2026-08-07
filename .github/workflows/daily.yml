@@ -112,9 +112,13 @@ jobs:
           PYTHONIOENCODING: utf-8
         run: python bot/export_feed.py
 
+      # --strict exits non-zero when the ledger has stopped moving, so this job
+      # goes RED and GitHub notifies. Without it the script always exited 0 and
+      # a stalled pipeline printed warnings into a green build — precisely how
+      # the 12-day stall (bug #9) stayed invisible.
       - name: Ledger health
         if: always()
-        run: python db/track_record_health.py
+        run: python db/track_record_health.py --strict
 
       - name: Commit the updated ledger
         if: always()

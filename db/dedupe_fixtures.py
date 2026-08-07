@@ -58,6 +58,35 @@ def _repoint_result_safe(cur, canonical, dup):
         cur.execute("UPDATE results SET match_id=? WHERE match_id=?", (canonical, dup))
 
 
+def _is_code(name: str) -> bool:
+    """Is this one of Forebet's short league codes rather than a real name?
+
+    Forebet labels leagues 'LC', 'Us4', 'Kz2', 'ECL', 'BrC' — fine as an
+    internal key, meaningless in a filter dropdown. PredictZ gives the full
+    name for the same fixture, so a merged cluster usually holds both.
+    """
+    n = (name or "").strip()
+    return bool(n) and len(n) <= 4 and " " not in n
+
+
+def _best_league(cluster) -> str | None:
+    """Pick the most human-readable league name in a duplicate cluster.
+
+    Preferring the readable name here fixes it once, at merge time, instead of
+    maintaining a lookup table of Forebet's codes forever — and it also stops
+    the same competition appearing twice in the league filter (once as 'LC',
+    once as 'Leagues Cup').
+    """
+    names = [c["league"] for c in cluster if (c["league"] or "").strip()]
+    if not names:
+        return None
+    readable = [n for n in names if not _is_code(n)]
+    if not readable:
+        return None                      # every source gave a code: keep as-is
+    # Longest readable name — "Europa Conference League" over "Conference".
+    return max(readable, key=len)
+
+
 def run(apply=False):
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
@@ -95,12 +124,20 @@ def run(apply=False):
               f"(keep {canonical}, merge {len(dups)})")
         total_merged += len(dups)
 
+        # Keep the readable league name from whichever source supplied one.
+        better = _best_league(cluster)
+        if better and better != cluster[0]["league"]:
+            print(f"      league: {cluster[0]['league']!r} -> {better!r}")
+
         if apply:
             for dup in dups:
                 _repoint(cur, "scraped_predictions", canonical, dup)
                 _repoint(cur, "model_predictions", canonical, dup)
                 _repoint_result_safe(cur, canonical, dup)
                 cur.execute("DELETE FROM matches WHERE match_id=?", (dup,))
+            if better:
+                cur.execute("UPDATE matches SET league=? WHERE match_id=?",
+                            (better, canonical))
 
     if apply:
         # Collapse now-identical child rows

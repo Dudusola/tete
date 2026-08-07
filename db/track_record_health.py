@@ -41,6 +41,11 @@ def bar(lo, hi, width=30):
     return "".join("=" if lo_i <= i <= hi_i else " " for i in range(width))
 
 
+# Set by main() so __main__ can decide the exit code without
+# restructuring the report.
+_stale_days = [0]
+
+
 def main():
     version = None
     if "--version" in sys.argv:
@@ -201,6 +206,7 @@ def main():
         flag = "OK" if age <= 1 else ("stale" if age <= 3 else "!! STALLED")
         print(f"    {label:<18} {last}  ({age}d ago)  {flag}")
 
+    _stale_days[0] = worst
     if worst > 3:
         print(f"\n  !! The ledger has not moved in {worst} days. Before blaming the")
         print("     scrapers, check the task was allowed to START at all:")
@@ -233,4 +239,21 @@ def main():
 
 
 if __name__ == "__main__":
+    import sys
+
     main()
+
+    # --strict: exit non-zero when the ledger has stopped moving, so the daily
+    # GitHub Actions job goes RED and sends a notification.
+    #
+    # Without this the script always exited 0: a stalled ledger printed
+    # warnings into a green build and nobody was told. That is exactly how the
+    # 12-day stall (bug #9) went unnoticed on the laptop — the same failure was
+    # sitting in the cloud pipeline, just better hidden.
+    #
+    # Plain runs stay informational, so a human reading the report is never
+    # interrupted by an exit code.
+    if "--strict" in sys.argv and _stale_days[0] > 2:
+        print(f"\n!! STRICT: ledger has not moved in {_stale_days[0]} days "
+              f"— failing so this run is visible.")
+        sys.exit(1)
