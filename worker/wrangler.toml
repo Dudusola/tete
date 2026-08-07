@@ -10,3 +10,5 @@ compatibility_date = "2026-08-01"
 [vars]
 REPO = "Dudusola/tete"
 FEED_PATH = "feed/bot_feed.json"
+# The bot calls the real API for /slip rather than rebuilding build_slip in JS.
+API_BASE = "https://potentialpro-api.onrender.com"

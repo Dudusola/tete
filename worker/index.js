@@ -28,6 +28,7 @@ const HELP = [
   "*PotentialPro* ⚽",
   "",
   "/picks — today's HIGH and MEDIUM confidence picks",
+  "/slip — build an accumulator (e.g. `/slip 5 high`)",
   "/stats — honest track record on scored picks",
   "/help — this message",
   "",
@@ -88,6 +89,71 @@ async function loadFeed(env) {
   return await res.json();
 }
 
+/* /slip calls the real API rather than rebuilding a slip here.
+
+   build_slip does actual work — dedupe, market derivation, back-fill when a leg
+   is dropped — and the whole reason the API is hosted (rather than ported to
+   JavaScript) is to avoid a second implementation drifting from the engine.
+   The bot must not become that second implementation either. */
+async function handleSlip(env, chatId, args) {
+  // "/slip 5 high" — order-insensitive, both optional.
+  let games = 3;
+  let risk = "MEDIUM";
+  for (const a of args) {
+    const n = parseInt(a, 10);
+    if (!isNaN(n) && n >= 2 && n <= 10) games = n;
+    const up = a.toUpperCase();
+    if (["HIGH", "MEDIUM", "LOW"].includes(up)) risk = up;
+  }
+
+  const url = `${env.API_BASE}/api/slip?risk=${risk}&games=${games}`;
+  let data;
+  try {
+    // The API sleeps on the free tier and can take ~50s to wake, which is why
+    // this is generous. Telegram has already had its 200 by now (see fetch()),
+    // so a slow reply delays the message, it doesn't retry the update.
+    const res = await fetch(url, { signal: AbortSignal.timeout(75000) });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    data = await res.json();
+  } catch (err) {
+    return sendMessage(
+      env, chatId,
+      "⚠️ Couldn't build a slip just now — the API may be waking up. " +
+      "Give it a minute and try again."
+    );
+  }
+
+  const legs = data.legs || data.slip || [];
+  if (!legs.length) {
+    return sendMessage(
+      env, chatId,
+      `📭 No ${risk} slip available — not enough qualifying matches left today.`
+    );
+  }
+
+  const lines = [`🎯 *${legs.length}-game ${risk} slip*`, ""];
+  for (const l of legs) {
+    lines.push(`*${l.home_team} vs ${l.away_team}*`);
+    // Field names verified against a live /api/slip response: the leg carries
+    // sporty_odds (may be null when SportyBet doesn't price it) and probability.
+    lines.push(`   ${l.market}: ${l.selection}` +
+               (l.sporty_odds ? `  @ ${l.sporty_odds}` : "") +
+               (l.probability ? `  (${Math.round(l.probability * 100)}%)` : ""));
+    if (l.league) lines.push(`   _${l.league}_`);
+    lines.push("");
+  }
+  if (data.sporty_total_odds) {
+    lines.push(`Total odds: *${data.sporty_total_odds}*`);
+  }
+  if (data.accumulator_probability) {
+    lines.push(`Model probability all land: *${Math.round(data.accumulator_probability * 100)}%*`);
+  }
+  lines.push("");
+  lines.push("_Build and book on the web app: potentialpro.pages.dev_");
+
+  return sendMessage(env, chatId, lines.join("\n"));
+}
+
 function formatStats(feed) {
   const s = feed.stats || {};
   if (!s.total) {
@@ -116,7 +182,12 @@ function staleness(feed) {
 }
 
 async function handleCommand(env, chatId, text) {
-  const cmd = text.trim().split(/\s+/)[0].split("@")[0].toLowerCase();
+  const parts = text.trim().split(/\s+/);
+  const cmd = parts[0].split("@")[0].toLowerCase();
+
+  if (cmd === "/slip") {
+    return handleSlip(env, chatId, parts.slice(1));
+  }
 
   if (cmd === "/start" || cmd === "/help") {
     return sendMessage(env, chatId, HELP);
@@ -144,7 +215,7 @@ async function handleCommand(env, chatId, text) {
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method !== "POST") {
       return new Response("PotentialPro webhook is up.", { status: 200 });
     }
@@ -172,11 +243,15 @@ export default {
     // Always 200: a non-2xx makes Telegram retry the same update repeatedly.
     if (!text || !chatId) return new Response("ok");
 
-    try {
-      await handleCommand(env, chatId, text);
-    } catch (err) {
-      console.log(`handler error: ${err}`);
-    }
+    // Answer Telegram NOW and do the work in the background. /slip calls the
+    // API, which can take ~50s to wake on the free tier — longer than
+    // Telegram's webhook timeout, which would make it retry the same update
+    // and send the user duplicate slips.
+    ctx.waitUntil(
+      handleCommand(env, chatId, text).catch((err) =>
+        console.log(`handler error: ${err}`)
+      )
+    );
     return new Response("ok");
   },
 };
