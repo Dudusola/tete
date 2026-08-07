@@ -26,14 +26,47 @@
 
 const HELP = [
   "*PotentialPro* ⚽",
+  "AI football predictions with an honest, published track record.",
   "",
-  "/picks — today's HIGH and MEDIUM confidence picks",
-  "/slip — build an accumulator (e.g. `/slip 5 high`)",
-  "/stats — honest track record on scored picks",
-  "/help — this message",
+  "*What you can do*",
   "",
-  "_Predictions are model output, not guarantees. Bet responsibly._",
+  "📋 /picks — today's HIGH and MEDIUM confidence picks",
+  "🎯 /slip — build an accumulator *with a ready booking code*",
+  "📊 /stats — our real record on matches that have finished",
+  "❓ /help — this message",
+  "",
+  "*Slip options* (both optional, any order)",
+  "`/slip` → 3 games, MEDIUM risk",
+  "`/slip 5` → 5 games",
+  "`/slip 5 high` → 5 games, HIGH confidence only",
+  "",
+  "Or just tap a button below — no commands to remember.",
+  "",
+  "_Predictions are model output, not guarantees._",
+  "_18+. Bet responsibly, and never stake what you can't afford to lose._",
 ].join("\n");
+
+/* Buttons, so a new user never has to know the commands exist. Telegram sends
+   callback_data back when one is tapped, and handleCommand treats it exactly
+   like typed text — one code path, no duplicate command handling. */
+const MAIN_KEYBOARD = {
+  inline_keyboard: [
+    [{ text: "📋 Today's picks", callback_data: "/picks" },
+     { text: "📊 Track record", callback_data: "/stats" }],
+    [{ text: "🎯 3-game slip", callback_data: "/slip 3" },
+     { text: "🎯 5-game slip", callback_data: "/slip 5" }],
+    [{ text: "🔒 5-game HIGH only", callback_data: "/slip 5 high" }],
+  ],
+};
+
+const SLIP_KEYBOARD = {
+  inline_keyboard: [
+    [{ text: "🔁 Another 3", callback_data: "/slip 3" },
+     { text: "🔁 Another 5", callback_data: "/slip 5" }],
+    [{ text: "🔒 HIGH only", callback_data: "/slip 5 high" },
+     { text: "📋 Picks", callback_data: "/picks" }],
+  ],
+};
 
 // Telegram rejects anything over 4096 chars. Same limit the daily push hit.
 const TELEGRAM_LIMIT = 3900;
@@ -56,17 +89,21 @@ function splitMessage(text) {
   return chunks;
 }
 
-async function sendMessage(env, chatId, text) {
-  for (const part of splitMessage(text)) {
+async function sendMessage(env, chatId, text, keyboard) {
+  const parts = splitMessage(text);
+  for (let i = 0; i < parts.length; i++) {
+    const body = {
+      chat_id: chatId,
+      text: parts[i],
+      parse_mode: "Markdown",
+      disable_web_page_preview: true,
+    };
+    // Buttons only on the LAST chunk, otherwise they'd appear mid-message.
+    if (keyboard && i === parts.length - 1) body.reply_markup = keyboard;
     await fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        chat_id: chatId,
-        text: part,
-        parse_mode: "Markdown",
-        disable_web_page_preview: true,
-      }),
+      body: JSON.stringify(body),
     });
   }
 }
@@ -148,10 +185,48 @@ async function handleSlip(env, chatId, args) {
   if (data.accumulator_probability) {
     lines.push(`Model probability all land: *${Math.round(data.accumulator_probability * 100)}%*`);
   }
-  lines.push("");
-  lines.push("_Build and book on the web app: potentialpro.pages.dev_");
 
-  return sendMessage(env, chatId, lines.join("\n"));
+  // A slip without a booking code means the user has to retype every leg by
+  // hand — the whole point is that they don't. Generated here so the code
+  // arrives in the same message as the picks.
+  try {
+    const legPayload = legs.map((l) => ({
+      home_team: l.home_team,
+      away_team: l.away_team,
+      market: l.market,
+      selection: l.selection,
+    }));
+    const res = await fetch(`${env.API_BASE}/api/booking/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ legs: legPayload, provider: "sportybet" }),
+      signal: AbortSignal.timeout(75000),
+    });
+    const book = await res.json();
+    if (book.ok && book.code) {
+      lines.push("");
+      lines.push(`🎟 *SportyBet code:* \`${book.code}\``);
+      lines.push("_Tap to copy, then paste into SportyBet → Book a Bet._");
+      const missed = (book.unmapped || []).length;
+      if (missed) {
+        // Say so rather than letting the user discover a short slip at the
+        // bookmaker: unmapped legs are ones SportyBet doesn't list.
+        lines.push(`⚠️ _${missed} leg${missed > 1 ? "s" : ""} not on SportyBet — ` +
+                   `the code has ${legs.length - missed} of ${legs.length} games._`);
+      }
+    } else {
+      lines.push("");
+      lines.push("_Booking code unavailable right now — the slip above is still valid._");
+    }
+  } catch (err) {
+    lines.push("");
+    lines.push("_Booking code timed out — try /slip again in a moment._");
+  }
+
+  lines.push("");
+  lines.push("_More options on the web app: potentialpro.pages.dev_");
+
+  return sendMessage(env, chatId, lines.join("\n"), SLIP_KEYBOARD);
 }
 
 function formatStats(feed) {
@@ -190,7 +265,7 @@ async function handleCommand(env, chatId, text) {
   }
 
   if (cmd === "/start" || cmd === "/help") {
-    return sendMessage(env, chatId, HELP);
+    return sendMessage(env, chatId, HELP, MAIN_KEYBOARD);
   }
 
   if (cmd === "/picks" || cmd === "/stats") {
@@ -208,10 +283,15 @@ async function handleCommand(env, chatId, text) {
       cmd === "/picks"
         ? feed.picks_message || "📭 No picks published yet."
         : formatStats(feed);
-    return sendMessage(env, chatId, body + staleness(feed));
+    return sendMessage(env, chatId, body + staleness(feed), MAIN_KEYBOARD);
   }
 
-  return sendMessage(env, chatId, "Unknown command. Try /help");
+  // Unknown input: show what IS possible rather than just rejecting it.
+  return sendMessage(
+    env, chatId,
+    "I didn't understand that. Here's what I can do:\n\n" + HELP,
+    MAIN_KEYBOARD
+  );
 }
 
 export default {
@@ -234,6 +314,30 @@ export default {
       update = await request.json();
     } catch {
       return new Response("bad json", { status: 400 });
+    }
+
+    // A tapped button arrives as callback_query, not a message. Its
+    // callback_data is a command string, so it routes through exactly the same
+    // handler as typed text.
+    const cb = update.callback_query;
+    if (cb) {
+      // Telegram shows a loading spinner on the button until this is answered.
+      ctx.waitUntil(
+        fetch(`https://api.telegram.org/bot${env.BOT_TOKEN}/answerCallbackQuery`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ callback_query_id: cb.id }),
+        }).catch(() => {})
+      );
+      const cbChat = cb.message?.chat?.id;
+      if (cbChat && cb.data) {
+        ctx.waitUntil(
+          handleCommand(env, cbChat, cb.data).catch((err) =>
+            console.log(`callback error: ${err}`)
+          )
+        );
+      }
+      return new Response("ok");
     }
 
     const msg = update.message || update.edited_message;
