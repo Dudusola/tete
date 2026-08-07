@@ -190,8 +190,10 @@ plausible-looking numbers rather than errors.
 - **Grading coverage is 43%** (92 of 212). Some leagues we predict (Veikkausliiga,
   Superettan, Copa Sudamericana) have no working results source. Aligning
   predicted leagues with scoreable ones is the fix, not re-keying.
-- **Interactive bot commands are `/picks`, `/stats`, `/help`** — `/slip` is not
-  ported to the webhook yet.
+- Telegram bot: `/picks`, `/slip` (with a SportyBet booking code attached),
+  `/stats`, `/help`. Inline buttons and Telegram's command menu mean a new user
+  needs no prior knowledge. `/slip` calls the real API rather than rebuilding
+  build_slip in JavaScript, so it cannot drift from the engine.
 - Booking-code generation is **verified working** from both the laptop and
   Render (codes UFDQE5 and ZW74P1 loaded in SportyBet). SportyBet does not
   geo-block Render's European IPs.
