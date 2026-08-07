@@ -340,7 +340,48 @@ unknown until the honest ledger matures.
        sends fail quietly and nobody notices, which is exactly the failure
        pattern behind bugs #5, #8 and #9. Log delivery counts, and treat a drop
        to zero as an alert, not as "nobody used it today".
-8. DEFERRED until football is validated: second sport, real booking codes.
+8. **User accounts + per-user records — DESIGNED, DEFERRED (Aug 2026).**
+   Asked for as "every user has login details and their own record". Deferred
+   for the same reason as web push: it is a LAUNCH feature, and the tier
+   question isn't settled. Building auth now means maintaining it while the
+   thing it serves is unproven. Sequence: ledger matures → HIGH-tier question
+   resolved → accounts + web push together, at tester-invite time.
+
+   **The distinction that must not be blurred — two different records:**
+   - **The MODEL's track record stays GLOBAL.** "HIGH hit 38% on 92 graded
+     picks" is a claim about the engine, verified against real scores. It is
+     the product's entire credibility. Per-user it would be meaningless and
+     actively misleading: a new user sees 0/0, a lucky one sees 3/3 = 100%.
+     That is the fake-scores trap wearing a different hat — a number that
+     looks personal but proves nothing.
+   - **The USER's own record is PER-USER.** Which picks they actually took,
+     stake, P&L. A betting diary. Show both on one screen: "the model is 54%
+     overall; you are 7/12 on the slips you took."
+
+   **Hard constraint: user data CANNOT live in db/sports_predictor.db.** That
+   file is committed to the repo and rewritten by GitHub Actions daily — user
+   rows there would be readable by anyone with repo access and overwritten
+   every run. Use a separate store: Supabase free tier (hosted Postgres +
+   auth built in) is the fit, so nobody hand-rolls password handling.
+
+9. **Slip determinism — KEEP IT. Do not randomise for the sake of variety.**
+   Verified Aug 2026: the same /api/slip query returns byte-identical legs;
+   changing risk changes them. Every user asking for "5 games, MEDIUM" gets
+   the same slip, and that is CORRECT: if the five best MEDIUM picks are A-E,
+   serving user B picks F-J means knowingly giving them worse selections.
+   That trades the one real asset (accuracy) for the appearance of
+   personalisation. build_slip is also relied upon to be deterministic by the
+   Builder's remove/swap back-fill.
+
+   **Variety should come from PREFERENCES, which already exist**: risk tier,
+   game count, league filter, pinned bankers, excluded fixtures. Two users
+   with different filters already get different slips honestly.
+
+   The ONE legitimate place for randomness is tie-breaking among picks whose
+   difference is inside the noise (66.2% vs 66.0%) — vary which appears, cost
+   nothing. Anything beyond that is degrading picks to look bespoke.
+
+10. DEFERRED until football is validated: second sport, real booking codes.
 
 ## Gotchas
 - PowerShell `Out-File` writes null bytes → "source code string cannot contain null bytes". Use New-Item for empty files.
