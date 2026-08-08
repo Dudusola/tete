@@ -1,0 +1,87 @@
+# Evening results run — grade the day's football before bed.
+#
+# WHY: the main pipeline runs once at midday, so a match finishing on Saturday
+# evening isn't graded until Sunday noon. That left 14 picks sitting at "score
+# pending" all night. This closes the gap.
+#
+# Deliberately NOT the full pipeline: no scraping fixtures, no predictions, no
+# Gemini. Results only, plus a live-state refresh so finished matches stop
+# showing as pending. That keeps it fast (no Playwright install) and means it
+# can never change a prediction — an evening run must not quietly re-pick after
+# people have already backed the midday card.
+
+name: Evening results
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 22:00 UTC = 23:00 Lagos. European football is finished, most of the
+    # Americas is under way; anything later is picked up by the midday run.
+    - cron: '0 22 * * *'
+
+# Never let this and the midday pipeline write the ledger at once.
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  results:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        # No Playwright here: the only scraper that needs it (Forebet) is
+        # IP-blocked from Actions anyway, and skipping it saves ~2 minutes.
+        run: pip install requests loguru python-dotenv
+
+      - name: Record results (football-data API)
+        continue-on-error: true
+        env:
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python scrapers/results_api.py
+
+      - name: Record results (ESPN)
+        continue-on-error: true
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python scrapers/results_espn.py --days 3
+
+      - name: Refresh live state
+        # So matches that have ended stop reading as "score pending" even when
+        # no result source has published a score yet.
+        continue-on-error: true
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python scrapers/kickoff_times.py --days 1
+
+      - name: Commit the updated ledger
+        if: always()
+        run: |
+          git config user.name  "potentialpro-bot"
+          git config user.email "actions@github.com"
+          git add -f db/sports_predictor.db
+          if git diff --cached --quiet; then
+            echo "No new results tonight."
+          else
+            git commit -m "ledger: evening results $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git pull --rebase --no-edit || {
+              echo "::error::Ledger conflict — another writer touched the DB."
+              exit 1
+            }
+            git push
+          fi
