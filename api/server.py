@@ -277,7 +277,9 @@ def get_slip(
         "risk": risk.upper(),
         "requested_games": games,
         "actual_games": len(slip),
-        "accumulator_probability": round(combined, 4),
+        # None on an empty slip — see accumulator_probability(); never round
+        # it into a 1.0 that reads as "certain".
+        "accumulator_probability": round(combined, 4) if combined is not None else None,
         "sporty_total_odds": sporty["total_odds"],
         "legs": leg_dicts,
     }

@@ -246,8 +246,16 @@ def build_slip(all_options: list, risk: str, num_games: int,
     return pinned_legs + chosen[:max(0, num_games - len(pinned_legs))]
 
 
-def accumulator_probability(slip: list) -> float:
-    """Combined probability of all legs hitting (independent assumption)."""
+def accumulator_probability(slip: list) -> float | None:
+    """Combined probability of all legs hitting (independent assumption).
+
+    Returns None for an EMPTY slip rather than 1.0. The empty product is
+    mathematically 1.0, but as a payload that reads as "100% certain" — the
+    worst possible thing to show for a slip with no legs in it. Callers should
+    treat None as "no answer", which is the truth.
+    """
+    if not slip:
+        return None
     p = 1.0
     for leg in slip:
         p *= leg.probability

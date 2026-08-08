@@ -75,7 +75,15 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <button data-count="5" class="count-btn px-lg py-sm rounded-full border border-outline-variant text-body-md text-on-surface hover:bg-surface-container-high transition">5</button>
 <button data-count="7" class="count-btn px-lg py-sm rounded-full border border-outline-variant text-body-md text-on-surface hover:bg-surface-container-high transition">7</button>
 <button data-count="10" class="count-btn px-lg py-sm rounded-full border border-outline-variant text-body-md text-on-surface hover:bg-surface-container-high transition">10</button>
+<!-- The API has always accepted 1-20; only the UI was limited to four presets. -->
+<div class="flex items-center gap-xs">
+  <label for="count-custom" class="text-label-sm text-on-surface-variant">Custom</label>
+  <input id="count-custom" type="number" min="2" max="20" inputmode="numeric"
+         placeholder="—"
+         class="w-[72px] rounded-full border border-outline-variant px-md py-sm text-body-md text-center bg-surface"/>
 </div>
+</div>
+<p id="count-note" class="text-label-sm text-on-surface-variant mt-xs"></p>
 </section>
 
 <!-- League filter -->
@@ -108,7 +116,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=21"></script>
+<script src="js/api.js?v=22"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
@@ -141,6 +149,30 @@ function paintCount() {
         btn.className = "count-btn px-lg py-sm rounded-full text-body-md transition " +
             (on ? SELECTED_COUNT : UNSELECTED_COUNT + " hover:bg-surface-container-high");
     });
+    // Keep the custom box in sync: it shows the count only when it isn't one
+    // of the presets, so the selected state is never ambiguous.
+    const custom = document.getElementById("count-custom");
+    if (custom) {
+        const isPreset = [3, 5, 7, 10].includes(selectedCount);
+        if (document.activeElement !== custom) custom.value = isPreset ? "" : selectedCount;
+        custom.style.borderColor = isPreset ? "" : "#91db2a";
+    }
+    const note = document.getElementById("count-note");
+    if (note) {
+        // Long accumulators are seductive and mathematically brutal: each leg
+        // multiplies, so 10 legs at 70% is ~3%. Saying so here is the honest
+        // counterweight to making big slips easier to build.
+        if (selectedCount >= 8) {
+            const rough = Math.round(Math.pow(0.68, selectedCount) * 1000) / 10;
+            note.textContent = `${selectedCount} legs must ALL land — roughly ` +
+                `${rough < 1 ? "under 1" : rough}% at typical pick strength. ` +
+                `Longer slips pay more and win far less often.`;
+            note.className = "text-label-sm text-error mt-xs";
+        } else {
+            note.textContent = "";
+            note.className = "text-label-sm text-on-surface-variant mt-xs";
+        }
+    }
 }
 
 function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
@@ -194,6 +226,14 @@ function renderSlip(data) {
     <h3 class="text-body-lg text-primary font-semibold">Generated Acca</h3>
     <span class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">${escapeHtml(data.risk)} Risk • ${data.actual_games} Games</span>
   </div>
+  ${data.actual_games < data.requested_games ? `
+  <div class="bg-surface-container-low px-md py-xs border-b border-outline-variant">
+    <span class="text-label-sm text-on-surface-variant">
+      You asked for ${data.requested_games} but only ${data.actual_games} qualifying
+      ${data.actual_games === 1 ? "match is" : "matches are"} available at this risk level right now —
+      padding it with weaker picks would be worse than a shorter slip.
+    </span>
+  </div>` : ""}
   <div class="divide-y divide-surface-container-high">
     ${data.legs.map((l, i) => renderLeg(l, i)).join("")}
   </div>
@@ -356,6 +396,23 @@ document.addEventListener("DOMContentLoaded", () => {
         btn.addEventListener("click", () => { selectedRisk = btn.dataset.risk; paintRisk(); }));
     document.querySelectorAll(".count-btn").forEach(btn =>
         btn.addEventListener("click", () => { selectedCount = parseInt(btn.dataset.count); paintCount(); }));
+
+    const customCount = document.getElementById("count-custom");
+    if (customCount) {
+        customCount.addEventListener("input", () => {
+            const n = parseInt(customCount.value, 10);
+            // Clamp to what the API accepts (1-20); below 2 isn't an
+            // accumulator. Invalid input simply doesn't change the selection.
+            if (!isNaN(n) && n >= 2 && n <= 20) {
+                selectedCount = n;
+                paintCount();
+            }
+        });
+        // Enter builds the slip, same as tapping Generate.
+        customCount.addEventListener("keydown", e => {
+            if (e.key === "Enter") document.getElementById("generate-btn")?.click();
+        });
+    }
     document.getElementById("generate-btn").addEventListener("click", generateSlip);
     paintRisk(); paintCount(); loadLeagues();
 });
