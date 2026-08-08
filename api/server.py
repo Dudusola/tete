@@ -173,11 +173,64 @@ def health():
     return {"status": "ok", "service": "PotentialPro API"}
 
 
+def _started_today() -> list:
+    """Today's HIGH/MEDIUM picks that have already kicked off.
+
+    Returned SEPARATELY from `picks`, never mixed in: these are not bettable and
+    must never be presented as recommendations. They exist so the card doesn't
+    silently empty out through the day — on a busy Saturday nine 14:00 ties
+    vanish at once, which looks like the model has nothing rather than like the
+    football has started.
+    """
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT m.home_team, m.away_team, m.league, m.match_date,
+               m.kickoff_utc, m.live_state,
+               mp.confidence, mp.best_bet, mp.best_bet_prob,
+               r.home_goals AS result_home_goals,
+               r.away_goals AS result_away_goals,
+               r.outcome AS result_outcome
+        FROM matches m
+        JOIN model_predictions mp ON mp.id = (
+            SELECT MAX(mp2.id) FROM model_predictions mp2
+            WHERE mp2.match_id = m.match_id
+        )
+        LEFT JOIN results r ON r.match_id = m.match_id
+        WHERE mp.confidence IN ('HIGH','MEDIUM')
+          AND m.match_date >= date('now','-1 day')
+          AND (
+            (m.kickoff_utc IS NOT NULL
+             AND m.kickoff_utc <= strftime('%Y-%m-%d %H:%M','now'))
+            OR m.live_state IN ('in','post')
+          )
+        ORDER BY m.kickoff_utc DESC
+        LIMIT 20
+    """).fetchall()
+    conn.close()
+
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get("result_outcome"):
+            winner = {"H": "Home Win", "D": "Draw",
+                      "A": "Away Win"}.get(d["result_outcome"])
+            d["model_was_right"] = d["best_bet"] == winner
+        else:
+            d["model_was_right"] = None      # not graded yet — not "wrong"
+        out.append(d)
+    return out
+
+
 @app.get("/api/picks")
 def get_picks():
-    """Today's HIGH and MEDIUM confidence model picks."""
+    """Today's HIGH and MEDIUM confidence model picks.
+
+    `picks` are bettable. `started` is today's picks that have already kicked
+    off, kept separate so the UI can show them greyed out with results.
+    """
     picks = _attach_consensus(_model_predictions(only_strong=True))
-    return {"count": len(picks), "generated_at": _last_generated_at(), "picks": picks}
+    return {"count": len(picks), "generated_at": _last_generated_at(),
+            "picks": picks, "started": _started_today()}
 
 
 @app.get("/api/picks/all")

@@ -105,6 +105,19 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 
 <!-- Prediction feed (cards injected here) -->
 <div id="picks-feed" class="grid grid-cols-1 md:grid-cols-2 gap-md md:gap-lg"></div>
+
+<!-- Matches that have kicked off. Deliberately quiet and BELOW the bettable
+     picks: they are not recommendations, they are there so the card doesn't
+     look empty once the day's football starts. Collapsed by default. -->
+<section id="started-section" class="mt-lg hidden">
+  <button id="started-toggle" class="w-full flex items-center justify-between text-left py-sm px-md rounded-lg bg-surface-container-low border border-outline-variant hover:bg-surface-container-high transition">
+    <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">
+      Kicked off today · <span id="started-count">0</span>
+    </span>
+    <span id="started-chevron" class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span>
+  </button>
+  <div id="started-list" class="hidden mt-sm space-y-xs"></div>
+</section>
 </main>
 
 <!-- Mobile Bottom Nav -->
@@ -123,7 +136,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=23"></script>
+<script src="js/api.js?v=24"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -295,6 +308,7 @@ async function loadPicks() {
     const feed = document.getElementById("picks-feed");
     const status = document.getElementById("status");
     feed.innerHTML = Array(4).fill(skeletonCard()).join("");
+    // (renderStarted is defined below loadPicks so it can use the same helpers)
     status.textContent = "Loading…";
     try {
         const [data, stats] = await Promise.all([
@@ -304,6 +318,7 @@ async function loadPicks() {
         ALL_PICKS = (data.picks || []).slice().sort((a, b) =>
             (kickoffDate(a.match_date, a.kickoff_time, a.kickoff_utc) || 0) - (kickoffDate(b.match_date, b.kickoff_time, b.kickoff_utc) || 0));
         UPDATED_AT = data.generated_at || null;
+        renderStarted(data.started || []);
         renderStatStrip(ALL_PICKS, stats);
         if (ALL_PICKS.length === 0) {
             feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
@@ -322,7 +337,50 @@ async function loadPicks() {
     }
 }
 
+/* Matches that already kicked off: one compact line each, muted, with the
+   result once it exists. Never styled like a recommendation — the point is
+   "here's what the model said about today's football", not "bet this". */
+function renderStarted(started) {
+    const section = document.getElementById("started-section");
+    const list = document.getElementById("started-list");
+    if (!section || !list) return;
+    if (!started.length) { section.classList.add("hidden"); return; }
+
+    section.classList.remove("hidden");
+    document.getElementById("started-count").textContent = started.length;
+
+    list.innerHTML = started.map(s => {
+        const graded = s.result_outcome != null;
+        const right = s.model_was_right;
+        // Not graded yet is UNKNOWN, never shown as a loss.
+        const outcome = graded
+            ? `<span class="text-label-sm font-bold ${right ? "text-secondary" : "text-error"}">
+                 ${s.result_home_goals}–${s.result_away_goals} ${right ? "✓" : "✗"}</span>`
+            : `<span class="text-label-sm text-on-surface-variant">in play</span>`;
+        return `
+        <div class="flex items-center justify-between gap-sm px-md py-xs rounded-lg bg-surface-container-low opacity-70">
+          <div class="min-w-0">
+            <div class="text-body-md text-on-surface truncate">${escapeHtml(s.home_team)} vs ${escapeHtml(s.away_team)}</div>
+            <div class="text-label-sm text-on-surface-variant truncate">
+              ${escapeHtml(prettyLeague(s.league))} · we said ${escapeHtml(s.best_bet)} (${Math.round((s.best_bet_prob||0)*100)}%)
+            </div>
+          </div>
+          ${outcome}
+        </div>`;
+    }).join("");
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+    const startedToggle = document.getElementById("started-toggle");
+    if (startedToggle) {
+        startedToggle.addEventListener("click", () => {
+            const list = document.getElementById("started-list");
+            const chev = document.getElementById("started-chevron");
+            const open = list.classList.toggle("hidden") === false;
+            chev.textContent = open ? "expand_less" : "expand_more";
+        });
+    }
+
     document.querySelectorAll(".tier-chip").forEach(c =>
         c.addEventListener("click", () => {
             CURRENT_TIER = c.dataset.tier; paintTierChips(); renderFeed();
