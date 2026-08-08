@@ -126,6 +126,12 @@ def main():
         logger.info("⏭  Skipping Forebet (PP_SKIP_FOREBET=1 — IP-blocked here)")
     else:
         run_step("Scrape Forebet fixtures", ["scrapers/forebet.py"], required=False)
+    # Training CSVs drift: by 8 Aug the year-round leagues were 19-74 days
+    # behind, so the model was reasoning about Brazil/MLS/Mexico from months-old
+    # form. Cheap to refresh, and only replaces a file when the download has
+    # MORE rows than we hold.
+    run_step("Refresh training CSVs", ["scrapers/refresh_csvs.py"], required=False)
+
     run_step("Scrape PredictZ fixtures", ["scrapers/predictz.py"], required=False)
     run_step("Fixtures + odds (API-Football)", ["scrapers/fixtures_api.py"],
              required=False)
