@@ -649,11 +649,86 @@ def decode_bet9ja(code: str) -> list[dict]:
     return legs
 
 
+BETANO_URL = ("https://www.betano.ng/api/sharebookingcode/getbetslip?code={code}")
+
+
+def decode_betano(code: str) -> list[dict]:
+    """Betano booking code -> legs. Endpoint found in their own bundle
+    (/api/sharebookingcode/getbetslip) and confirmed anonymous: their config
+    sets generateForLoggedOutEnabled=true, and a bad code returns a clean
+    422 "InvalidCode" rather than an auth error.
+
+    Structure captured from a real code (L8K65AJT, 8 Aug 2026):
+      data.legs[] = {participants:[home,away], market, description (=selection),
+                     odds, eventStartTime (epoch ms), eventUrl, marketId, id}
+
+    NOTE: Betano uses its OWN internal ids (marketId 2894867609, event id in the
+    URL), NOT the Betradar ids SportyBet/MSport/football.com share. So a Betano
+    slip can be READ and evaluated, but converting to or from it would need
+    name-based re-matching, which can silently pick a different market. Same
+    call as Bet9ja: decode yes, convert no.
+    """
+    code = code.strip().upper()
+    if not code or len(code) > 24:
+        raise BookingCodeError("That doesn't look like a booking code.")
+    try:
+        r = requests.get(BETANO_URL.format(code=code),
+                         headers={**HEADERS, "Referer": "https://www.betano.ng/"},
+                         timeout=25)
+        payload = r.json()
+    except requests.RequestException as e:
+        raise BookingCodeError(f"Couldn't reach Betano: {e}") from e
+    except ValueError as e:
+        # Betano returns HTML when it doesn't like the User-Agent.
+        raise BookingCodeError("Betano returned a non-JSON response "
+                               "(possibly blocked).") from e
+
+    if payload.get("errors"):
+        raise BookingCodeError(str(payload["errors"][0])[:200])
+
+    raw_legs = (payload.get("data") or {}).get("legs") or []
+    if not raw_legs:
+        path = _dump_raw("betano", code, payload)
+        raise BookingCodeError(
+            f"Valid code but unrecognized slip format - raw payload saved "
+            f"to {path} so the parser can be extended.")
+
+    legs = []
+    for l in raw_legs:
+        parts = [p.get("name") for p in (l.get("participants") or [])]
+        home = parts[0] if len(parts) > 0 else None
+        away = parts[1] if len(parts) > 1 else None
+        if not (home and away):
+            continue
+        legs.append({
+            "home_team": home,
+            "away_team": away,
+            "league": None,               # Betano gives leagueId, not a name
+            "tournament": None,
+            "match_date": _ts_to_date(l.get("eventStartTime")),
+            "market": l.get("market"),
+            "selection": l.get("description"),
+            "odds": float(l["odds"]) if l.get("odds") not in (None, "") else None,
+            "event_id": str(l.get("eventId") or ""),
+            # Betano's own ids — deliberately NOT reused for conversion.
+            "market_id": None,
+            "specifier": "",
+            "outcome_id": None,
+        })
+
+    if not legs:
+        path = _dump_raw("betano", code, payload)
+        raise BookingCodeError(f"Slip found but no legs parsed - saved to {path}.")
+    logger.success(f"Decoded Betano code {code}: {len(legs)} legs")
+    return legs
+
+
 PROVIDERS = {
     "sportybet": decode_sportybet,
     "football.com": decode_footballcom,
     "msport": decode_msport,
     "bet9ja": decode_bet9ja,
+    "betano": decode_betano,
 }
 
 # Providers sharing SportyBet's platform and Betradar ids. A slip can move
