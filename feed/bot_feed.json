@@ -1,13 +1,23 @@
 {
- "generated_at": "2026-08-08T14:33:13+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Saturday, 08 August 2026*\n\n🟢 *Flamengo vs Vitoria*\n   Serie A | 2026-08-08 00:00\n   H 77% | D 16% | A 6%\n   👉 *Home Win* (77%) — HIGH\n\n🟢 *Colchester vs Southampton*\n   Efl Cup | 2026-08-08 00:00\n   H 10% | D 18% | A 73%\n   👉 *Away Win* (73%) — HIGH\n   💬 _Southampton enters this EFL Cup clash as the overwhelming favorite to secure a comfortable victory on the road. The significant gulf in league status and overall squad depth between the two sides heav_\n\n🟡 *Hartberg vs SK Sturm Graz*\n   Bundesliga | 2026-08-08 00:00\n   H 18% | D 20% | A 62%\n   👉 *Away Win* (62%) — MEDIUM\n   💬 _SK Sturm Graz enters this Austrian Bundesliga clash as clear favorites to secure all three points against Hartberg. The visitors boast superior squad depth and consistent form, making them well-equipp_\n\n🟡 *Moreirense vs Braga*\n   Primeira Liga | 2026-08-09 00:00\n   H 13% | D 26% | A 60%\n   👉 *Away Win* (60%) — MEDIUM\n   💬 _Braga enters this fixture as the clear favorites to secure all three points given their superior overall form and quality across the pitch. Their potent attack should prove too difficult for Moreirens_\n\n🟡 *Cheltenham vs Charlton*\n   Efl Cup | 2026-08-08 00:00\n   H 19% | D 21% | A 60%\n   👉 *Away Win* (60%) — MEDIUM\n   💬 _Charlton enters this EFL Cup fixture as the clear favorite to overcome Cheltenham on the road. The visitors hold a significant edge in overall squad quality and recent momentum, making them the most r_\n\n🟡 *Instituto vs Gimnasia Mendoza*\n   Liga Profesional | 2026-08-09 00:00\n   H 59% | D 24% | A 17%\n   👉 *Home Win* (59%) — MEDIUM\n   💬 _Instituto enters this matchup as the clear favorite to secure all three points on home turf. Both statistical projections strongly point toward a comfortable victory for the hosts, reflecting a signif_\n\n🟡 *Coritiba vs Chapecoense*\n   Serie A | 2026-08-08 00:00\n   H 59% | D 25% | A 16%\n   👉 *Home Win* (59%) — MEDIUM\n   💬 _Coritiba enters this matchup as the clear favorite to secure all three points due to their superior overall form and strong performances on home turf. Their decisive advantage in squad quality and tac_\n\n🟡 *Wolfsburg vs Kaiserslautern*\n   2 Bundesliga | 2026-08-08 00:00\n   H 57% | D 25% | A 18%\n   👉 *Home Win* (57%) — MEDIUM\n   💬 _Wolfsburg enters this fixture as the clear favorite to secure a victory on home turf. Both analytical projections heavily favor the hosts due to their superior squad depth and consistent recent form c_\n\n_Bet responsibly. Confidence ≠ certainty._",
- "picks_count": 8,
+ "generated_at": "2026-08-08T19:45:28+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Saturday, 08 August 2026*\n\n🟢 *FC Porto vs Alverca*\n   Primeira Liga | 2026-08-09 00:00\n   H 83% | D 13% | A 4%\n   👉 *Home Win* (83%) — HIGH\n   💬 _FC Porto enters this Primeira Liga fixture as overwhelming favorites to secure a comfortable victory on home turf. The massive gulf in quality and current form between the two sides makes a surprise r_\n\n🟢 *Flamengo vs Vitoria*\n   Serie A | 2026-08-08 00:00\n   H 77% | D 16% | A 6%\n   👉 *Home Win* (77%) — HIGH\n   💬 _Flamengo enters this fixture as overwhelming favorites to secure a comfortable victory over Vitória. The statistical analysis heavily points to a dominant performance, with a projected three-goal shut_\n\n🟡 *FC Zwolle vs Ajax*\n   Eredivisie | 2026-08-09 00:00\n   H 14% | D 23% | A 64%\n   👉 *Away Win* (64%) — MEDIUM\n   💬 _Ajax enters this Eredivisie clash as the heavy favorite to secure all three points on the road. The visitors hold a massive statistical edge in overall squad quality and recent momentum, making them t_\n\n🟡 *Moreirense vs Braga*\n   Primeira Liga | 2026-08-09 00:00\n   H 13% | D 26% | A 61%\n   👉 *Away Win* (61%) — MEDIUM\n   💬 _Braga enters this fixture as the clear favorites to secure all three points due to their superior overall quality and consistent form. Their dominant head-to-head metrics and ability to control matche_\n\n🟡 *Coritiba vs Chapecoense*\n   Serie A | 2026-08-08 00:00\n   H 60% | D 23% | A 17%\n   👉 *Home Win* (60%) — MEDIUM\n   💬 _Coritiba enters this match as the clear favorite to secure all three points playing on their home turf. Their overwhelming statistical advantage in head-to-head projections highlights a significant ga_\n\n🟡 *Instituto vs Gimnasia Mendoza*\n   Liga Profesional | 2026-08-09 00:00\n   H 59% | D 25% | A 17%\n   👉 *Home Win* (59%) — MEDIUM\n   💬 _Instituto enters this fixture as the clear favorite to secure all three points in front of their home supporters. The primary driver for this prediction is their superior overall form and significant _\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "picks_count": 6,
  "stats": {
-  "total": 60,
-  "correct": 43,
-  "accuracy": 71.7
+  "total": 66,
+  "correct": 49,
+  "accuracy": 74.2
  },
  "picks": [
+  {
+   "home": "FC Porto",
+   "away": "Alverca",
+   "league": "Primeira Liga",
+   "date": "2026-08-09",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 83.2,
+   "confidence": "HIGH"
+  },
   {
    "home": "Flamengo",
    "away": "Vitoria",
@@ -19,23 +29,13 @@
    "confidence": "HIGH"
   },
   {
-   "home": "Colchester",
-   "away": "Southampton",
-   "league": "Efl Cup",
-   "date": "2026-08-08",
+   "home": "FC Zwolle",
+   "away": "Ajax",
+   "league": "Eredivisie",
+   "date": "2026-08-09",
    "kickoff": "00:00",
    "bet": "Away Win",
-   "prob": 72.6,
-   "confidence": "HIGH"
-  },
-  {
-   "home": "Hartberg",
-   "away": "SK Sturm Graz",
-   "league": "Bundesliga",
-   "date": "2026-08-08",
-   "kickoff": "00:00",
-   "bet": "Away Win",
-   "prob": 61.6,
+   "prob": 63.8,
    "confidence": "MEDIUM"
   },
   {
@@ -45,16 +45,16 @@
    "date": "2026-08-09",
    "kickoff": "00:00",
    "bet": "Away Win",
-   "prob": 60.3,
+   "prob": 61.2,
    "confidence": "MEDIUM"
   },
   {
-   "home": "Cheltenham",
-   "away": "Charlton",
-   "league": "Efl Cup",
+   "home": "Coritiba",
+   "away": "Chapecoense",
+   "league": "Serie A",
    "date": "2026-08-08",
    "kickoff": "00:00",
-   "bet": "Away Win",
+   "bet": "Home Win",
    "prob": 59.7,
    "confidence": "MEDIUM"
   },
@@ -65,27 +65,7 @@
    "date": "2026-08-09",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 59.3,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Coritiba",
-   "away": "Chapecoense",
-   "league": "Serie A",
-   "date": "2026-08-08",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 59.3,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Wolfsburg",
-   "away": "Kaiserslautern",
-   "league": "2 Bundesliga",
-   "date": "2026-08-08",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 57.1,
+   "prob": 58.5,
    "confidence": "MEDIUM"
   }
  ]
