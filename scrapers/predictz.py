@@ -13,7 +13,7 @@ import re
 import sys
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 from loguru import logger
@@ -96,7 +96,7 @@ def odds_to_implied(oh, od, oa):
         return (None, None, None)
 
 
-def parse_row(row) -> dict | None:
+def parse_row(row, day_offset: int = 0) -> dict | None:
     # Team names
     home_el = row.select_one(".ptmobh")
     away_el = row.select_one(".ptmoba")
@@ -149,7 +149,11 @@ def parse_row(row) -> dict | None:
             # full slug, prettified - [:20] truncation caused "world-cup-2026-last-"
             league = parts[-2].replace("-", " ").title()
 
-    match_date = datetime.now().strftime("%Y-%m-%d")
+    # PredictZ has separate /predictions/ and /predictions/tomorrow/ pages but
+    # puts no date in the row itself. This used to stamp datetime.now() on
+    # EVERY fixture, so tomorrow's matches were filed under today -- wrong in
+    # the ledger, and wrong for anything matching on date.
+    match_date = (datetime.now() + timedelta(days=day_offset)).strftime("%Y-%m-%d")
     match_id = f"predictz_{forebet_style_id}" if forebet_style_id else \
         f"predictz_{match_date}_{home_team}_{away_team}".replace(" ", "_").lower()
 
@@ -185,6 +189,8 @@ def scrape() -> list:
     logger.info("🔍 Scraping PredictZ predictions...")
     all_matches = []
     seen = set()
+    # Which page maps to which day — the row markup carries no date.
+    OFFSETS = {"today": 0, "tomorrow": 1}
     for label, url in URLS.items():
         html = get_rendered_html(url)
         if not html:
@@ -194,7 +200,7 @@ def scrape() -> list:
         logger.info(f"[{label}] {len(rows)} rows")
         for row in rows:
             try:
-                parsed = parse_row(row)
+                parsed = parse_row(row, OFFSETS.get(label, 0))
                 if parsed and parsed["match"]["match_id"] not in seen:
                     seen.add(parsed["match"]["match_id"])
                     all_matches.append(parsed)
