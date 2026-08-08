@@ -128,6 +128,45 @@ def team_sim(a: str, b: str) -> float:
 NOT_STARTED = "pre"
 
 
+def _american_to_decimal(american) -> float | None:
+    """ESPN quotes moneylines American-style ('-125', '+310')."""
+    try:
+        v = float(str(american).replace("+", ""))
+    except (TypeError, ValueError):
+        return None
+    if v == 0:
+        return None
+    return 1 + (v / 100) if v > 0 else 1 + (100 / abs(v))
+
+
+def _extract_odds(comp: dict) -> tuple | None:
+    """(home, draw, away) decimal odds from an ESPN competition, or None.
+
+    WHY THIS IS HERE: PredictZ shows odds based on where you browse from. From
+    Boss's Nigerian IP they appear; from GitHub Actions they do NOT — verified
+    by timestamp (cloud scrapes: 0 odds, local scrapes: 108/218). Since the
+    model trains on odds-implied probabilities and predict.py rightly refuses
+    to invent a prior, the cloud pipeline was producing ZERO predictions.
+    ESPN carries the same market (DraftKings moneyline), needs no key, and
+    already works from Actions — so it becomes the cloud's odds source.
+    """
+    for o in comp.get("odds") or []:
+        if not isinstance(o, dict):
+            continue          # ESPN puts nulls in this list
+        ml = o.get("moneyline") or {}
+        def side(key):
+            leg = ml.get(key) or {}
+            # 'close' is the settled price; fall back to 'open'.
+            for when in ("close", "open"):
+                if (leg.get(when) or {}).get("odds") is not None:
+                    return _american_to_decimal(leg[when]["odds"])
+            return None
+        h, d, a = side("home"), side("draw"), side("away")
+        if h and d and a:
+            return (round(h, 2), round(d, 2), round(a, 2))
+    return None
+
+
 def _fetch(args) -> list:
     league, day = args
     try:
@@ -141,7 +180,8 @@ def _fetch(args) -> list:
     out = []
     for ev in events:
         iso = ev.get("date") or ""          # e.g. 2026-08-06T22:00Z (UTC)
-        comps = (ev.get("competitions") or [{}])[0].get("competitors") or []
+        comp = (ev.get("competitions") or [{}])[0]
+        comps = comp.get("competitors") or []
         home = away = None
         for c in comps:
             name = (c.get("team") or {}).get("displayName")
@@ -156,7 +196,8 @@ def _fetch(args) -> list:
         except ValueError:
             continue
         state = ((ev.get("status") or {}).get("type") or {}).get("state", "")
-        out.append((home, away, dt.strftime("%Y-%m-%d %H:%M"), state))
+        out.append((home, away, dt.strftime("%Y-%m-%d %H:%M"), state,
+                    _extract_odds(comp)))
     return out
 
 
@@ -191,11 +232,11 @@ def enrich(days: int = 2) -> int:
     """).fetchall()
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-    updated = live = 0
+    updated = live = priced = 0
     for row in rows:
-        best, best_state, best_score = None, None, 0.0
+        best, best_state, best_score, best_odds = None, None, 0.0, None
         our_date = datetime.strptime(row["match_date"], "%Y-%m-%d").date()
-        for ref_home, ref_away, ref_utc, state in reference:
+        for ref_home, ref_away, ref_utc, state, odds in reference:
             ref_date = datetime.strptime(ref_utc[:10], "%Y-%m-%d").date()
             # +/-1 day: sources disagree on date near midnight (bug #2's rule).
             if abs((ref_date - our_date).days) > 1:
@@ -207,6 +248,7 @@ def enrich(days: int = 2) -> int:
             score = (sh + sa) / 2
             if score > best_score:
                 best, best_state, best_score = ref_utc, state, score
+                best_odds = odds
 
         if not (best and best_score >= SIM_MEAN):
             continue
@@ -221,6 +263,30 @@ def enrich(days: int = 2) -> int:
         if best_state in ("in", "post"):
             live += 1
 
+        # Odds row. predict.py reads the LATEST scraped_predictions row per
+        # match, so writing one here gives the cloud pipeline the odds it can't
+        # get from PredictZ (which hides them from non-local IPs). Written only
+        # when the match has no odds yet, so a real bookmaker row from a local
+        # scrape always wins.
+        if best_odds:
+            has_odds = conn.execute(
+                "SELECT 1 FROM scraped_predictions WHERE match_id = ? "
+                "AND odds_home IS NOT NULL LIMIT 1", (row["match_id"],)).fetchone()
+            if not has_odds:
+                oh, od, oa = best_odds
+                ih, idr, ia = 1 / oh, 1 / od, 1 / oa
+                total = ih + idr + ia
+                conn.execute("""
+                    INSERT INTO scraped_predictions
+                    (match_id, source, home_win_pct, draw_pct, away_win_pct,
+                     predicted_home_goals, predicted_away_goals, over_2_5_pct,
+                     btts_pct, home_form, away_form, odds_home, odds_draw, odds_away)
+                    VALUES (?, 'espn', ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?, ?)
+                """, (row["match_id"], round(ih / total * 100, 1),
+                      round(idr / total * 100, 1), round(ia / total * 100, 1),
+                      oh, od, oa))
+                priced += 1
+
     conn.commit()
     remaining = conn.execute("""
         SELECT COUNT(*) FROM matches
@@ -228,7 +294,7 @@ def enrich(days: int = 2) -> int:
     """).fetchone()[0]
     conn.close()
 
-    logger.success(f"Kickoff times set for {updated} matches; {live} marked "
+    logger.success(f"Kickoff times set for {updated} matches; {priced} given odds; {live} marked "
                    f"in-play/finished ({remaining} still without a time — these "
                    f"stay visible, because 'unknown' must never be read as "
                    f"'already played')")
