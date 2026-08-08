@@ -1,42 +1,11 @@
 {
- "generated_at": "2026-08-07T11:46:47+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Friday, 07 August 2026*\n\n🟡 *Almaz-Antey U19 vs Nizhny Novgorod U19*\n   RuY | 2026-08-07 11:00\n   H 63% | D 21% | A 16%\n   👉 *Home Win* (63%) — MEDIUM\n   💬 _Almaz-Antey U19 enters this matchup as the clear favorite to secure a comfortable victory over Nizhny Novgorod U19. Statistical models heavily favor the home side, projecting a dominant three-goal shu_\n\n🟡 *Shamrock Rovers vs Dundalk*\n   Premier Division | 2026-08-07 19:00\n   H 58% | D 25% | A 18%\n   👉 *Home Win* (58%) — MEDIUM\n   💬 _Shamrock Rovers enter this clash as heavy favorites to secure all three points against Dundalk. This strong home advantage is driven by a significant disparity in overall squad quality and current for_\n\n🟡 *Derry City vs Sligo Rovers*\n   Premier Division | 2026-08-07 18:45\n   H 55% | D 31% | A 14%\n   👉 *Home Win* (55%) — MEDIUM\n   💬 _Analysis unavailable at this time._\n\n_Bet responsibly. Confidence ≠ certainty._",
- "picks_count": 3,
+ "generated_at": "2026-08-08T05:04:17+00:00",
+ "picks_message": "📭 No HIGH or MEDIUM confidence picks today.\n\nThe model evaluated today's fixtures and none met the confidence threshold. No bet is also a decision. 🧠",
+ "picks_count": 0,
  "stats": {
-  "total": 58,
-  "correct": 41,
-  "accuracy": 70.7
+  "total": 60,
+  "correct": 43,
+  "accuracy": 71.7
  },
- "picks": [
-  {
-   "home": "Almaz-Antey U19",
-   "away": "Nizhny Novgorod U19",
-   "league": "RuY",
-   "date": "2026-08-07",
-   "kickoff": "11:00",
-   "bet": "Home Win",
-   "prob": 63.5,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Shamrock Rovers",
-   "away": "Dundalk",
-   "league": "Premier Division",
-   "date": "2026-08-07",
-   "kickoff": "19:00",
-   "bet": "Home Win",
-   "prob": 57.8,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Derry City",
-   "away": "Sligo Rovers",
-   "league": "Premier Division",
-   "date": "2026-08-07",
-   "kickoff": "18:45",
-   "bet": "Home Win",
-   "prob": 55.3,
-   "confidence": "MEDIUM"
-  }
- ]
+ "picks": []
 }
