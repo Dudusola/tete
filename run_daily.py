@@ -156,6 +156,12 @@ def main():
     ok &= run_step("Generate predictions", predict_args)
 
     # 5. Cross-source consensus report
+    # Any pick still missing its written analysis — a --no-gemma run, an LLM
+    # outage, or a fixture that can no longer be re-predicted because its odds
+    # vanished — gets the text filled in. Never changes a prediction.
+    run_step("Backfill missing analysis", ["analysis/backfill_analysis.py"],
+             required=False)
+
     run_step("Cross-source consensus", ["models/consensus.py"], required=False)
 
     problems = ledger_health()
