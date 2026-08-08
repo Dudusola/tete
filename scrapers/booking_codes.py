@@ -58,14 +58,25 @@ def _parse_sportybet_outcome(o: dict) -> dict:
     """One slip leg. Field names follow SportyBet's share payload; every
     access is defensive because the shape is unofficial."""
     market_desc = selection_desc = odds = None
+    market_id = specifier = outcome_id = None
     for mkt in o.get("markets") or []:
         market_desc = mkt.get("desc") or mkt.get("title")
+        # Keep the raw IDs. SportyBet, MSport and football.com run the SAME
+        # platform on Betradar ids, so a slip decoded from one can be rebuilt
+        # on another EXACTLY — no fuzzy team/market matching, nothing lost.
+        # That is what makes code conversion between them trustworthy.
+        market_id = mkt.get("id")
+        specifier = mkt.get("specifier") or ""
         for out in mkt.get("outcomes") or []:
             selection_desc = out.get("desc")
             odds = out.get("odds")
+            outcome_id = out.get("id")
             break
         break
     return {
+        "market_id": market_id,
+        "specifier": specifier,
+        "outcome_id": outcome_id,
         "home_team": o.get("homeTeamName") or o.get("homeTeam"),
         "away_team": o.get("awayTeamName") or o.get("awayTeam"),
         "league": ((o.get("sport") or {}).get("category") or {}).get("name")
@@ -80,30 +91,35 @@ def _parse_sportybet_outcome(o: dict) -> dict:
     }
 
 
-def decode_sportybet(code: str) -> list[dict]:
-    """Booking code -> list of leg dicts. Raises BookingCodeError on failure."""
+def _decode_sporty_like(code: str, url_template: str, label: str) -> list[dict]:
+    """Decode a share code from any site running the SportyBet platform.
+
+    SportyBet and football.com serve byte-identical payloads from the same path
+    (verified: football.com resolved a SportyBet code to the same shareCode and
+    the same four legs), so they share one parser instead of two that can drift.
+    """
     code = code.strip().upper()
     if not code or len(code) > 20:
         raise BookingCodeError("That doesn't look like a booking code.")
     try:
-        r = requests.get(SPORTYBET_URL.format(code=code),
+        r = requests.get(url_template.format(code=code),
                          headers=HEADERS, timeout=25)
         payload = r.json()
     except requests.RequestException as e:
-        raise BookingCodeError(f"Couldn't reach SportyBet: {e}") from e
+        raise BookingCodeError(f"Couldn't reach {label}: {e}") from e
     except ValueError as e:
-        raise BookingCodeError("SportyBet returned a non-JSON response "
+        raise BookingCodeError(f"{label} returned a non-JSON response "
                                "(possibly blocked).") from e
 
     biz = payload.get("bizCode")
     if biz != 10000:
-        msg = payload.get("message") or f"SportyBet error (bizCode {biz})"
+        msg = payload.get("message") or f"{label} error (bizCode {biz})"
         raise BookingCodeError(msg)
 
     data = payload.get("data") or {}
     outcomes = data.get("outcomes") or []
     if not outcomes:
-        path = _dump_raw("sportybet", code, payload)
+        path = _dump_raw(label, code, payload)
         raise BookingCodeError(
             f"Valid code but unrecognized slip format - raw payload saved "
             f"to {path} so the parser can be extended.")
@@ -115,12 +131,17 @@ def decode_sportybet(code: str) -> list[dict]:
             legs.append(leg)
 
     if not legs:
-        path = _dump_raw("sportybet", code, payload)
+        path = _dump_raw(label, code, payload)
         raise BookingCodeError(
             f"Slip found but no legs could be parsed - raw payload saved "
             f"to {path}.")
-    logger.success(f"Decoded SportyBet code {code}: {len(legs)} legs")
+    logger.success(f"Decoded {label} code {code}: {len(legs)} legs")
     return legs
+
+
+def decode_sportybet(code: str) -> list[dict]:
+    """Booking code -> list of leg dicts. Raises BookingCodeError on failure."""
+    return _decode_sporty_like(code, SPORTYBET_URL, "SportyBet")
 
 
 # ─── Booking-code GENERATION (SportyBet) ────────────────────────────────────
@@ -475,6 +496,20 @@ def attach_sporty_odds(legs: list[dict]) -> dict:
     return out
 
 
+FOOTBALLCOM_URL = "https://www.football.com/api/ng/orders/share/{code}"
+
+
+def decode_footballcom(code: str) -> list[dict]:
+    """football.com runs the SAME backend as SportyBet.
+
+    Verified 8 Aug 2026: GET football.com/api/ng/orders/share/<SPORTYBET_CODE>
+    returned bizCode 10000 with the identical shareCode and the same four legs.
+    Same endpoint shape, same payload, same Betradar ids -- so it reuses the
+    SportyBet parser rather than duplicating it.
+    """
+    return _decode_sporty_like(code, FOOTBALLCOM_URL, "football.com")
+
+
 MSPORT_URL = "https://www.msport.com/api/ng/orders/share/{code}"
 
 
@@ -525,6 +560,13 @@ def decode_msport(code: str) -> list[dict]:
             "selection": out.get("description"),
             "odds": float(out["odds"]) if out.get("odds") else None,
             "event_id": ev.get("eventId"),
+            # Same Betradar ids SportyBet uses (verified on a real MSport
+            # payload: sr:match:..., market id 1, outcome id "1"). Keeping them
+            # is what lets an MSport code be converted to SportyBet or
+            # football.com exactly, instead of re-matched by team name.
+            "market_id": mkt.get("id"),
+            "specifier": mkt.get("specifier") or "",
+            "outcome_id": out.get("id"),
         })
 
     if not legs:
@@ -609,9 +651,135 @@ def decode_bet9ja(code: str) -> list[dict]:
 
 PROVIDERS = {
     "sportybet": decode_sportybet,
+    "football.com": decode_footballcom,
     "msport": decode_msport,
     "bet9ja": decode_bet9ja,
 }
+
+# Providers sharing SportyBet's platform and Betradar ids. A slip can move
+# between these EXACTLY -- same event/market/outcome ids, nothing re-matched.
+# Bet9ja is deliberately absent: it uses its own internal palimpsest ids, so a
+# conversion to or from it would need fuzzy re-mapping, which can silently pick
+# a different market. Not something to guess with someone's bet.
+SPORTY_PLATFORM = {"sportybet", "football.com", "msport"}
+
+SHARE_POST_URLS = {
+    "sportybet": SHARE_POST_URL,
+    "msport": MSPORT_SHARE_POST_URL,
+    "football.com": "https://www.football.com/api/ng/orders/share",
+}
+
+
+def _post_selections(selections: list[dict], provider: str) -> str:
+    """POST rebuilt selections to a bookmaker and return the new share code."""
+    url = SHARE_POST_URLS.get(provider)
+    if not url:
+        raise BookingCodeError(
+            f"Can't create codes on {provider}. Supported: "
+            f"{', '.join(SHARE_POST_URLS)}")
+    try:
+        r = requests.post(url, headers={**HEADERS, "Content-Type": "application/json"},
+                          json={"selections": selections}, timeout=30)
+        payload = r.json()
+    except requests.RequestException as e:
+        raise BookingCodeError(f"Couldn't reach {provider}: {e}") from e
+    except ValueError as e:
+        raise BookingCodeError(f"{provider} returned a non-JSON response.") from e
+
+    if payload.get("bizCode") != 10000:
+        raise BookingCodeError(payload.get("message")
+                               or f"{provider} rejected the slip "
+                                  f"(bizCode {payload.get('bizCode')})")
+    code = (payload.get("data") or {}).get("shareCode")
+    if not code:
+        path = _dump_raw(provider, "generated", payload)
+        raise BookingCodeError(f"No share code in the response - saved to {path}")
+    return code
+
+
+def _selections_from_legs(legs: list[dict], source: str) -> list[dict]:
+    """Rebuild bookmaker selections from decoded legs, exactly.
+
+    Only valid within SPORTY_PLATFORM, where the ids mean the same thing on
+    both sides. Legs missing ids are dropped rather than guessed — a slip that
+    quietly contains a different market than the user chose is worse than a
+    slip with one leg fewer.
+    """
+    if source not in SPORTY_PLATFORM:
+        raise BookingCodeError(
+            f"Converting from {source} isn't supported: it uses its own "
+            f"internal ids, so the slip would have to be re-matched by name "
+            f"and could pick a different market.")
+    sels, dropped = [], []
+    for l in legs:
+        if l.get("event_id") and l.get("market_id") and l.get("outcome_id"):
+            sels.append({"eventId": l["event_id"],
+                         "marketId": str(l["market_id"]),
+                         "specifier": l.get("specifier") or "",
+                         "outcomeId": str(l["outcome_id"])})
+        else:
+            dropped.append(f"{l.get('home_team')} v {l.get('away_team')}")
+    return sels, dropped
+
+
+def convert_code(from_provider: str, code: str, to_provider: str) -> dict:
+    """Turn a booking code from one bookmaker into the equivalent on another.
+
+    Exact, not fuzzy: within the SportyBet platform (SportyBet, football.com,
+    MSport) the event/market/outcome ids are identical, so the rebuilt slip is
+    the same bets — not a best-effort re-match.
+    """
+    from_provider = (from_provider or "").lower().strip()
+    to_provider = (to_provider or "").lower().strip()
+    legs = decode(from_provider, code)
+    sels, dropped = _selections_from_legs(legs, from_provider)
+    if not sels:
+        raise BookingCodeError("None of the legs could be carried across.")
+    new_code = _post_selections(sels, to_provider)
+    logger.success(f"Converted {from_provider} {code} -> {to_provider} {new_code} "
+                   f"({len(sels)} legs, {len(dropped)} dropped)")
+    return {"code": new_code, "legs": legs, "converted": len(sels),
+            "dropped": dropped, "from": from_provider, "to": to_provider}
+
+
+def merge_codes(sources: list[dict], to_provider: str) -> dict:
+    """Combine several booking codes into one slip.
+
+    sources: [{"provider": "sportybet", "code": "ABC123"}, ...]
+
+    Deduplicates by EVENT, not by selection: two slips backing different
+    outcomes of the same match can't both win, and most bookmakers reject the
+    combination anyway. The first occurrence wins and the clash is reported
+    rather than silently resolved.
+    """
+    to_provider = (to_provider or "").lower().strip()
+    all_legs, sels, seen_events, conflicts, dropped = [], [], {}, [], []
+
+    for src in sources:
+        provider = (src.get("provider") or "").lower().strip()
+        legs = decode(provider, src.get("code") or "")
+        part, part_dropped = _selections_from_legs(legs, provider)
+        dropped.extend(part_dropped)
+        for leg, sel in zip([l for l in legs
+                             if l.get("event_id") and l.get("market_id")
+                             and l.get("outcome_id")], part):
+            ev = sel["eventId"]
+            if ev in seen_events:
+                prev = seen_events[ev]
+                if (prev["marketId"], prev["outcomeId"]) != (sel["marketId"], sel["outcomeId"]):
+                    conflicts.append(f"{leg.get('home_team')} v {leg.get('away_team')}")
+                continue
+            seen_events[ev] = sel
+            sels.append(sel)
+            all_legs.append(leg)
+
+    if not sels:
+        raise BookingCodeError("Nothing to merge — no usable legs found.")
+    new_code = _post_selections(sels, to_provider)
+    logger.success(f"Merged {len(sources)} codes -> {to_provider} {new_code} "
+                   f"({len(sels)} legs, {len(conflicts)} conflicts)")
+    return {"code": new_code, "legs": all_legs, "merged_legs": len(sels),
+            "conflicts": conflicts, "dropped": dropped, "to": to_provider}
 
 
 def decode(provider: str, code: str) -> list[dict]:

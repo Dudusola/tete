@@ -35,7 +35,9 @@ from scrapers.booking_codes import attach_sporty_odds
 from models.consensus import (build_consensus, _same_match, _sim,
                               _dates_close, same_teams)
 from scrapers.booking_codes import (decode as decode_booking,
-                                    generate_code, BookingCodeError)
+                                    generate_code, BookingCodeError,
+                                    convert_code, merge_codes,
+                                    PROVIDERS, SHARE_POST_URLS)
 
 app = FastAPI(
     title="PotentialPro API",
@@ -605,6 +607,42 @@ def booking_decode(provider: str = Body("sportybet"), code: str = Body(...)):
             "legs": legs, "total_legs": len(legs), "covered_legs": covered,
             "scorable_legs": scorable,
             "accumulator_probability": round(combined, 4) if scorable else None}
+
+
+@app.get("/api/booking/providers")
+def booking_providers():
+    """Which bookmakers we can read codes from, and create codes on."""
+    return {"decode": sorted(PROVIDERS), "generate": sorted(SHARE_POST_URLS)}
+
+
+@app.post("/api/booking/convert")
+def booking_convert(from_provider: str = Body(...), code: str = Body(...),
+                    to_provider: str = Body(...)):
+    """Rebuild a booking code on another bookmaker.
+
+    Exact within the SportyBet platform (SportyBet, football.com, MSport):
+    those share Betradar event/market/outcome ids, so the converted slip is the
+    same bets rather than a name-matched approximation.
+    """
+    try:
+        return {"ok": True, **convert_code(from_provider, code, to_provider)}
+    except BookingCodeError as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/booking/merge")
+def booking_merge(sources: List[dict] = Body(...),
+                  to_provider: str = Body("sportybet")):
+    """Combine several booking codes into one slip.
+
+    sources: [{"provider": "sportybet", "code": "ABC123"}, ...]
+    Duplicate fixtures are dropped and reported — two slips backing different
+    outcomes of the same match cannot both win.
+    """
+    try:
+        return {"ok": True, **merge_codes(sources, to_provider)}
+    except BookingCodeError as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.post("/api/booking/generate")
