@@ -116,6 +116,10 @@ def _predictions_with_goals() -> list:
     rows = conn.execute("""
         SELECT m.match_id, m.home_team, m.away_team, m.league,
                m.match_date, m.kickoff_time,
+               -- Carried through so the Builder and Checker can show the same
+               -- real kickoff the Picks page does, instead of falling back to
+               -- PredictZ's placeholder '00:00'.
+               m.kickoff_utc, m.live_state,
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
                p.predicted_home_goals, p.predicted_away_goals, p.over_2_5_pct
         FROM matches m
@@ -252,6 +256,10 @@ def get_slip(
         sporty = sporty_for(slip)
     combined = accumulator_probability(slip)
 
+    # Real kickoffs by match_id, so a slip leg shows the same time the Picks
+    # page does rather than PredictZ's placeholder "00:00".
+    kickoffs = {p["match_id"]: p.get("kickoff_utc") for p in preds}
+
     leg_dicts = [
         {
             "home_team": leg.home_team,
@@ -259,6 +267,7 @@ def get_slip(
             "league": leg.league,
             "match_date": leg.match_date,
             "kickoff_time": leg.kickoff_time,
+            "kickoff_utc": kickoffs.get(leg.match_id),
             "market": leg.market,
             "selection": leg.selection,
             "probability": round(leg.probability, 4),
@@ -420,6 +429,8 @@ def get_fixtures():
             "league": p["league"],
             "match_date": p["match_date"],
             "kickoff_time": p["kickoff_time"],
+            "kickoff_utc": p.get("kickoff_utc"),
+            "live_state": p.get("live_state"),
             "markets": [
                 {"market": o.market, "selection": o.selection,
                  "probability": round(o.probability, 4), "risk": o.risk}

@@ -116,7 +116,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=22"></script>
+<script src="js/api.js?v=23"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
@@ -195,7 +195,7 @@ function renderLeg(leg, idx) {
   <div class="flex-1">
     <div class="flex items-center gap-2 mb-1">
       <span class="w-2 h-2 rounded-full bg-secondary"></span>
-      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(kickoffLabel(leg.match_date, leg.kickoff_time))}</span>
+      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(kickoffLabel(leg.match_date, leg.kickoff_time, leg.kickoff_utc))}</span>
     </div>
     <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
     <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(leg.market)}</div>

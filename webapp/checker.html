@@ -117,7 +117,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=22"></script>
+<script src="js/api.js?v=23"></script>
 <script>
 let FIXTURES = [];
 let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
@@ -141,7 +141,7 @@ function renderFixtures(filter="") {
 <div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm">
   <div class="flex justify-between items-start mb-xs">
     <div>
-      <div class="text-label-sm text-on-surface-variant uppercase">${cleanLeague(fx.league)} • ${esc(kickoffLabel(fx.match_date, fx.kickoff_time))}</div>
+      <div class="text-label-sm text-on-surface-variant uppercase">${cleanLeague(fx.league)} • ${esc(kickoffLabel(fx.match_date, fx.kickoff_time, fx.kickoff_utc))}</div>
       <div class="text-body-md font-semibold text-primary">${esc(fx.home_team)} vs ${esc(fx.away_team)}</div>
     </div>
   </div>
