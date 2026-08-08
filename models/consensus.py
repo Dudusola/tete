@@ -27,6 +27,106 @@ def _sim(a: str, b: str) -> float:
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
 
+# ─── Team-name matching across sources ──────────────────────────────────────
+# Raw _sim is too blunt for cross-source names. Measured failures:
+#   "Club Puebla"              vs "Puebla"        -> 0.71  (same club)
+#   "Club Tijuana de Caliente" vs "Club Tijuana"  -> 0.67  (same club)
+# At a 0.75 threshold both were rejected, which is why the slip checker
+# reported "0 of your games covered" on fixtures we had actually predicted.
+#
+# Lives here so every caller shares ONE implementation — this logic was
+# already duplicated once (scrapers/kickoff_times.py) and a second copy would
+# drift.
+
+# Words that carry no identity. NOT "united"/"city": dropping those made
+# "Manchester United" and "Manchester City" both normalise to "manchester"
+# and score a perfect 1.00.
+_NOISE_WORDS = {"fc", "cf", "sc", "afc", "ac", "club", "de", "the",
+                "sv", "bk", "if", "fk", "cd", "ca", "us", "ss"}
+
+
+def _norm_team(name: str) -> str:
+    """Lowercase, strip accents and punctuation, drop noise words."""
+    import re
+    import unicodedata
+    s = unicodedata.normalize("NFKD", name or "")
+    s = "".join(c for c in s if not unicodedata.combining(c)).lower()
+    s = re.sub(r"[^a-z0-9 ]+", " ", s)
+    tokens = [t for t in s.split() if t and t not in _NOISE_WORDS]
+    return " ".join(tokens) or s.strip()
+
+
+def team_sim(a: str, b: str) -> float:
+    """Similarity that understands how bookmakers and scrapers differ.
+
+    Adds two signals to raw string similarity:
+      - containment on a token boundary ("Puebla" inside "Club Puebla")
+      - a shared leading stem when one side is a single word
+        ("Wolves" / "Wolverhampton")
+
+    The stem rule is restricted to single-word names on purpose: applied
+    generally it matched "Real Madrid" to "Real Sociedad" and "Inter Turku"
+    to "Inter Milan" on the shared first word.
+    """
+    na, nb = _norm_team(a), _norm_team(b)
+    if not na or not nb:
+        return 0.0
+    if na == nb:
+        return 1.0
+
+    best = _sim(na, nb)
+
+    ta, tb = set(na.split()), set(nb.split())
+    # Containment, but only when the FIRST word agrees. Without that check
+    # "AC Milan" (noise word stripped -> "milan") is contained in "Inter Milan"
+    # and the two score 0.92 — different clubs entirely. "Santos" / "Santos
+    # Laguna" and "Club Tijuana" / "Club Tijuana de Caliente" both keep their
+    # leading word, which is what makes them safe.
+    if ta and tb and (ta <= tb or tb <= ta) and na.split()[0] == nb.split()[0]:
+        best = max(best, 0.92)
+
+    if len(ta) == 1 or len(tb) == 1:
+        fa, fb = na.split()[0], nb.split()[0]
+        stem = 0
+        for ca, cb in zip(fa, fb):
+            if ca != cb:
+                break
+            stem += 1
+        if stem >= 5 and stem >= min(len(fa), len(fb)) * 0.6:
+            best = max(best, 0.88)
+        return best
+
+    # Multi-word names that SHARE a word but differ on the rest are the
+    # dangerous case: "Manchester United" vs "Manchester City" scores 0.81 on
+    # raw similarity purely from the shared "manchester", and paired with an
+    # exact away team that was enough to match the WRONG fixture. Attaching
+    # another match's prediction to a user's leg is worse than admitting we
+    # have no view, so the distinguishing words must agree too.
+    only_a, only_b = ta - tb, tb - ta
+    if only_a and only_b:
+        best_distinct = max(_sim(x, y) for x in only_a for y in only_b)
+        if best_distinct < 0.6:
+            best = min(best, 0.65)
+
+    return best
+
+
+def same_teams(home_a: str, away_a: str, home_b: str, away_b: str) -> bool:
+    """Do these two (home, away) pairs describe the same fixture?
+
+    Both sides must be plausible AND the pair must be strong on average, so one
+    exact name plus one abbreviation matches while two vague names don't.
+    0.86 rather than 0.82 because "Manchester United" vs "Manchester City"
+    scores 0.81 on raw similarity alone — a wrong fixture would need the OTHER
+    team to match strongly too.
+    """
+    sh = team_sim(home_a, home_b)
+    sa = team_sim(away_a, away_b)
+    if sh < 0.55 or sa < 0.55:
+        return False
+    return (sh + sa) / 2 >= 0.86
+
+
 def _dates_close(d1: str, d2: str) -> bool:
     """True if the two dates are within 1 day of each other."""
     try:

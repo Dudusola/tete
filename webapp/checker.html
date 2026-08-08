@@ -51,10 +51,20 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 
 <!-- Booking-code decoder (SportyBet) -->
 <div class="bg-surface rounded-xl p-md mb-md border border-outline-variant shadow-sm">
-  <div class="flex items-center gap-xs mb-sm">
+  <div class="flex items-center gap-xs mb-sm flex-wrap">
     <span class="material-symbols-outlined text-secondary text-[20px]">confirmation_number</span>
     <span class="text-body-lg font-semibold text-primary">Paste a booking code</span>
+    <!-- Kept honest while the feature is on trial: it grades slips using a
+         model whose HIGH tier is still unproven, so it must not read as
+         settled advice. -->
+    <span class="text-label-sm bg-surface-container-high text-on-surface-variant px-sm py-[2px] rounded-full normal-case">beta</span>
   </div>
+  <p class="text-label-sm text-on-surface-variant mb-sm">
+    We'll show our model's view of each leg, and the final score where the match
+    has finished. Coverage depends on the leagues our sources list — you'll see
+    "no model view" for anything outside them. This is an experiment: judge it by
+    whether its calls hold up, not by how confident it sounds.
+  </p>
   <div class="flex gap-xs">
     <select id="bc-provider" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
       <option value="sportybet">SportyBet</option>
@@ -107,7 +117,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=20"></script>
+<script src="js/api.js?v=21"></script>
 <script>
 let FIXTURES = [];
 let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
@@ -208,7 +218,11 @@ async function load() {
 // ── Booking-code decoder ─────────────────────────────────────────────
 function renderDecodedLeg(l) {
     const take = l.our_take;
-    let verdict = `<span class="text-label-sm text-on-surface-variant">not in our fixtures</span>`;
+    // Say WHY we have nothing, not just that we don't. Most misses are
+    // competitions our sources don't list (friendlies, pre-season), and a bare
+    // "not in our fixtures" reads like a broken feature rather than an honest
+    // limit.
+    let verdict = `<span class="text-label-sm text-on-surface-variant">no model view — this fixture isn't in the leagues we cover</span>`;
     if (take) {
         verdict = `<span class="text-label-sm font-bold ${take.confidence === "HIGH" ? "text-secondary" : "text-primary"}">
             our model: ${esc(take.best_bet)} (${take.confidence}) —
@@ -216,6 +230,13 @@ function renderDecodedLeg(l) {
     }
     const prob = l.our_probability != null
         ? `<span class="text-label-sm font-bold ${l.our_probability >= 0.55 ? "text-secondary" : "text-error"}">our chance: ${Math.round(l.our_probability*100)}%${l.matched_selection ? ` (as "${esc(l.matched_selection)}")` : ""}</span>`
+        : "";
+    // Finished match: show the score and whether our call was right. This is
+    // the checker's most honest output — it grades US, not just the user.
+    const r = l.result;
+    const ft = r
+        ? `<div class="mt-1"><span class="text-label-sm font-bold ${r.model_was_right ? "text-secondary" : "text-error"}">
+             FT ${r.home_goals}–${r.away_goals} — our call was ${r.model_was_right ? "right ✓" : "wrong ✗"}</span></div>`
         : "";
     return `
     <div class="bg-surface rounded-lg border border-outline-variant p-sm">
@@ -225,6 +246,7 @@ function renderDecodedLeg(l) {
       </div>
       <div class="text-label-sm text-on-surface-variant">${esc(l.market || "")}: ${esc(l.selection || "")}${l.odds ? ` @ ${l.odds}` : ""} • ${esc(l.match_date || "")}</div>
       <div class="mt-1">${verdict}</div>
+      ${ft}
     </div>`;
 }
 
@@ -240,6 +262,11 @@ async function decodeBookingCode() {
         const d = await PotentialProAPI.decodeCode(provider, code);
         if (!d.ok) { status.textContent = `⚠️ ${d.error}`; return; }
         let summary = `${d.total_legs} leg${d.total_legs === 1 ? "" : "s"} — we cover ${d.covered_legs} of them`;
+        if (d.covered_legs === 0 && d.total_legs > 0) {
+            // The common case, and it needs explaining rather than a bare 0.
+            summary += " (these competitions aren't in our data — coverage is"
+                     + " strongest in league football, thinnest in friendlies)";
+        }
         if (d.accumulator_probability != null) {
             summary += ` • our accumulator chance (${d.scorable_legs} scorable legs): ${(d.accumulator_probability*100).toFixed(1)}%`;
         }

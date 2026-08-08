@@ -32,7 +32,8 @@ from db.database import get_connection
 from models.markets import (derive_markets, build_slip, accumulator_probability,
                             kickoff_passed, teams_key)
 from scrapers.booking_codes import attach_sporty_odds
-from models.consensus import build_consensus, _same_match, _sim, _dates_close
+from models.consensus import (build_consensus, _same_match, _sim,
+                              _dates_close, same_teams)
 from scrapers.booking_codes import (decode as decode_booking,
                                     generate_code, BookingCodeError)
 
@@ -53,9 +54,27 @@ app.add_middleware(
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
 
-def _model_predictions(only_strong: bool = True) -> list:
+def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> list:
+    """Latest prediction per match.
+
+    upcoming_only=True (the default) is right for PICKS: never recommend a
+    match that has kicked off. The slip CHECKER needs the opposite — a user
+    pasting a code wants "we said X, it finished Y", and filtering those out
+    made the checker report 0 covered legs on fixtures we had predicted and
+    already graded.
+    """
     conn = get_connection()
     where = "AND mp.confidence IN ('HIGH','MEDIUM')" if only_strong else ""
+    time_filter = """
+          WHERE m.match_date >= date('now') {where}
+          -- Already-started matches are not recommendable. NULL
+          -- kickoff_utc = unknown time, so it stays visible.
+          AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
+          -- ESPN's live state catches what a timestamp cannot:
+          -- delayed or rescheduled matches, and anything already
+          -- in play. NULL = unknown, so it stays visible.
+          AND (m.live_state IS NULL OR m.live_state = 'pre')
+    """.format(where=where) if upcoming_only else f"          WHERE 1=1 {where}"
     rows = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.league,
                m.match_date, m.kickoff_time,
@@ -76,14 +95,7 @@ def _model_predictions(only_strong: bool = True) -> list:
               AND sp2.predicted_home_goals IS NOT NULL
         )
         LEFT JOIN results r ON r.match_id = m.match_id
-        WHERE m.match_date >= date('now') {where}
-          -- Already-started matches are not recommendable. NULL
-          -- kickoff_utc = unknown time, so it stays visible.
-          AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
-          -- ESPN's live state catches what a timestamp cannot:
-          -- delayed or rescheduled matches, and anything already
-          -- in play. NULL = unknown, so it stays visible.
-          AND (m.live_state IS NULL OR m.live_state = 'pre')
+        {time_filter}
         ORDER BY mp.best_bet_prob DESC
     """).fetchall()
     conn.close()
@@ -468,7 +480,9 @@ def booking_decode(provider: str = Body("sportybet"), code: str = Body(...)):
     except BookingCodeError as e:
         return {"ok": False, "error": str(e)}
 
-    ours = _model_predictions(only_strong=False)
+    # upcoming_only=False: a checker's whole value is judging slips whose
+    # games may already have kicked off or finished.
+    ours = _model_predictions(only_strong=False, upcoming_only=False)
     goals_by_id = {p["match_id"]: p for p in _predictions_with_goals()}
     covered = scorable = 0
     combined = 1.0
@@ -478,8 +492,12 @@ def booking_decode(provider: str = Body("sportybet"), code: str = Body(...)):
         for p in ours:
             if not _dates_close(leg.get("match_date") or "", p["match_date"]):
                 continue
-            if (_sim(leg.get("home_team") or "", p["home_team"]) > 0.75 and
-                    _sim(leg.get("away_team") or "", p["away_team"]) > 0.75):
+            # same_teams handles how bookmakers name clubs: a flat 0.75 on raw
+            # similarity rejected "Club Puebla" vs "Puebla" (0.71) and
+            # "Club Tijuana de Caliente" vs "Club Tijuana" (0.67), which is
+            # why the checker said it covered none of a user's games.
+            if same_teams(leg.get("home_team") or "", leg.get("away_team") or "",
+                          p["home_team"], p["away_team"]):
                 leg["our_take"] = {
                     "best_bet": p["best_bet"],
                     "confidence": p["confidence"],
@@ -487,6 +505,17 @@ def booking_decode(provider: str = Body("sportybet"), code: str = Body(...)):
                     "draw_prob": round(p["draw_prob"], 3),
                     "away_win_prob": round(p["away_win_prob"], 3),
                 }
+                # Finished matches: hand back the score so the checker can say
+                # "we said X, it finished Y" rather than staying silent.
+                if p.get("result_outcome"):
+                    winning_bet = {"H": "Home Win", "D": "Draw",
+                                   "A": "Away Win"}.get(p["result_outcome"])
+                    leg["result"] = {
+                        "home_goals": p.get("result_home_goals"),
+                        "away_goals": p.get("result_away_goals"),
+                        "outcome": p.get("result_outcome"),
+                        "model_was_right": p["best_bet"] == winning_bet,
+                    }
                 covered += 1
                 # Score the bookmaker's actual selection against our markets:
                 # fuzzy-match their market+selection text to our derived options
