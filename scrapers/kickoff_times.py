@@ -43,6 +43,10 @@ BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard
 # them is why "time TBC" dominated — EFL Cup, Conference League and the European
 # top flights all fell outside the results-oriented list.
 EXTRA_LEAGUES = {
+    # Brazil's top flight was missing while bra.2 was present — results_espn
+    # only needed the leagues football-data.org misses. That gap left the four
+    # Brazilian picks with no kickoff, no odds and (in the cloud) no analysis.
+    "bra.1", "ned.2", "sco.2",
     # England
     "eng.1", "eng.2", "eng.3", "eng.4", "eng.league_cup", "eng.fa",
     # Europe's big five + others we hold data for
