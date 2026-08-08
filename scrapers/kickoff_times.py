@@ -33,7 +33,6 @@ from loguru import logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.consensus import _sim
-from scrapers.results_espn import LEAGUES as RESULT_LEAGUES
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
 
@@ -42,24 +41,10 @@ BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard
 # times we want the opposite: every competition we actually predict. Omitting
 # them is why "time TBC" dominated — EFL Cup, Conference League and the European
 # top flights all fell outside the results-oriented list.
-EXTRA_LEAGUES = {
-    # Brazil's top flight was missing while bra.2 was present — results_espn
-    # only needed the leagues football-data.org misses. That gap left the four
-    # Brazilian picks with no kickoff, no odds and (in the cloud) no analysis.
-    "bra.1", "ned.2", "sco.2",
-    # England
-    "eng.1", "eng.2", "eng.3", "eng.4", "eng.league_cup", "eng.fa",
-    # Europe's big five + others we hold data for
-    "esp.1", "esp.2", "ger.1", "ger.2", "ita.1", "ita.2",
-    "fra.1", "fra.2", "ned.1", "por.1", "bel.1", "tur.1", "gre.1",
-    # Cups and continental competitions
-    "concacaf.leagues.cup", "uefa.super_cup", "concacaf.champions",
-    "conmebol.libertadores", "conmebol.sudamericana",
-    # Domestic cups for leagues already in the results list
-    "esp.copa_del_rey", "ger.dfb_pokal", "ita.coppa_italia", "fra.coupe_de_france",
-}
-
-LEAGUES = set(RESULT_LEAGUES) | EXTRA_LEAGUES
+# ONE shared league list — see scrapers/espn_leagues.py. Results and kickoff
+# enrichment MUST query the same competitions: when they diverged, matches were
+# timed but never graded.
+from scrapers.espn_leagues import ALL_LEAGUES as LEAGUES
 
 # Matching thresholds. A pure min(sim) >= 0.80 rule rejected real matches:
 # ESPN writes "Wolverhampton Wanderers" where PredictZ writes "Wolves", and

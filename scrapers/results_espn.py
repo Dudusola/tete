@@ -29,57 +29,14 @@ BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard
 # ESPN league slugs → label (leagues the football-data free tier does NOT cover,
 # plus UEFA comps whose qualifiers football-data misses). Slugs verified July 2026;
 # an unknown slug returns HTTP 400 and is just logged as a warning.
-LEAGUES = {
-    "usa.1": "MLS",
-    "mex.1": "Liga MX",
-    "arg.1": "Argentina Primera",
-    "nor.1": "Eliteserien",
-    "swe.1": "Allsvenskan",
-    "swe.2": "Superettan",  # valid slug; ESPN carries fixtures but often no scores
-    "jpn.1": "J-League",
-    # FIFA World Cup — national-team names match our fixtures directly. Our
-    # biggest single ungraded block (~29 picks) was the 2026 WC going unscored.
-    "fifa.world": "World Cup",
-    # UEFA main competitions
-    "uefa.champions": "Champions League",
-    "uefa.europa": "Europa League",
-    "uefa.europa.conf": "Conference League",
-    # UEFA QUALIFYING — SEPARATE slugs (verified July 2026). The bulk of our
-    # July/August European picks are qualifiers, and ESPN keeps them OUT of the
-    # main-competition slugs above (uefa.europa is EMPTY in summer). Omitting
-    # these silently dropped every Europa/Conf/Champions qualifier we predicted.
-    # Confirmed: uefa.europa_qual/20260716 returns our exact fixtures, completed.
-    "uefa.champions_qual": "Champions League Qualifying",
-    "uefa.europa_qual": "Europa League Qualifying",
-    "uefa.europa.conf_qual": "Conference League Qualifying",
-    # South America
-    "bra.2": "Brazil Serie B",
-    "arg.2": "Argentina Nacional B",
-    "arg.copa": "Copa Argentina",
-    "ecu.1": "Ecuador LigaPro",
-    "col.1": "Colombia Primera A",
-    "uru.1": "Uruguay Primera",
-    "par.1": "Paraguay Primera",
-    "chi.1": "Chile Primera",
-    "per.1": "Peru Liga 1",
-    # North America lower divisions
-    "usa.usl.1": "USL Championship",
-    "usa.usl.l1": "USL League One",
-    # Europe smaller leagues
-    "sco.1": "Scottish Premiership",
-    "irl.1": "Ireland Premier",
-    "fin.1": "Veikkausliiga",  # valid slug but ESPN publishes NO scores for it
-                               # (verified July 2026) — kept in case that changes;
-                               # Veikkausliiga picks currently go ungraded here.
-    "den.1": "Danish Superliga",
-    "sui.1": "Swiss Super League",
-    "aut.1": "Austrian Bundesliga",
-    "rus.1": "Russian Premier",
-    # Asia/Oceania
-    "chn.1": "Chinese Super League",
-    "ind.1": "Indian Super League",
-    "aus.1": "A-League",
-}
+# ONE shared league list — see scrapers/espn_leagues.py. This used to be a
+# 35-entry dict here while kickoff_times.py queried 66, and the 31 missing
+# slugs meant 184 finished EFL Cup matches were never graded: we knew they had
+# kicked off and finished, but never asked ESPN for the score.
+# Values are display labels only; the slug is what matters.
+from scrapers.espn_leagues import ALL_LEAGUES
+
+LEAGUES = {slug: slug for slug in sorted(ALL_LEAGUES)}
 
 
 def fetch_finished(days_back: int = 7) -> list | None:
