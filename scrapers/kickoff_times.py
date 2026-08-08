@@ -269,10 +269,16 @@ def enrich(days: int = 2) -> int:
         # when the match has no odds yet, so a real bookmaker row from a local
         # scrape always wins.
         if best_odds:
-            has_odds = conn.execute(
-                "SELECT 1 FROM scraped_predictions WHERE match_id = ? "
-                "AND odds_home IS NOT NULL LIMIT 1", (row["match_id"],)).fetchone()
-            if not has_odds:
+            # Ask whether the row predict.py will ACTUALLY use has odds — it
+            # reads the LATEST row per match (MAX(id)). Checking "any row" was
+            # wrong: a fresh odds-less PredictZ row from the cloud sits on top
+            # of an older row that has odds, so the guard skipped while the
+            # prediction still saw none. That left the cloud at 0 picks even
+            # after ESPN odds were available.
+            latest = conn.execute(
+                "SELECT odds_home FROM scraped_predictions WHERE match_id = ? "
+                "ORDER BY id DESC LIMIT 1", (row["match_id"],)).fetchone()
+            if not (latest and latest["odds_home"] is not None):
                 oh, od, oa = best_odds
                 ih, idr, ia = 1 / oh, 1 / od, 1 / oa
                 total = ih + idr + ia
