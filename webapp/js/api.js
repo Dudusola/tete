@@ -127,6 +127,33 @@ const API_BASE = (function () {
             linkRow.style.alignItems = "center";
             linkRow.appendChild(makeBtn("theme-toggle"));
         }
+        // ── Mobile header, injected where a page lacks one ──────────────────
+        // Only index.html had one, so on a phone the other four pages opened
+        // with no branding and no title — you couldn't tell at a glance which
+        // app you were in, or which screen. Added here rather than pasted into
+        // four files so it stays identical everywhere.
+        if (!document.querySelector("header.md\\:hidden")) {
+            const titles = {
+                "slip.html": "Slip Builder",
+                "consensus.html": "Consensus",
+                "checker.html": "Slip Checker",
+                "record.html": "Track Record",
+            };
+            const page = location.pathname.split("/").pop() || "index.html";
+            const title = titles[page];
+            if (title) {
+                const hdr = document.createElement("header");
+                hdr.className = "md:hidden px-gutter pb-sm";
+                hdr.style.paddingTop = "max(12px, env(safe-area-inset-top))";
+                hdr.innerHTML =
+                    '<div class="flex items-center gap-2">' +
+                    '<img src="logo.png" alt="PotentialPro" class="h-8 w-8 object-contain"/>' +
+                    '<h1 class="text-headline-lg-mobile font-headline-lg-mobile text-primary">' +
+                    title + "</h1></div>";
+                document.body.insertBefore(hdr, document.body.firstChild);
+            }
+        }
+
         // ── Brand → home: the logo + name on every page links back to Picks ──
         document.querySelectorAll("img[alt='PotentialPro']").forEach(img => {
             const row = img.parentElement;
@@ -457,7 +484,32 @@ const PotentialProAPI = {
         header.md\:hidden { position: static !important; }
       }
 
-      /* 8. LIVE badge dot — pulses so an in-play match is obvious at a glance. */
+      /* 8. ONE page shell for all five pages.
+            They had drifted apart: index used py-md, slip pt-8/md:pt-24,
+            consensus body md:pt-16, record no horizontal padding at all on
+            mobile. Same app, five different amounts of breathing room
+            depending which tab you were on. Normalised here (one place, not
+            five files) so a phone, tablet and desktop each get a consistent
+            rhythm — and so a future page inherits it for free. */
+      main {
+        max-width: 1280px;
+        margin-inline: auto;
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 16px;
+      }
+      @media (min-width: 768px) {
+        main { padding-left: 24px; padding-right: 24px; padding-top: 32px; }
+        /* Desktop has a fixed 64px top nav; every page must clear it. */
+        body { padding-top: 64px; }
+      }
+      @media (max-width: 767px) {
+        /* Mobile uses the bottom nav instead, so no top offset — that was
+           dead space on pages that set md:pt-16 unconditionally. */
+        body { padding-top: 0; }
+      }
+
+      /* 9. LIVE badge dot — pulses so an in-play match is obvious at a glance. */
       .pp-live-dot {
         width: 7px; height: 7px; border-radius: 50%;
         background: currentColor; display: inline-block;

@@ -136,7 +136,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=25"></script>
+<script src="js/api.js?v=26"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -352,11 +352,22 @@ function renderStarted(started) {
     list.innerHTML = started.map(s => {
         const graded = s.result_outcome != null;
         const right = s.model_was_right;
-        // Not graded yet is UNKNOWN, never shown as a loss.
-        const outcome = graded
-            ? `<span class="text-label-sm font-bold ${right ? "text-secondary" : "text-error"}">
-                 ${s.result_home_goals}–${s.result_away_goals} ${right ? "✓" : "✗"}</span>`
-            : `<span class="text-label-sm text-on-surface-variant">in play</span>`;
+        // Three distinct states, and they were being collapsed into two:
+        //   graded            -> show the score and whether we called it
+        //   ESPN says 'in'    -> genuinely being played right now
+        //   anything else     -> the match is over, we just don't have the
+        //                        score yet (results land on the next pipeline
+        //                        run). Calling that "in play" was simply wrong.
+        // Not graded is still never shown as a loss.
+        let outcome;
+        if (graded) {
+            outcome = `<span class="text-label-sm font-bold ${right ? "text-secondary" : "text-error"}">
+                 ${s.result_home_goals}–${s.result_away_goals} ${right ? "✓" : "✗"}</span>`;
+        } else if (s.live_state === "in") {
+            outcome = `<span class="text-label-sm text-error font-bold"><span class="pp-live-dot"></span> live</span>`;
+        } else {
+            outcome = `<span class="text-label-sm text-on-surface-variant" title="Finished — the score is recorded on the next pipeline run">score pending</span>`;
+        }
         return `
         <div class="flex items-center justify-between gap-sm px-md py-xs rounded-lg bg-surface-container-low opacity-70">
           <div class="min-w-0">
