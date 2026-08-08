@@ -19,7 +19,7 @@ from loguru import logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.train import load_all_csvs, form_ppg, goals_avg, venue_ppg, h2h_wins, FORM_WINDOW
-from models.consensus import build_consensus, _same_match
+from models.consensus import build_consensus, _same_match, team_sim
 
 MODEL_PATH = "./models/random_forest_v1.joblib"
 # rf_v1b = same trained model, but serving now feeds REAL bookmaker odds to the
@@ -50,8 +50,18 @@ TEAM_ALIASES = {
     "DR Congo": "DR Congo",
     "Cape Verde Islands": "Cape Verde",
     "China": "China PR",
-    # Clubs (add as skip logs reveal them)
-    # "Man Utd": "Man United",
+    # Clubs. These are names the automatic matcher scores at 0.92 — close, but
+    # that band also contains genuinely different clubs ("America Mineiro" vs
+    # "Club America" is Brazil vs Mexico; "Athletic Club" vs "Athletico-PR" is
+    # Bilbao vs Brazil), so the matcher refuses the whole band and they are
+    # confirmed by hand here instead.
+    #
+    # A run prints its near-misses as ready-to-paste lines. Only add one if you
+    # KNOW it's the same club: a wrong entry silently feeds another team's form
+    # into the prediction, which is worse than skipping the fixture.
+    "AZ": "AZ Alkmaar",
+    "Accrington Stanley": "Accrington",
+    "Atlanta United": "Atlanta Utd",
 }
 
 
@@ -107,8 +117,31 @@ def build_current_team_histories() -> dict:
     return team_history
 
 
+# Matching a scraped team to the historical dataset is NOT the same problem as
+# matching two fixtures. Here a wrong answer doesn't hide a match — it feeds
+# ANOTHER CLUB'S form into the prediction, silently. So this is deliberately
+# stricter than the fixture matcher in consensus.py.
+#
+# Measured on real data: at 0.86 the normalised matcher pairs 90 more names but
+# includes "Everton Vina del Mar" -> "Everton" (Chile -> England), "Racing
+# Louisville W" -> "Racing Club" (USA -> Argentina) and "San Antonio Bulo Bulo"
+# -> "San Antonio FC" (Bolivia -> USA). All score 0.92 through the containment
+# rule, because the extra words are place names the matcher can't know are
+# distinguishing. At 0.95 those disappear and 12 correct pairs remain — clubs
+# differing only by a noise word or an accent (FC Porto/Porto, Tijuana/Club
+# Tijuana, Atlético PR/Athletico-PR).
+NAME_MATCH_MIN = 0.95
+# ...and the winner must be clearly ahead of the runner-up, so a name that is
+# almost equally close to two clubs is left unmatched rather than guessed.
+NAME_MATCH_GAP = 0.05
+
+# Near-misses land here so they can be curated into TEAM_ALIASES by a human
+# instead of being auto-accepted.
+_near_misses: dict[str, tuple] = {}
+
+
 def match_team_name(scraped_name: str, known_teams: list) -> str | None:
-    """Match a Forebet team name to a historical team name."""
+    """Match a scraped team name to a historical team name."""
     # 1. Manual alias map (exact known mismatches)
     if scraped_name in TEAM_ALIASES:
         aliased = TEAM_ALIASES[scraped_name]
@@ -117,7 +150,20 @@ def match_team_name(scraped_name: str, known_teams: list) -> str | None:
     # 2. Exact match
     if scraped_name in known_teams:
         return scraped_name
-    # 3. Fuzzy fallback
+    # 3. Normalised match: ignores FC/AFC/CF prefixes, accents and punctuation,
+    #    which is how the same club differs between our sources and the CSVs.
+    scored = sorted(((team_sim(scraped_name, k), k) for k in known_teams),
+                    reverse=True)[:2]
+    if scored:
+        best, best_name = scored[0]
+        runner_up = scored[1][0] if len(scored) > 1 else 0.0
+        if best >= NAME_MATCH_MIN and (best - runner_up) >= NAME_MATCH_GAP:
+            return best_name
+        # Close but not safe — record it for TEAM_ALIASES rather than guess.
+        if best >= 0.85:
+            _near_misses[scraped_name] = (best_name, round(best, 2))
+
+    # 4. Legacy fuzzy fallback, kept for names the normaliser can't help with.
     matches = get_close_matches(scraped_name, known_teams, n=1, cutoff=0.85)
     return matches[0] if matches else None
 
@@ -364,6 +410,13 @@ def run(use_gemma: bool = True):
             "best_prob": best_prob,
             "gemma_analysis": gemma_text,
         })
+
+    if _near_misses:
+        logger.info(f"{len(_near_misses)} team name(s) were CLOSE to a known "
+                    f"club but not close enough to trust — add to TEAM_ALIASES "
+                    f"if correct:")
+        for scraped, (guess, score) in sorted(_near_misses.items())[:12]:
+            logger.info(f'    "{scraped}": "{guess}",   # similarity {score}')
 
     logger.success(f"✅ Predicted {len(predictions)} matches "
                    f"({skipped} skipped - teams not in historical data; "
