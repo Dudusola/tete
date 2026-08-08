@@ -31,38 +31,53 @@ after a quiet spell takes ~50 seconds. Not a bug.
 
 ## Current status — read this before quoting any number
 
-Figures below are from `db/track_record_health.py` on 7 Aug 2026. Regenerate
+Figures below are from `db/track_record_health.py` on 8 Aug 2026. Regenerate
 them rather than trusting this table — the ledger moves daily.
 
 | Tier | Record | Hit rate | 95% confidence interval |
 |---|---|---|---|
-| HIGH | 5/13 | **38%** | 18–64% |
-| MEDIUM | 15/20 | **75%** | 53–89% |
-| LOW | 30/59 | 51% | 38–63% |
-| **Overall** | **50/92** | **54%** | 44–64% |
+| HIGH | 16/24 | **67%** | 47–82% |
+| MEDIUM | 24/40 | **60%** | 45–74% |
+| LOW | 61/109 | 56% | 47–65% |
+| **Overall** | **101/173** | **58%** | 51–65% |
 
 | | |
 |---|---|
-| Graded picks | **92** |
-| Grading coverage | **92 of 212** predicted matches (43%) |
-| Ready for testers? | **No** — need ~100 graded and ~30 HIGH |
+| Graded picks | **173** |
+| Grading coverage | **173 of 270** predicted matches (64%) |
+| Ready for testers? | **No** — need ~30+ in the HIGH tier; it has 24 |
 
-**The HIGH tier is currently performing WORSE than MEDIUM**, which is the open
-question of the project. Two contributing causes are understood — a consensus
-"boost" that went 0/3 and has been disabled, and 60–70% picks polluting the HIGH
-band — but note the confidence intervals: **HIGH's 18–64% overlaps MEDIUM's
-53–89%**, so on this sample the inversion is *not statistically established*. It
-is a serious warning sign, not yet a proven fact. Thirteen samples cannot settle
-it either way, which is exactly why the answer is "accumulate more", not
-"retune the thresholds".
+The tiers now rank in the right order — HIGH above MEDIUM above LOW — but the
+intervals overlap heavily, so treat that ordering as *not yet contradicted*
+rather than *demonstrated*. Twenty-four HIGH samples cannot establish a 67% hit
+rate; the honest reading of that row is "somewhere between 47% and 82%".
 
-Run `python db/track_record_health.py` before trusting any accuracy figure. It
-reports grading **coverage**, not just cadence — a tier percentage is meaningless
-if the picks it omits are the ones that lost. That has already happened once:
-fixing a results-coverage gap dropped HIGH from 57% to 38%.
+**How this number has moved, because the history is the point:**
 
-The older claim of "HIGH ≈ 75%" came from the training-set evaluation, not from
-real graded results. Don't repeat it.
+| When | HIGH | What changed |
+|---|---|---|
+| July (training eval) | ~75% | never real — measured on training data |
+| Late July | 57% | first honest grading |
+| 6 Aug | 38% | fixed a results-coverage gap (bug #8) |
+| 8 Aug | 67% | fixed a second coverage gap — see below |
+
+Twice now the headline number has moved sharply, and **both times the model was
+unchanged**. What moved was which matches we could grade. On 8 Aug the results
+scraper turned out to be querying 35 ESPN leagues while the kickoff enrichment
+queried 66 — `eng.league_cup` was missing, so 184 finished EFL Cup ties were
+never scored. Backfilling them recovered 85 results and took coverage from 43%
+to 64%.
+
+So the "HIGH is broken, it's below MEDIUM" worry that dominated late July was
+largely an artefact of a non-random omission, not a modelling failure.
+
+**The lesson, stated once here and enforced in code:** a tier percentage is
+meaningless if the picks it omits aren't random. Run
+`python db/track_record_health.py` — it reports **coverage**, not just cadence —
+before quoting any accuracy figure anywhere.
+
+The old claim of "HIGH ≈ 75%" came from training-set evaluation, not graded
+results. Don't repeat it.
 
 ---
 
@@ -187,9 +202,12 @@ plausible-looking numbers rather than errors.
   Verified exhaustively — don't re-test it without a budget for a residential
   proxy. It still runs locally, where it works.
 - **~5 of 18 displayed picks show "time tbc"** — leagues ESPN doesn't carry.
-- **Grading coverage is 43%** (92 of 212). Some leagues we predict (Veikkausliiga,
-  Superettan, Copa Sudamericana) have no working results source. Aligning
-  predicted leagues with scoreable ones is the fix, not re-keying.
+- **Grading coverage is 64%** (173 of 270), up from 43% after the ESPN league
+  lists were unified. The remaining 34 ungraded matches are leagues with no
+  working results source (Veikkausliiga, Superettan, Copa Sudamericana).
+  Aligning predicted leagues with scoreable ones is the fix, not re-keying —
+  and `scrapers/espn_leagues.py` is now the single list both the results
+  scraper and the kickoff enrichment read, so they can't drift apart again.
 - Telegram bot: `/picks`, `/slip` (with a SportyBet booking code attached),
   `/stats`, `/help`. Inline buttons and Telegram's command menu mean a new user
   needs no prior knowledge. `/slip` calls the real API rather than rebuilding
