@@ -23,6 +23,26 @@ from difflib import SequenceMatcher
 DB_PATH = os.getenv("DB_PATH", "./db/sports_predictor.db")
 
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Use the SHARED fixture matcher rather than a second, weaker one.
+#
+# This file used to compare raw SequenceMatcher ratios with a >0.8 threshold on
+# each team. That was both too loose and too tight, in the worst way round for
+# a script whose entire job is MERGING rows:
+#
+#   "Manchester United" vs "Manchester City" -> 0.81   ** above the threshold **
+#   "Union"             vs "Union Santa Fe"  -> 0.53   (a real duplicate, missed)
+#   "Instituto"         vs "Instituto Cordoba" -> 0.69 (a real duplicate, missed)
+#
+# So it could merge two DIFFERENT Manchester fixtures into one — silently
+# destroying a real match and its result — while leaving genuine cross-source
+# duplicates unmerged. consensus.team_sim scores those 0.65 / 0.92 / 0.92: it
+# normalises names, understands containment on a token boundary, and refuses
+# multi-word names whose distinguishing words disagree. It is already trusted
+# for consensus and slip building; there is no reason for a second opinion here.
+from models.consensus import same_teams, _dates_close
+
+
 def sim(a, b):
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
 
@@ -38,8 +58,8 @@ def dates_close(d1, d2, days=1):
 
 def same_fixture(m1, m2):
     return (dates_close(m1["match_date"], m2["match_date"]) and
-            sim(m1["home_team"], m2["home_team"]) > 0.8 and
-            sim(m1["away_team"], m2["away_team"]) > 0.8)
+            same_teams(m1["home_team"], m1["away_team"],
+                       m2["home_team"], m2["away_team"]))
 
 
 def _repoint(cur, table, canonical, dup):
@@ -93,7 +113,12 @@ def run(apply=False):
     cur = conn.cursor()
 
     matches = [dict(r) for r in cur.execute("""
-        SELECT match_id, home_team, away_team, match_date, created_at
+        -- `league` is read by _best_league(). It was NOT selected here, so
+        -- _best_league raised KeyError on the FIRST cluster and the whole
+        -- script exited 1 — on every run since that helper was added. The
+        -- pipeline step is required=False, so the run stayed green while no
+        -- deduping happened at all (verified across 6 consecutive cloud runs).
+        SELECT match_id, home_team, away_team, match_date, league, created_at
         FROM matches ORDER BY created_at ASC, id ASC
     """).fetchall()]
 
