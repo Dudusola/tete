@@ -79,7 +79,12 @@ def effective_live_state(row: dict) -> str | None:
     final whistle", which is 'post'.
     """
     state = row.get("live_state")
-    if state != "in":
+    # 'post' is terminal and NULL means unknown — only the states that claim
+    # the match has not finished can go stale. That includes 'pre': the
+    # snapshot is just as likely to have been taken BEFORE kickoff and never
+    # updated (45 such rows on 9 Aug 2026, one of them already graded with a
+    # final score while still claiming 'pre').
+    if state not in ("in", "pre"):
         return state
     ko = row.get("kickoff_utc")
     if not ko:
@@ -226,7 +231,10 @@ def _started_today() -> list:
     conn = get_connection()
     rows = conn.execute("""
         SELECT m.home_team, m.away_team, m.league, m.match_date,
-               m.kickoff_utc, m.live_state,
+               -- kickoff_time joins kickoff_utc so the UI can label each row
+               -- with its own day ("Yesterday 22:15"): this list spans two
+               -- days and every row used to read as though it were today's.
+               m.kickoff_utc, m.kickoff_time, m.live_state,
                mp.confidence, mp.best_bet, mp.best_bet_prob,
                r.home_goals AS result_home_goals,
                r.away_goals AS result_away_goals,

@@ -309,6 +309,22 @@ unknown until the honest ledger matures.
     not a faster refresh. Any field named like a live status should be asked:
     what happens to it when nothing runs for 12 hours?**
 
+    Second pass (same day, after "check very well") found two more:
+    - **'pre' goes stale exactly like 'in'.** The first fix only aged 'in',
+      but the snapshot is just as often taken BEFORE kickoff and never
+      updated — 45 rows with a kickoff >3.5h past still claiming 'pre', one
+      of them already GRADED with a final score. effective_live_state now
+      ages 'pre' too; only 'post' (terminal) and NULL (unknown) pass through.
+      The dangerous version of this is a stale 'pre' on a fixture with NULL
+      kickoff_utc: nothing would ever move it out of the bettable list. None
+      exist today (checked) — the aging closes it before one does.
+    - **"Kicked off today" was mostly YESTERDAY.** The started query spans
+      `date('now','-1 day')` on purpose, so late kickoffs don't vanish (23:30
+      UTC is 00:30 in Lagos). But the heading said "today" while 19 of the 20
+      rows had kicked off the previous day, and no row showed its own date.
+      Now "Recently kicked off", with a per-row day label ("Yesterday 23:15").
+      **When a query deliberately spans two days, the LABEL has to say so.**
+
 ## Decisions & their reasoning
 - **Web app / PWA, not React Native** — free deploy, one codebase, installable. RN deferred to paying-users phase.
 - **Do NOT invite testers until 2–3 weeks of REAL track record accumulates.** One-shot

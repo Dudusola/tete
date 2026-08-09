@@ -107,7 +107,11 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 <section id="started-section" class="mt-lg hidden">
   <button id="started-toggle" class="w-full flex items-center justify-between text-left py-sm px-md rounded-lg bg-surface-container-low border border-outline-variant hover:bg-surface-container-high transition">
     <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">
-      Kicked off today · <span id="started-count">0</span>
+      <!-- NOT "today": the API deliberately spans a 2-day window so late
+           kickoffs (a 23:30 UTC match is 00:30 in Lagos) don't vanish. On
+           9 Aug, 19 of the 20 listed here had kicked off YESTERDAY while the
+           heading said "today". Each row now carries its own day too. -->
+      Recently kicked off · <span id="started-count">0</span>
     </span>
     <span id="started-chevron" class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span>
   </button>
@@ -368,6 +372,7 @@ function renderStarted(started) {
           <div class="min-w-0">
             <div class="text-body-md text-on-surface truncate">${escapeHtml(s.home_team)} vs ${escapeHtml(s.away_team)}</div>
             <div class="text-label-sm text-on-surface-variant truncate">
+              ${escapeHtml(kickoffLabel(s.match_date, s.kickoff_time, s.kickoff_utc))} ·
               ${escapeHtml(prettyLeague(s.league))} · we said ${escapeHtml(s.best_bet)} (${Math.round((s.best_bet_prob||0)*100)}%)
             </div>
           </div>
