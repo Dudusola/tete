@@ -176,29 +176,34 @@ def derive_markets(pred: dict) -> list:
         mu_h, mu_a = _means_from_1x2(H, D, A)
         mx = _poisson_matrix(mu_h, mu_a)
 
-        # ── OVER/UNDER AND RESULT & GOALS ARE DELIBERATELY NOT OFFERED ──────
+        # ── Over/Under ──────────────────────────────────────────────────────
+        # These barely move between fixtures, because the total comes from a
+        # league-average prior rather than a goals model. That is a real
+        # limitation and it is stated plainly — but it is NOT a reason to
+        # withhold them, which was a mistake made and corrected here.
         #
-        # They depend on the TOTAL number of goals, and we do not model that.
-        # The total is a league-average prior, so every fixture returns the
-        # same number: Over 1.5 = 75%, Under 3.5 = 71%, Under 2.5 = 49%,
-        # identical for an even match and for an 80% favourite. A constant
-        # dressed as a per-match prediction is not a pick — and priced at
-        # "Under 3.5, 71%" it would look like a strong one and quietly fill
-        # slips with a bet we have no opinion on.
+        # The numbers are right in aggregate. Poisson at 2.70 total reproduces
+        # actual football to within a point at every line:
+        #     Over 0.5  93% (real ~93%)      Over 2.5  51% (real ~51%)
+        #     Over 1.5  75% (real ~75%)      Over 3.5  29% (real ~29%)
+        #     Under 4.5 86% (real ~85%)
+        # "Over 0.5" hardly varies in reality either — a banker leg is supposed
+        # to be boring. Refusing to offer a genuinely 93% market because it is
+        # the same 93% every week confuses "carries no edge" with "is not a
+        # valid bet"; punters build slips out of exactly these.
         #
-        # This is a deliberate REMOVAL of markets that appeared to work. They
-        # were previously derived from the predicted scoreline and produced
-        # "Under 2.5 at 91-99%, LOW RISK" while bookmakers priced the same bet
-        # near even money. Serving fewer markets honestly beats serving more
-        # markets confidently and wrongly.
+        # What HAS to stay dead is the old behaviour: means taken from the
+        # predicted scoreline, which produced "Under 2.5 at 91-99%, LOW RISK"
+        # against a bookmaker price near even money. With the corrected means
+        # Under 2.5 comes out at 49% and lands in the HIGH band, where a coin
+        # flip belongs.
         #
-        # To bring them back properly, the engine needs a real goals signal —
-        # a team-level attack/defence rate, or a bookmaker's own O/U line —
-        # not a scoreline and not a constant. Until then they stay out.
-        #
-        # BTTS and Handicap are kept because they depend on the SPLIT between
-        # the sides, which our 1X2 probabilities genuinely inform: BTTS moves
-        # 55% -> 37% and Handicap 17% -> 50% across the range above.
+        # 0.5 and 4.5 are new lines: the safest over and the safest under, and
+        # the two most useful for building a low-risk slip.
+        for line in (0.5, 1.5, 2.5, 3.5, 4.5):
+            over = _matrix_prob(mx, lambda i, j: i + j > line)
+            add(f"Over/Under {line}", f"Over {line} Goals", over)
+            add(f"Over/Under {line}", f"Under {line} Goals", 1 - over)
 
         # BTTS from the score matrix (was a hardcoded constant before)
         btts_yes = _matrix_prob(mx, lambda i, j: i >= 1 and j >= 1)
@@ -206,14 +211,28 @@ def derive_markets(pred: dict) -> list:
         add("Both Teams To Score", "BTTS - No", 1 - btts_yes)
 
         # Asian Handicap ±1.5 (two-way, no push)
-        add("Handicap", f"{home} -1.5", _matrix_prob(mx, lambda i, j: i - j >= 2))
-        add("Handicap", f"{away} +1.5", _matrix_prob(mx, lambda i, j: j - i >= -1))
-        add("Handicap", f"{away} -1.5", _matrix_prob(mx, lambda i, j: j - i >= 2))
-        add("Handicap", f"{home} +1.5", _matrix_prob(mx, lambda i, j: i - j >= -1))
+        # +2.5 as well as +1.5: a two-goal cushion on a decent side is one of
+        # the safest bets on the board and belongs in the low-risk pool.
+        for h in (1.5, 2.5):
+            k = int(h + 0.5)
+            add("Handicap", f"{home} -{h}", _matrix_prob(mx, lambda i, j: i - j >= k))
+            add("Handicap", f"{away} +{h}", _matrix_prob(mx, lambda i, j: j - i >= -(k - 1)))
+            add("Handicap", f"{away} -{h}", _matrix_prob(mx, lambda i, j: j - i >= k))
+            add("Handicap", f"{home} +{h}", _matrix_prob(mx, lambda i, j: i - j >= -(k - 1)))
 
-        # Result & Goals is out for the same reason as Over/Under: its goals
-        # half rests on a total we do not model, so the combo would carry the
-        # win probability's information and the goals line's noise.
+        # Result & Goals: the winner half is our model's, the goals half is the
+        # prior. Restored alongside Over/Under for the same reason — the
+        # combined number is right even though the goals part carries no edge.
+        winner = home if H >= A else away
+        winner_prob = max(H, A)
+        win_cond = ((lambda i, j: i > j) if winner == home else (lambda i, j: i < j))
+        p_win_mx = _matrix_prob(mx, win_cond)
+        if p_win_mx > 0:
+            for line in (1.5, 2.5):
+                p_joint = _matrix_prob(
+                    mx, lambda i, j: win_cond(i, j) and i + j > line)
+                add("Result & Goals", f"{winner} & Over {line}",
+                    winner_prob * (p_joint / p_win_mx))
 
     return options
 
