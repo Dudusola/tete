@@ -116,7 +116,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=34"></script>
+<script src="js/api.js?v=35"></script>
 <script>
 let selectedRisk = "MEDIUM";
 let selectedCount = 5;
@@ -266,12 +266,16 @@ function renderSlip(data) {
         <span class="material-symbols-outlined">confirmation_number</span>
         SportyBet code
       </button>
+      <button id="book-btn-bet9ja" data-provider="bet9ja" class="book-provider-btn flex-1 min-w-[10rem] bg-primary-container text-inverse-primary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2">
+        <span class="material-symbols-outlined">confirmation_number</span>
+        Bet9ja code
+      </button>
       <button id="book-btn-msport" data-provider="msport" class="book-provider-btn flex-1 min-w-[10rem] bg-primary-container text-inverse-primary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2">
         <span class="material-symbols-outlined">confirmation_number</span>
         MSport code
       </button>
     </div>
-    <div class="text-label-sm text-on-surface-variant mt-1">football.com, Bet9ja and Betano can only <em>read</em> codes (Slip Checker) — they don’t let us create them.</div>
+    <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes (Slip Checker).</div>
     <div id="book-result" class="mt-sm text-body-md text-on-surface"></div>
   </div>
 </section>`;
@@ -305,7 +309,7 @@ function renderSlip(data) {
 
 let LAST_SLIP = [];
 const PROVIDER_NAME = {sportybet: "SportyBet", msport: "MSport",
-                       "football.com": "football.com"};
+                       bet9ja: "Bet9ja", "football.com": "football.com"};
 
 async function bookSlip(provider) {
     const btns = document.querySelectorAll(".book-provider-btn");

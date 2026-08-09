@@ -948,7 +948,10 @@ def booking_optimize(provider: str = Body(...), code: str = Body(...),
 @app.get("/api/booking/providers")
 def booking_providers():
     """Which bookmakers we can read codes from, and create codes on."""
-    return {"decode": sorted(PROVIDERS), "generate": sorted(SHARE_POST_URLS)}
+    # Bet9ja generates through its own builder rather than SHARE_POST_URLS
+    # (different id system entirely), so it is added explicitly.
+    return {"decode": sorted(PROVIDERS),
+            "generate": sorted(set(SHARE_POST_URLS) | {"bet9ja"})}
 
 
 @app.post("/api/booking/convert")

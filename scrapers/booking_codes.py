@@ -18,6 +18,7 @@ Usage:
 import json
 import os
 import sys
+import time as _time
 from datetime import datetime
 
 import requests
@@ -420,6 +421,10 @@ def generate_code(legs: list[dict], provider: str = "sportybet") -> dict:
     legs: [{home_team, away_team, market, selection}]
     Returns {code, share_url, mapped: [...], unmapped: [...]}."""
     provider = (provider or "").lower().strip()
+    # Bet9ja runs its own event/market ids, so it cannot use the shared
+    # Betradar mapping below — it has a dedicated builder.
+    if provider == "bet9ja":
+        return generate_bet9ja(legs)
     # SHARE_POST_URLS is the single source of truth for "who can we book on"
     # (it is what /api/booking/providers reports). Hardcoding a subset here is
     # how football.com ended up bookable by convert_code but not by the slip
@@ -614,37 +619,42 @@ def decode_bet9ja(code: str) -> list[dict]:
         raise BookingCodeError(f"Bet9ja error {err}.")
 
     data = payload.get("D") or {}
-    # Legs typically live under an ODDS/EVENTS-style list; probe the known
-    # candidates and fall back to dumping the payload for a human look.
-    rows = None
-    for key in ("ODDS", "EVENTS", "COUPON_ODDS", "E"):
-        v = data.get(key)
-        if isinstance(v, list) and v:
-            rows = v
-            break
-    if rows is None:
+    # Legs live under D.O, keyed "<EVENT_ID>$<MARKET>_<SIGN>" — the same key
+    # shape the booking payload uses. This parser used to probe for an
+    # ODDS/EVENTS list because no real code had ever been seen; one was booked
+    # on 9 Aug 2026 (5MKRXK8) and the actual shape recorded here.
+    #
+    #   "9888761$LIVES_1X2_1": {
+    #       "E_ID": 9888761, "E_NAME": "Gimnasia y Esgrima La Plata - Barracas Central",
+    #       "GN": "Argentina - Liga Profesional", "V": 2.4,
+    #       "M_NAME": "1X2", "SGN": "1", "STARTDATE": "2026-08-09 20:45:00"}
+    rows = data.get("O")
+    if not isinstance(rows, dict) or not rows:
         path = _dump_raw("bet9ja", code, payload)
         raise BookingCodeError(
             f"Valid Bet9ja code but unrecognized slip format - raw payload "
             f"saved to {path} so the parser can be extended.")
 
     legs = []
-    for s in rows:
+    for key, s in rows.items():
         if not isinstance(s, dict):
             continue
-        # Bet9ja event descriptions are usually "Home - Away"
-        desc = s.get("DS") or s.get("EVENT_DESC") or s.get("E_DESC") or ""
-        home, away = (desc.split(" - ", 1) + [None])[:2] if " - " in desc \
-            else (desc or None, None)
+        desc = s.get("E_NAME") or ""
+        home, away = (desc.split(" - ", 1) + [None])[:2] if " - " in desc             else (desc or None, None)
         legs.append({
             "home_team": home,
             "away_team": away,
-            "league": s.get("G_DESC") or s.get("GROUP_DESC"),
-            "match_date": s.get("STARTDATE") or s.get("D"),
-            "market": s.get("MG_DESC") or s.get("MARKET_DESC") or s.get("CLS_DESC"),
-            "selection": s.get("SGN_DESC") or s.get("SIGN_DESC") or s.get("OC_DESC"),
-            "odds": float(s["ODD"]) if s.get("ODD") else None,
-            "event_id": s.get("ID_EVENT") or s.get("EVENT_ID"),
+            "league": s.get("GN"),
+            "match_date": (s.get("STARTDATE") or "")[:10] or None,
+            "market": s.get("M_NAME"),
+            "selection": s.get("SGN"),
+            "odds": float(s["V"]) if s.get("V") is not None else None,
+            # Bet9ja's own ids. Deliberately NOT reused for conversion to
+            # another bookmaker: they are its private palimpsest, not Betradar,
+            # so a converted slip would have to be re-matched by name and could
+            # silently land on a different market.
+            "event_id": s.get("E_ID"),
+            "bet9ja_key": key,
         })
 
     if not any(l["home_team"] for l in legs):
@@ -927,6 +937,256 @@ def decode(provider: str, code: str) -> list[dict]:
             f"Unknown provider '{provider}'. Supported: "
             f"{', '.join(PROVIDERS)}")
     return fn(code)
+
+
+# ─── Bet9ja GENERATION ────────────────────────────────────────────────────────
+#
+# Bet9ja does NOT use Betradar ids, so the SportyBet mapping is useless here —
+# it runs its own "palimpsest" of event, market and sign ids. CLAUDE.md recorded
+# this as blocked on "a captured real BookABetV2 request". It turned out the
+# contract is readable straight out of their own JS bundle, which beats a
+# capture: a capture gives one example, the source gives the field names.
+#
+# From bundle_1.321.0.min.js:
+#
+#   cw = t => post("/PlacebetAjax/BookABetV2",
+#                  form({BETSLIP: JSON.stringify(t.BETSLIP),
+#                        IS_PASSBET: t.IS_PASSBET || 0}))
+#
+#   Df = (BSTYPE, TAB, NUMLINES, COMB, TYPE, STAKE, POTWINMIN, POTWINMAX,
+#         BONUSMIN, BONUSMAX, ODDMIN, ODDMAX, ODDS, FIXED) => ({...})
+#
+#   Tf = betslip => ({BETS: [Df(...)], EVS: {...}, IMPERSONIZE: 0})
+#
+# So BETSLIP is an OBJECT — their code type-checks it — not the array every
+# guess assumed. That is why blind probing returned an opaque ERROR_CODE 100
+# whatever was sent: the shape was wrong before the contents mattered.
+#
+# Verified end to end (9 Aug 2026): booked U. de Chile v Palestino, 1X2 "1" at
+# 1.60, received RIS "5MKSHS5", then decoded that code and got the same leg back.
+#
+# Two details that cost time:
+#   * The short shareable code is RIS. COUPONCODE is a UUID; the bundle prefers
+#     RIS and only falls back to COUPONCODE, and RIS is what a punter types in.
+#   * BSTYPE must be 3. BSTYPE 1 returns ERROR_CODE 103, and a fixture within
+#     ~10 minutes of kickoff returns STATUS 1xx with no code at all.
+
+BET9JA_BOOK_URL = ("https://sports.bet9ja.com/desktop/feapi/PlacebetAjax/"
+                   "BookABetV2")
+BET9JA_PALIMPSEST = "https://sports.bet9ja.com/desktop/feapi/PalimpsestAjax/"
+BET9JA_HEADERS = {**HEADERS, "Referer": "https://sports.bet9ja.com/"}
+
+_B9J_CACHE = {"at": 0.0, "events": []}
+
+# Their market ids mapped to the markets this project derives. Only the ones we
+# can map with confidence: an unmapped leg is reported as unmapped, never
+# guessed onto a neighbouring market. Putting someone's money on the wrong
+# market is worse than telling them we could not place it.
+# Surveyed live across 24 events (9 Aug 2026): Bet9ja's football palimpsest
+# offers 1X2, Double Chance, GG/NG, Over/Under, Odd/Even and half-time
+# variants. It has NO Draw No Bet and NO Handicap at all, so legs in those
+# markets come back unmapped rather than being bent onto a nearby market —
+# which matters, because Handicap and DNB are a large share of what this
+# project's slips contain.
+BET9JA_MARKETS = {
+    "Match Result": "S_1X2",
+    "Double Chance": "S_DC",
+    "Both Teams To Score": "S_GGNG",
+    "Over/Under 0.5": "S_OU@0.5",
+    "Over/Under 1.5": "S_OU@1.5",
+    "Over/Under 2.5": "S_OU@2.5",
+    "Over/Under 3.5": "S_OU@3.5",
+    "Over/Under 4.5": "S_OU@4.5",
+}
+
+
+def _bet9ja_events(max_groups: int = 40) -> list:
+    """Every football event Bet9ja currently offers, flattened.
+
+    Walks sport -> country -> competition -> events. Cached for the same window
+    as the SportyBet feed: a slip build asks repeatedly and the palimpsest does
+    not change minute to minute.
+    """
+    if _B9J_CACHE["events"] and _time.time() - _B9J_CACHE["at"] < _EVENTS_TTL:
+        return _B9J_CACHE["events"]
+
+    try:
+        pal = requests.get(BET9JA_PALIMPSEST + "GetSports",
+                           params={"DISP": "1"}, headers=BET9JA_HEADERS,
+                           timeout=25).json()["D"]["PAL"]
+    except (requests.RequestException, ValueError, KeyError) as e:
+        raise BookingCodeError(f"Could not read the Bet9ja fixture list: {e}") from e
+
+    groups = []
+    for sport_id, sport in pal.items():
+        # 1 = Soccer. 101/301/303 are Zoom and player virtuals, which are not
+        # real matches and must never end up in a slip.
+        if str(sport_id) != "1":
+            continue
+        for country in (sport.get("SG") or {}).values():
+            groups.extend((country.get("G") or {}).keys())
+
+    out = []
+    for gid in groups[:max_groups]:
+        try:
+            d = requests.get(BET9JA_PALIMPSEST + "GetEventsInGroup",
+                             params={"DISP": "1", "GROUPID": gid},
+                             headers=BET9JA_HEADERS, timeout=20).json().get("D") or {}
+        except (requests.RequestException, ValueError):
+            continue          # one dead competition must not kill the sweep
+        events = d.get("E") or []
+        events = events if isinstance(events, list) else list(events.values())
+        out.extend(ev for ev in events if ev.get("O"))
+
+    _B9J_CACHE.update(at=_time.time(), events=out)
+    logger.info(f"Bet9ja palimpsest: {len(out)} football events across "
+                f"{len(groups[:max_groups])} competitions")
+    return out
+
+
+def _bet9ja_sign(leg: dict) -> tuple | None:
+    """(market_id, sign) for one of our legs, or None when we cannot map it."""
+    market_id = BET9JA_MARKETS.get(leg.get("market"))
+    if not market_id:
+        return None
+    sel = (leg.get("selection") or "").lower()
+    home = (leg.get("home_team") or "").lower()
+    away = (leg.get("away_team") or "").lower()
+    has_home = bool(home and home in sel)
+    has_away = bool(away and away in sel)
+    has_draw = "draw" in sel
+
+    if market_id.startswith("S_OU"):
+        return (market_id, "U" if "under" in sel else "O")
+    if market_id == "S_GGNG":
+        return (market_id, "N" if " no" in sel or sel.endswith("no") else "Y")
+    if market_id == "S_1X2":
+        if has_home:
+            return (market_id, "1")
+        if has_away:
+            return (market_id, "2")
+        return (market_id, "X")
+    if market_id == "S_DC":
+        if has_home and has_draw:
+            return (market_id, "1X")
+        if has_home and has_away:
+            return (market_id, "12")
+        if has_draw and has_away:
+            return (market_id, "X2")
+    return None
+
+
+def generate_bet9ja(legs: list) -> dict:
+    """Our slip legs -> a Bet9ja booking code.
+
+    Same return shape as generate_code, so the API and the UI can treat every
+    bookmaker identically: {code, share_url, mapped, unmapped}.
+    """
+    events = _bet9ja_events()
+    if not events:
+        raise BookingCodeError("The Bet9ja fixture list came back empty.")
+
+    odds_map, evs, mapped, unmapped = {}, {}, [], []
+    for leg in legs:
+        want = _bet9ja_sign(leg)
+        if not want:
+            unmapped.append(leg)
+            continue
+        market_id, sign = want
+
+        best, best_score = None, 0.0
+        for ev in events:
+            teams = (ev.get("DS") or "").split(" - ")
+            if len(teams) != 2:
+                continue
+            score = (_sim(leg.get("home_team") or "", teams[0])
+                     + _sim(leg.get("away_team") or "", teams[1])) / 2
+            if score > best_score:
+                best, best_score = ev, score
+        if not best or best_score < 0.62:
+            unmapped.append(leg)
+            continue
+
+        market_key = f"{market_id}_{sign}"
+        odd = (best.get("O") or {}).get(market_key)
+        if odd is None:
+            unmapped.append(leg)      # market not offered on this fixture
+            continue
+
+        key = f"{best['ID']}${market_key}"
+        start = best.get("STARTDATEUTC") or ""
+        odds_map[key] = float(odd)
+        evs[key] = {
+            "id": key, "eventId": best["ID"], "eventCode": best.get("EXTID"),
+            "eventName": (best.get("DS") or "").replace(" - ", " v "),
+            "market": market_key, "sid": market_id, "sign": sign,
+            "GN": best.get("GN"), "leagueName": best.get("GN"),
+            "SG": best.get("SG"),
+            "startdate": (start[:10].replace("-", "/") + " " + start[11:19]) if start else None,
+            "oddValue": float(odd), "hnd": "", "sportName": "Soccer",
+        }
+        mapped.append({"leg": leg, "as": f"{market_key} @ {odd}",
+                       "odds": float(odd)})
+
+    if not odds_map:
+        raise BookingCodeError(
+            "None of the slip legs could be matched on Bet9ja - they list "
+            "different competitions, or the games have already started.")
+
+    total = 1.0
+    for value in odds_map.values():
+        total *= value
+
+    # Bet type depends on the leg count, and the two values are mutually
+    # exclusive — each is rejected with ERROR_CODE 103 in the other's place:
+    #     1 leg   -> BSTYPE 3 (single)
+    #     2+ legs -> BSTYPE 1 (accumulator)
+    # Determined by trying every value against the live endpoint; 4-7 are
+    # accepted but return STATUS 100 and no code, which is a silent failure and
+    # exactly the kind of "success" this project does not accept.
+    bstype = 3 if len(odds_map) == 1 else 1
+    bet = {
+        "BSTYPE": bstype, "TAB": bstype, "NUMLINES": len(odds_map), "COMB": 1,
+        "TYPE": len(odds_map), "STAKE": 0,
+        "POTWINMIN": 0, "POTWINMAX": 0, "BONUSMIN": 0, "BONUSMAX": 0,
+        "ODDMIN": round(total, 2), "ODDMAX": round(total, 2),
+        "ODDS": odds_map, "FIXED": {},
+    }
+    payload = {"BETS": [bet], "EVS": evs, "IMPERSONIZE": 0}
+
+    try:
+        r = requests.post(
+            BET9JA_BOOK_URL,
+            headers={**BET9JA_HEADERS,
+                     "Origin": "https://sports.bet9ja.com",
+                     "Content-Type": "application/x-www-form-urlencoded"},
+            data={"BETSLIP": json.dumps(payload), "IS_PASSBET": "0"},
+            timeout=30)
+        body = r.json()
+    except (requests.RequestException, ValueError) as e:
+        raise BookingCodeError(f"Bet9ja booking call failed: {e}") from e
+
+    if body.get("R") != "OK" or not body.get("D"):
+        path = _dump_raw("bet9ja_gen", "post", body)
+        err = (body.get("D") or {})
+        raise BookingCodeError(
+            f"Bet9ja refused the slip (error "
+            f"{err.get('ERROR_CODE') if isinstance(err, dict) else '?'}) "
+            f"- saved to {path}")
+
+    d = body["D"][0] if isinstance(body["D"], list) else body["D"]
+    code = d.get("RIS") or d.get("COUPONCODE")
+    if not code:
+        path = _dump_raw("bet9ja_gen", "nocode", body)
+        raise BookingCodeError(
+            f"Bet9ja accepted the slip but returned no code (STATUS "
+            f"{d.get('STATUS')}) - usually a match too close to kickoff. "
+            f"Saved to {path}")
+
+    logger.success(f"Generated bet9ja booking code {code} "
+                   f"({len(odds_map)} legs, {len(unmapped)} unmapped)")
+    return {"code": code, "share_url": None,
+            "mapped": mapped, "unmapped": unmapped}
 
 
 if __name__ == "__main__":
