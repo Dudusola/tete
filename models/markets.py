@@ -51,85 +51,6 @@ def _matrix_prob(matrix: list, cond) -> float:
                for j, p in enumerate(row) if cond(i, j))
 
 
-_MEANS_CACHE: dict = {}
-
-# Average total goals in a football match. Used as the SCALE for the Poisson
-# means, because the 1X2 probabilities cannot supply it — see below.
-LEAGUE_AVG_TOTAL_GOALS = 2.70
-
-
-def _means_from_1x2(H: float, D: float, A: float,
-                    total: float | None = None) -> tuple:
-    """Expected goals (mu_home, mu_away) for the goals markets.
-
-    WHY THIS EXISTS — the goals markets were fiction.
-
-    predicted_home_goals / predicted_away_goals are a predicted SCORELINE:
-    always integers, "1-0", "0-0". They were fed into the Poisson matrix as if
-    they were expected-goals RATES. A predicted 0-0 became mu=0, which says a
-    goalless draw is certain, so "Under 2.5" came out at 99%; a 1-0 became
-    mu=1.0 and 91%. Those were then filed under LOW RISK, while bookmakers
-    priced the same Unders around 1.6-2.1 (48-61%). The market was right.
-
-    This is bug #1's mistake in new clothes: a PREDICTED value used as though
-    it were a measured one. A scoreline is fine to display ("Expected: 1-0");
-    it is not a goals rate.
-
-    WHY NOT JUST FIT BOTH MEANS TO THE 1X2 PROBABILITIES:
-    tried, and it fails in a specific, instructive way. Under independent
-    Poisson, draws are only likely when few goals are expected, so fitting
-    both means to a draw-heavy 30/45/25 returns a total of 1.05 goals and
-    "Under 2.5 = 91%" — the very bug this replaces, arrived at from the other
-    direction. Real matches with a 45% draw chance are not 1-goal games; the
-    independent-Poisson model simply cannot represent that (it is why
-    Dixon-Coles exists).
-
-    So: the SCALE comes from a league-average prior, and the 1X2 view supplies
-    only the SPLIT between the sides — which is the part it genuinely knows.
-    Honest description: "we assume a normal number of goals and divide them
-    the way our win probabilities imply". That is an approximation, not a
-    trained goals model, and the markets built on it should be read that way.
-    """
-    key = (round(H, 3), round(A, 3), round(total or LEAGUE_AVG_TOTAL_GOALS, 2))
-    hit = _MEANS_CACHE.get(key)
-    if hit:
-        return hit
-
-    T = float(total or LEAGUE_AVG_TOTAL_GOALS)
-    if T <= 0:
-        T = LEAGUE_AVG_TOTAL_GOALS
-
-    # Target: the share of NON-DRAW probability belonging to the home side.
-    denom = H + A
-    share = 0.5 if denom <= 0 else H / denom
-
-    # One free parameter now: how the total splits. Search the split whose
-    # score matrix reproduces that share. Bounded so a lopsided fixture can
-    # never drive a side's expectation to zero, which would make "team scores"
-    # markets absurd.
-    best, best_err = 0.5, float("inf")
-    r = 0.20
-    while r <= 0.80 + 1e-9:
-        mu_h, mu_a = T * r, T * (1 - r)
-        mx = _poisson_matrix(mu_h, mu_a, max_goals=8)
-        h = a = 0.0
-        for i, row in enumerate(mx):
-            for j, prob in enumerate(row):
-                if i > j:
-                    h += prob
-                elif i < j:
-                    a += prob
-        got = 0.5 if (h + a) <= 0 else h / (h + a)
-        err = (got - share) ** 2
-        if err < best_err:
-            best, best_err = r, err
-        r += 0.01
-
-    out = (round(T * best, 3), round(T * (1 - best), 3))
-    _MEANS_CACHE[key] = out
-    return out
-
-
 def derive_markets(pred: dict) -> list:
     """Derive all bet markets for one match from model + Forebet data."""
     H = pred["home_win_prob"]
@@ -168,39 +89,22 @@ def derive_markets(pred: dict) -> list:
         add("Draw No Bet", f"{home} (DNB)", H / (H + A))
         add("Draw No Bet", f"{away} (DNB)", A / (H + A))
 
-    # Goals markets. The Poisson means come from our OWN 1X2 probabilities —
-    # see _means_from_1x2 for why the predicted scoreline must never be used
-    # as a goals rate. These markets no longer depend on a scoreline being
-    # present, so they also survive Forebet being gone.
-    if (H + D + A) > 0:
-        mu_h, mu_a = _means_from_1x2(H, D, A)
+    # Goals markets from predicted scoreline
+    phg = pred.get("predicted_home_goals")
+    pag = pred.get("predicted_away_goals")
+    avg_goals = pred.get("over_2_5_pct")
+
+    if phg is not None and pag is not None:
+        # Poisson means from the predicted scoreline; if Forebet's average-goals
+        # signal is present, scale total goals toward it (keep the home/away ratio)
+        mu_h, mu_a = float(phg), float(pag)
+        if avg_goals and (mu_h + mu_a) > 0:
+            scale = ((mu_h + mu_a + float(avg_goals)) / 2) / (mu_h + mu_a)
+            mu_h, mu_a = mu_h * scale, mu_a * scale
         mx = _poisson_matrix(mu_h, mu_a)
 
-        # ── Over/Under ──────────────────────────────────────────────────────
-        # These barely move between fixtures, because the total comes from a
-        # league-average prior rather than a goals model. That is a real
-        # limitation and it is stated plainly — but it is NOT a reason to
-        # withhold them, which was a mistake made and corrected here.
-        #
-        # The numbers are right in aggregate. Poisson at 2.70 total reproduces
-        # actual football to within a point at every line:
-        #     Over 0.5  93% (real ~93%)      Over 2.5  51% (real ~51%)
-        #     Over 1.5  75% (real ~75%)      Over 3.5  29% (real ~29%)
-        #     Under 4.5 86% (real ~85%)
-        # "Over 0.5" hardly varies in reality either — a banker leg is supposed
-        # to be boring. Refusing to offer a genuinely 93% market because it is
-        # the same 93% every week confuses "carries no edge" with "is not a
-        # valid bet"; punters build slips out of exactly these.
-        #
-        # What HAS to stay dead is the old behaviour: means taken from the
-        # predicted scoreline, which produced "Under 2.5 at 91-99%, LOW RISK"
-        # against a bookmaker price near even money. With the corrected means
-        # Under 2.5 comes out at 49% and lands in the HIGH band, where a coin
-        # flip belongs.
-        #
-        # 0.5 and 4.5 are new lines: the safest over and the safest under, and
-        # the two most useful for building a low-risk slip.
-        for line in (0.5, 1.5, 2.5, 3.5, 4.5):
+        # Over/Under lines
+        for line in (1.5, 2.5, 3.5):
             over = _matrix_prob(mx, lambda i, j: i + j > line)
             add(f"Over/Under {line}", f"Over {line} Goals", over)
             add(f"Over/Under {line}", f"Under {line} Goals", 1 - over)
@@ -211,18 +115,12 @@ def derive_markets(pred: dict) -> list:
         add("Both Teams To Score", "BTTS - No", 1 - btts_yes)
 
         # Asian Handicap ±1.5 (two-way, no push)
-        # +2.5 as well as +1.5: a two-goal cushion on a decent side is one of
-        # the safest bets on the board and belongs in the low-risk pool.
-        for h in (1.5, 2.5):
-            k = int(h + 0.5)
-            add("Handicap", f"{home} -{h}", _matrix_prob(mx, lambda i, j: i - j >= k))
-            add("Handicap", f"{away} +{h}", _matrix_prob(mx, lambda i, j: j - i >= -(k - 1)))
-            add("Handicap", f"{away} -{h}", _matrix_prob(mx, lambda i, j: j - i >= k))
-            add("Handicap", f"{home} +{h}", _matrix_prob(mx, lambda i, j: i - j >= -(k - 1)))
+        add("Handicap", f"{home} -1.5", _matrix_prob(mx, lambda i, j: i - j >= 2))
+        add("Handicap", f"{away} +1.5", _matrix_prob(mx, lambda i, j: j - i >= -1))
+        add("Handicap", f"{away} -1.5", _matrix_prob(mx, lambda i, j: j - i >= 2))
+        add("Handicap", f"{home} +1.5", _matrix_prob(mx, lambda i, j: i - j >= -1))
 
-        # Result & Goals: the winner half is our model's, the goals half is the
-        # prior. Restored alongside Over/Under for the same reason — the
-        # combined number is right even though the goals part carries no edge.
+        # Result & Goals combos: model's win prob x P(goals line | that result)
         winner = home if H >= A else away
         winner_prob = max(H, A)
         win_cond = ((lambda i, j: i > j) if winner == home else (lambda i, j: i < j))
@@ -390,31 +288,8 @@ def build_slip(all_options: list, risk: str, num_games: int,
     # accuracy rather than appearance: a correlated accumulator is a worse bet
     # than its stated odds imply.
     cap = max(2, -(-num_games // 2))          # ceil(n/2), min 2
-
-    # ── Repetition penalty, not a quota ─────────────────────────────────────
-    #
-    # A fixed budget ("2 goals legs, 2 handicaps, 2 double chance") makes every
-    # slip the same shape, which is its own kind of wrong. What actually needs
-    # preventing is DEGENERACY, and the cause of that is specific and worth
-    # naming: the goals markets return the SAME number for every fixture,
-    # because their total is a league-average prior. "Under 4.5 = 86%" is not
-    # 86% for this match, it is 86% for all matches. So when the slip picks the
-    # best option per fixture, that constant wins the same tie over and over
-    # and the slip becomes six copies of one idea.
-    #
-    # A soft penalty fixes the degeneracy without dictating a shape: each time
-    # a market family is used, its next appearance is worth slightly less. A
-    # genuinely better pick still wins — a 92% handicap will beat a
-    # once-used 86% under — but a market cannot keep winning ties on repeat.
-    # Nothing is forbidden, no count is prescribed, and the mix falls out of
-    # the numbers.
-    #
-    # Deterministic, as decision #9 requires: the same query gives the same
-    # slip, because the penalty depends only on what has been chosen so far.
-    REPEAT_DECAY = 0.90
-
     family_count = {}
-    for leg in pinned_legs:                    # a Banker counts as one use
+    for leg in pinned_legs:                    # a Banker counts toward the cap
         family_count[_market_family(leg)] = family_count.get(_market_family(leg), 0) + 1
 
     chosen = []
@@ -422,27 +297,38 @@ def build_slip(all_options: list, risk: str, num_games: int,
     for c in fixtures:
         if len(chosen) >= slots:
             break
-        # Pick this fixture's best option AFTER the repetition penalty, rather
-        # than its best raw option. Ties that would otherwise always fall to
-        # the same constant market now rotate naturally.
-        best_opt, best_value = None, -1.0
-        for opt in c["opts"]:
+        for opt in c["opts"]:                  # ranked best-first
             fam = _market_family(opt)
-            used = family_count.get(fam, 0)
-            if used >= cap:
-                continue                       # hard backstop only: no single
-                                               # market may take more than half
-                                               # the slip, because that is a
-                                               # correlated bet wearing a
-                                               # diversified costume
-            value = opt.probability * (REPEAT_DECAY ** used)
-            if value > best_value:
-                best_opt, best_value = opt, value
-        if best_opt is None:
-            continue
-        chosen.append(best_opt)
-        fam = _market_family(best_opt)
-        family_count[fam] = family_count.get(fam, 0) + 1
+            if family_count.get(fam, 0) >= cap:
+                continue                       # family full — try this
+                                               # fixture's next-best market
+            chosen.append(opt)
+            family_count[fam] = family_count.get(fam, 0) + 1
+            break
+        # If every option for this fixture is in a full family, the fixture is
+        # skipped and a later one takes the slot. Deliberate: dropping a
+        # fixture costs one pick, repeating a saturated market costs the slip
+        # its independence.
+
+    # Second pass: honour the requested number of games.
+    #
+    # The cap is a PREFERENCE, not a promise to the user. Asking for 6 and
+    # receiving 4 is a worse experience than receiving 6 with a repeat in it —
+    # and it happened for real: once the goals markets went back to being
+    # rare, a LOW slip had only Double Chance to work with, the cap allowed
+    # three, and the slip came back short. Diversify where the options exist;
+    # never silently deliver less than was asked for.
+    if len(chosen) < slots:
+        used_fixtures = {id(o) for o in chosen}
+        for c in fixtures:
+            if len(chosen) >= slots:
+                break
+            if any(id(o) in used_fixtures for o in c["opts"]):
+                continue                       # this fixture already used
+            if c["opts"]:
+                best = c["opts"][0]
+                chosen.append(best)
+                used_fixtures.add(id(best))
 
     return pinned_legs + chosen
 
@@ -491,27 +377,18 @@ if __name__ == "__main__":
     assert len(slip) == 3, f"expected 3, got {len(slip)}"
     print("PASS - duplicates collapsed across the date window.")
 
-    # 2. Six fixtures whose best bet is the same market must NOT produce six
-    #    identical legs. No quota is enforced — a repetition penalty makes the
-    #    mix emerge — so the assertions below check for degeneracy, not shape.
+    # 2. Correlation cap: six fixtures whose best bet is the same market must
+    #    NOT produce six identical legs. Each fixture also offers a fallback,
+    #    so the slip should still fill to six.
     many = []
     for i in range(6):
         many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.90, "LOW",
                        "Over/Under 2.5", "Under 2.5 Goals"))
-        many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.85, "LOW",
-                       "Handicap", f"Home{i} +1.5"))
         many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.80, "LOW",
                        "Double Chance", f"Home{i} or Draw"))
     slip = build_slip(many, "LOW", 6)
-    counts = {}
-    for l in slip:
-        counts[l.market] = counts.get(l.market, 0) + 1
-    print(f"\nBudget test: {len(slip)} legs -> {counts}")
+    unders = sum(1 for l in slip if l.selection == "Under 2.5 Goals")
+    print(f"\nCap test: {len(slip)} legs, {unders} of them 'Under 2.5 Goals'")
     assert len(slip) == 6, f"expected 6 legs, got {len(slip)}"
-    # No quota is asserted on purpose — the mix is meant to be spontaneous.
-    # What must hold is that no single market swallows the slip, and that more
-    # than one idea is represented.
-    for m, n in counts.items():
-        assert n <= 3, f"one market took {n} of 6 legs ({m})"
-    assert len(counts) >= 2, f"slip is a single market: {counts}"
-    print("PASS - varied mix, no market over ceil(n/2).")
+    assert unders <= 3, f"correlation cap breached: {unders} same-family legs"
+    print("PASS - no more than ceil(n/2) legs share a market family.")

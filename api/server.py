@@ -176,20 +176,26 @@ def _predictions_with_goals() -> list:
         JOIN model_predictions mp ON mp.id = (
             SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = m.match_id
         )
-        -- "Latest row that HAS goals", not "latest row". Every goals-based
-        -- market — Over/Under, BTTS, Handicap, Result & Goals — is derived
-        -- from the Poisson score matrix, which needs predicted_home/away_goals.
-        -- Taking the plain MAX(id) meant the newest row won even when it had
-        -- NULL goals, and the newest row is usually the ESPN odds row that
-        -- kickoff_times writes (goals NULL by design). Result: 181 of 187
-        -- upcoming fixtures HAD goals data, yet the Builder derived Over/Under
-        -- for exactly one of them, so those markets had all but disappeared.
-        -- Identical mistake to the consensus NULL-pct bug (#11): a newer empty
-        -- row silently deleting an older real one.
+        -- Plain MAX(id): the latest scraped row, whether or not it carries a
+        -- predicted scoreline. REVERTED ON PURPOSE (Boss's call, 9 Aug 2026).
+        --
+        -- Filtering to "latest row that HAS goals" is technically the more
+        -- correct join, and it made Over/Under, BTTS and Handicap appear on
+        -- nearly every fixture instead of one. But those markets are derived
+        -- from the predicted SCORELINE as if it were an expected-goals rate,
+        -- which prices "Under 2.5" at 91-99% when the bookmaker has it near
+        -- even money. Making them plentiful put that error in front of users
+        -- on every slip; leaving the newest odds-only row to win the join
+        -- keeps them rare, which is the behaviour Boss preferred and the
+        -- lesser of the two evils.
+        --
+        -- Do not "fix" this join again without first fixing the goals
+        -- derivation it feeds. The correct order is: get a real goals signal
+        -- (team attack/defence rates, or the bookmaker's own O/U line), then
+        -- widen the join. See the git history around 9 Aug 2026 for the full
+        -- argument and the numbers.
         LEFT JOIN scraped_predictions p ON p.id = (
-            SELECT MAX(p2.id) FROM scraped_predictions p2
-            WHERE p2.match_id = m.match_id
-              AND p2.predicted_home_goals IS NOT NULL
+            SELECT MAX(p2.id) FROM scraped_predictions p2 WHERE p2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
           AND m.status != 'finished'
