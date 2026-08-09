@@ -176,7 +176,13 @@ async function handleSlip(env, chatId, args) {
     lines.push(`   ${l.market}: ${l.selection}` +
                (l.sporty_odds ? `  @ ${l.sporty_odds}` : "") +
                (l.probability ? `  (${Math.round(l.probability * 100)}%)` : ""));
-    if (l.league) lines.push(`   _${l.league}_`);
+    // league_display is the API's readable form of the label ("Russia First
+    // League" rather than Forebet's "Fnl"). Telegram used to print the raw
+    // code while the web app printed the real name — the same fixture
+    // described two different ways depending on where you looked. Falls back
+    // to the raw label so an older API response still renders something.
+    const league = l.league_display || l.league;
+    if (league) lines.push(`   _${league}_`);
     lines.push("");
   }
   if (data.sporty_total_odds) {

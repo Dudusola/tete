@@ -212,6 +212,13 @@ def main():
     run_step("Normalise league labels",
              ["db/normalize_leagues.py", "--apply"], required=False)
 
+    # The league-code table exists twice on purpose (JSON for the API, a JS
+    # mirror so the offline PWA can still render names). Two copies of one
+    # rule drift silently — that is how dedupe_fixtures.py ended up with a
+    # weaker team matcher than consensus.py for months. This compares them.
+    run_step("Check league-code mirror", ["tools/check_league_codes.py"],
+             required=False)
+
     # 3b. Real UTC kickoff times (ESPN, keyless). Without these the app
     #     recommends matches that already kicked off: PredictZ leaves
     #     kickoff_time at '00:00' for ~88% of fixtures, which means UNKNOWN.

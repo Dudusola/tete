@@ -32,6 +32,7 @@ from db.database import get_connection
 from models.markets import (derive_markets, build_slip, accumulator_probability,
                             kickoff_passed, teams_key)
 from scrapers.booking_codes import attach_sporty_odds
+from models.leagues import pretty_league
 from models.consensus import (build_consensus, _same_match, _sim,
                               _dates_close, same_teams)
 from scrapers.booking_codes import (decode as decode_booking,
@@ -144,7 +145,9 @@ def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> 
     """).fetchall()
     conn.close()
     # live_state is a snapshot; age it before it leaves the API.
-    return [dict(r, live_state=effective_live_state(dict(r))) for r in rows]
+    return [dict(r, live_state=effective_live_state(dict(r)),
+                 league_display=pretty_league(dict(r).get("league")))
+            for r in rows]
 
 
 def _last_generated_at() -> str | None:
@@ -187,7 +190,9 @@ def _predictions_with_goals() -> list:
     """).fetchall()
     conn.close()
     # live_state is a snapshot; age it before it leaves the API.
-    return [dict(r, live_state=effective_live_state(dict(r))) for r in rows]
+    return [dict(r, live_state=effective_live_state(dict(r)),
+                 league_display=pretty_league(dict(r).get("league")))
+            for r in rows]
 
 
 def _attach_consensus(picks: list) -> list:
@@ -261,6 +266,7 @@ def _started_today() -> list:
     for r in rows:
         d = dict(r)
         d["live_state"] = effective_live_state(d)
+        d["league_display"] = pretty_league(d.get("league"))
         if d.get("result_outcome"):
             winner = {"H": "Home Win", "D": "Draw",
                       "A": "Away Win"}.get(d["result_outcome"])
@@ -368,6 +374,7 @@ def get_slip(
             "home_team": leg.home_team,
             "away_team": leg.away_team,
             "league": leg.league,
+            "league_display": pretty_league(leg.league),
             "match_date": leg.match_date,
             "kickoff_time": leg.kickoff_time,
             "kickoff_utc": kickoffs.get(leg.match_id),
@@ -555,6 +562,7 @@ def get_fixtures():
             "home_team": p["home_team"],
             "away_team": p["away_team"],
             "league": p["league"],
+            "league_display": pretty_league(p["league"]),
             "match_date": p["match_date"],
             "kickoff_time": p["kickoff_time"],
             "kickoff_utc": p.get("kickoff_utc"),
@@ -595,7 +603,9 @@ def check_slip(legs: List[dict] = Body(..., embed=True)):
         scored.append({
             "match_id": mid,
             "home_team": p["home_team"], "away_team": p["away_team"],
-            "league": p["league"], "match_date": p["match_date"],
+            "league": p["league"],
+            "league_display": pretty_league(p["league"]),
+            "match_date": p["match_date"],
             "market": opt.market, "selection": opt.selection,
             "probability": round(opt.probability, 4), "risk": opt.risk,
             "found": True,
