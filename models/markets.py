@@ -51,6 +51,85 @@ def _matrix_prob(matrix: list, cond) -> float:
                for j, p in enumerate(row) if cond(i, j))
 
 
+_MEANS_CACHE: dict = {}
+
+# Average total goals in a football match. Used as the SCALE for the Poisson
+# means, because the 1X2 probabilities cannot supply it — see below.
+LEAGUE_AVG_TOTAL_GOALS = 2.70
+
+
+def _means_from_1x2(H: float, D: float, A: float,
+                    total: float | None = None) -> tuple:
+    """Expected goals (mu_home, mu_away) for the goals markets.
+
+    WHY THIS EXISTS — the goals markets were fiction.
+
+    predicted_home_goals / predicted_away_goals are a predicted SCORELINE:
+    always integers, "1-0", "0-0". They were fed into the Poisson matrix as if
+    they were expected-goals RATES. A predicted 0-0 became mu=0, which says a
+    goalless draw is certain, so "Under 2.5" came out at 99%; a 1-0 became
+    mu=1.0 and 91%. Those were then filed under LOW RISK, while bookmakers
+    priced the same Unders around 1.6-2.1 (48-61%). The market was right.
+
+    This is bug #1's mistake in new clothes: a PREDICTED value used as though
+    it were a measured one. A scoreline is fine to display ("Expected: 1-0");
+    it is not a goals rate.
+
+    WHY NOT JUST FIT BOTH MEANS TO THE 1X2 PROBABILITIES:
+    tried, and it fails in a specific, instructive way. Under independent
+    Poisson, draws are only likely when few goals are expected, so fitting
+    both means to a draw-heavy 30/45/25 returns a total of 1.05 goals and
+    "Under 2.5 = 91%" — the very bug this replaces, arrived at from the other
+    direction. Real matches with a 45% draw chance are not 1-goal games; the
+    independent-Poisson model simply cannot represent that (it is why
+    Dixon-Coles exists).
+
+    So: the SCALE comes from a league-average prior, and the 1X2 view supplies
+    only the SPLIT between the sides — which is the part it genuinely knows.
+    Honest description: "we assume a normal number of goals and divide them
+    the way our win probabilities imply". That is an approximation, not a
+    trained goals model, and the markets built on it should be read that way.
+    """
+    key = (round(H, 3), round(A, 3), round(total or LEAGUE_AVG_TOTAL_GOALS, 2))
+    hit = _MEANS_CACHE.get(key)
+    if hit:
+        return hit
+
+    T = float(total or LEAGUE_AVG_TOTAL_GOALS)
+    if T <= 0:
+        T = LEAGUE_AVG_TOTAL_GOALS
+
+    # Target: the share of NON-DRAW probability belonging to the home side.
+    denom = H + A
+    share = 0.5 if denom <= 0 else H / denom
+
+    # One free parameter now: how the total splits. Search the split whose
+    # score matrix reproduces that share. Bounded so a lopsided fixture can
+    # never drive a side's expectation to zero, which would make "team scores"
+    # markets absurd.
+    best, best_err = 0.5, float("inf")
+    r = 0.20
+    while r <= 0.80 + 1e-9:
+        mu_h, mu_a = T * r, T * (1 - r)
+        mx = _poisson_matrix(mu_h, mu_a, max_goals=8)
+        h = a = 0.0
+        for i, row in enumerate(mx):
+            for j, prob in enumerate(row):
+                if i > j:
+                    h += prob
+                elif i < j:
+                    a += prob
+        got = 0.5 if (h + a) <= 0 else h / (h + a)
+        err = (got - share) ** 2
+        if err < best_err:
+            best, best_err = r, err
+        r += 0.01
+
+    out = (round(T * best, 3), round(T * (1 - best), 3))
+    _MEANS_CACHE[key] = out
+    return out
+
+
 def derive_markets(pred: dict) -> list:
     """Derive all bet markets for one match from model + Forebet data."""
     H = pred["home_win_prob"]
@@ -89,25 +168,37 @@ def derive_markets(pred: dict) -> list:
         add("Draw No Bet", f"{home} (DNB)", H / (H + A))
         add("Draw No Bet", f"{away} (DNB)", A / (H + A))
 
-    # Goals markets from predicted scoreline
-    phg = pred.get("predicted_home_goals")
-    pag = pred.get("predicted_away_goals")
-    avg_goals = pred.get("over_2_5_pct")
-
-    if phg is not None and pag is not None:
-        # Poisson means from the predicted scoreline; if Forebet's average-goals
-        # signal is present, scale total goals toward it (keep the home/away ratio)
-        mu_h, mu_a = float(phg), float(pag)
-        if avg_goals and (mu_h + mu_a) > 0:
-            scale = ((mu_h + mu_a + float(avg_goals)) / 2) / (mu_h + mu_a)
-            mu_h, mu_a = mu_h * scale, mu_a * scale
+    # Goals markets. The Poisson means come from our OWN 1X2 probabilities —
+    # see _means_from_1x2 for why the predicted scoreline must never be used
+    # as a goals rate. These markets no longer depend on a scoreline being
+    # present, so they also survive Forebet being gone.
+    if (H + D + A) > 0:
+        mu_h, mu_a = _means_from_1x2(H, D, A)
         mx = _poisson_matrix(mu_h, mu_a)
 
-        # Over/Under lines
-        for line in (1.5, 2.5, 3.5):
-            over = _matrix_prob(mx, lambda i, j: i + j > line)
-            add(f"Over/Under {line}", f"Over {line} Goals", over)
-            add(f"Over/Under {line}", f"Under {line} Goals", 1 - over)
+        # ── OVER/UNDER AND RESULT & GOALS ARE DELIBERATELY NOT OFFERED ──────
+        #
+        # They depend on the TOTAL number of goals, and we do not model that.
+        # The total is a league-average prior, so every fixture returns the
+        # same number: Over 1.5 = 75%, Under 3.5 = 71%, Under 2.5 = 49%,
+        # identical for an even match and for an 80% favourite. A constant
+        # dressed as a per-match prediction is not a pick — and priced at
+        # "Under 3.5, 71%" it would look like a strong one and quietly fill
+        # slips with a bet we have no opinion on.
+        #
+        # This is a deliberate REMOVAL of markets that appeared to work. They
+        # were previously derived from the predicted scoreline and produced
+        # "Under 2.5 at 91-99%, LOW RISK" while bookmakers priced the same bet
+        # near even money. Serving fewer markets honestly beats serving more
+        # markets confidently and wrongly.
+        #
+        # To bring them back properly, the engine needs a real goals signal —
+        # a team-level attack/defence rate, or a bookmaker's own O/U line —
+        # not a scoreline and not a constant. Until then they stay out.
+        #
+        # BTTS and Handicap are kept because they depend on the SPLIT between
+        # the sides, which our 1X2 probabilities genuinely inform: BTTS moves
+        # 55% -> 37% and Handicap 17% -> 50% across the range above.
 
         # BTTS from the score matrix (was a hardcoded constant before)
         btts_yes = _matrix_prob(mx, lambda i, j: i >= 1 and j >= 1)
@@ -120,17 +211,9 @@ def derive_markets(pred: dict) -> list:
         add("Handicap", f"{away} -1.5", _matrix_prob(mx, lambda i, j: j - i >= 2))
         add("Handicap", f"{home} +1.5", _matrix_prob(mx, lambda i, j: i - j >= -1))
 
-        # Result & Goals combos: model's win prob x P(goals line | that result)
-        winner = home if H >= A else away
-        winner_prob = max(H, A)
-        win_cond = ((lambda i, j: i > j) if winner == home else (lambda i, j: i < j))
-        p_win_mx = _matrix_prob(mx, win_cond)
-        if p_win_mx > 0:
-            for line in (1.5, 2.5):
-                p_joint = _matrix_prob(
-                    mx, lambda i, j: win_cond(i, j) and i + j > line)
-                add("Result & Goals", f"{winner} & Over {line}",
-                    winner_prob * (p_joint / p_win_mx))
+        # Result & Goals is out for the same reason as Over/Under: its goals
+        # half rests on a total we do not model, so the combo would carry the
+        # win probability's information and the goals line's noise.
 
     return options
 
