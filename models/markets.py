@@ -501,18 +501,25 @@ if __name__ == "__main__":
     assert len(slip) == 3, f"expected 3, got {len(slip)}"
     print("PASS - duplicates collapsed across the date window.")
 
-    # 2. Correlation cap: six fixtures whose best bet is the same market must
-    #    NOT produce six identical legs. Each fixture also offers a fallback,
-    #    so the slip should still fill to six.
+    # 2. Market budget + correlation cap. Six fixtures whose best bet is the
+    #    same low-information market must NOT produce six identical legs.
+    #    Each fixture offers three markets so the slip can still fill to six.
     many = []
     for i in range(6):
         many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.90, "LOW",
                        "Over/Under 2.5", "Under 2.5 Goals"))
+        many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.85, "LOW",
+                       "Handicap", f"Home{i} +1.5"))
         many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.80, "LOW",
                        "Double Chance", f"Home{i} or Draw"))
     slip = build_slip(many, "LOW", 6)
-    unders = sum(1 for l in slip if l.selection == "Under 2.5 Goals")
-    print(f"\nCap test: {len(slip)} legs, {unders} of them 'Under 2.5 Goals'")
+    counts = {}
+    for l in slip:
+        counts[l.market] = counts.get(l.market, 0) + 1
+    print(f"\nBudget test: {len(slip)} legs -> {counts}")
     assert len(slip) == 6, f"expected 6 legs, got {len(slip)}"
-    assert unders <= 3, f"correlation cap breached: {unders} same-family legs"
-    print("PASS - no more than ceil(n/2) legs share a market family.")
+    assert counts.get("Over/Under 2.5", 0) <= 1, "goals budget breached"
+    assert counts.get("Handicap", 0) <= 2, "handicap budget breached"
+    for m, n in counts.items():
+        assert n <= 3, f"correlation cap breached: {n} legs of {m}"
+    print("PASS - goals <=1, handicap <=2, no family over ceil(n/2).")
