@@ -390,9 +390,45 @@ def build_slip(all_options: list, risk: str, num_games: int,
     # accuracy rather than appearance: a correlated accumulator is a worse bet
     # than its stated odds imply.
     cap = max(2, -(-num_games // 2))          # ceil(n/2), min 2
-    family_count = {}
-    for leg in pinned_legs:                    # a Banker counts toward the cap
+
+    # ── Market budget: how much of a slip each KIND of market may occupy ────
+    #
+    # The correlation cap above stops six identical legs. This is a different
+    # question: which markets should form the BACKBONE of a slip at all.
+    #
+    # The ordering is by how much the market actually knows about the fixture,
+    # which is not a matter of taste:
+    #   * Match Result / Double Chance / Draw No Bet are the model's own output.
+    #     They carry its full per-match signal. No extra limit — the backbone.
+    #   * Handicap is a re-expression of the same win probabilities through the
+    #     score matrix. Real information, but derived, so it supports rather
+    #     than leads.
+    #   * Over/Under, BTTS and Result & Goals rest on a league-average goals
+    #     TOTAL (see _means_from_1x2). They are accurate in aggregate and
+    #     nearly identical fixture to fixture, so they carry no per-match edge.
+    #     They earn a place when a fixture offers nothing better — not more.
+    #
+    # This is why a slip should not fill with Unders even when they price at
+    # 86%: the number is right, but it is the same right number every week, so
+    # spending six legs on it is spending six legs on one idea.
+    GROUP_BUDGET = {"goals": 1, "btts": 1, "handicap": 2}
+
+    def _group(opt) -> str | None:
+        m = (opt.market or "")
+        if m.startswith("Over/Under") or m == "Result & Goals":
+            return "goals"
+        if m == "Both Teams To Score":
+            return "btts"
+        if m == "Handicap":
+            return "handicap"
+        return None                            # core market: no extra budget
+
+    family_count, group_count = {}, {}
+    for leg in pinned_legs:                    # a Banker counts toward both
         family_count[_market_family(leg)] = family_count.get(_market_family(leg), 0) + 1
+        g = _group(leg)
+        if g:
+            group_count[g] = group_count.get(g, 0) + 1
 
     chosen = []
     slots = max(0, num_games - len(pinned_legs))
@@ -404,8 +440,14 @@ def build_slip(all_options: list, risk: str, num_games: int,
             if family_count.get(fam, 0) >= cap:
                 continue                       # family full — try this
                                                # fixture's next-best market
+            g = _group(opt)
+            if g and group_count.get(g, 0) >= GROUP_BUDGET[g]:
+                continue                       # this KIND of market has had
+                                               # its share of the slip
             chosen.append(opt)
             family_count[fam] = family_count.get(fam, 0) + 1
+            if g:
+                group_count[g] = group_count.get(g, 0) + 1
             break
         # If every option for this fixture is in a full family, the fixture is
         # skipped and a later one takes the slot. Deliberate: dropping a
