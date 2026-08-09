@@ -98,12 +98,36 @@ const API_BASE = (function () {
     }
     document.addEventListener("DOMContentLoaded", syncThemeColor);
 
+    // ── Logo ────────────────────────────────────────────────────────────────
+    // Two problems with using logo.png in the header:
+    //   1. It is the full LOCKUP — ball plus the words "PotentialPro" — and it
+    //      sits right next to a text element that also says "PotentialPro".
+    //      The name was rendered twice, and at 32-40px the baked-in wordmark
+    //      is an illegible smudge.
+    //   2. Its ball has dark navy panels. On the dark theme those panels are
+    //      within a few points of the page background, so the mark dissolves
+    //      into a faint green outline.
+    // logo-mark.png is the ball alone, trimmed and squared. logo-mark-dark.png
+    // is the same artwork with ONLY the navy panels lifted to the light
+    // surface tone — the green identity is untouched — so the ball reads as a
+    // ball in both themes instead of half-vanishing in one.
+    function syncLogo() {
+        const dark = document.documentElement.classList.contains("dark");
+        const src = dark ? "logo-mark-dark.png" : "logo-mark.png";
+        document.querySelectorAll("img[alt='PotentialPro']").forEach(img => {
+            if (!img.getAttribute("src").startsWith("logo")) return;  // not ours
+            if (img.getAttribute("src") !== src) img.setAttribute("src", src);
+        });
+    }
+    document.addEventListener("DOMContentLoaded", syncLogo);
+
     window.toggleTheme = function () {
         const dark = document.documentElement.classList.toggle("dark");
         localStorage.setItem("pp-theme", dark ? "dark" : "light");
         document.querySelectorAll(".theme-toggle .material-symbols-outlined")
             .forEach(icon => icon.textContent = dark ? "light_mode" : "dark_mode");
         syncThemeColor();
+        syncLogo();
     };
 
     document.addEventListener("DOMContentLoaded", function () {
@@ -147,7 +171,7 @@ const API_BASE = (function () {
             hdr.style.paddingTop = "max(12px, env(safe-area-inset-top))";
             hdr.innerHTML =
                 '<div class="flex items-center gap-2">' +
-                '<img src="logo.png" alt="PotentialPro" class="h-8 w-8 object-contain"/>' +
+                '<img src="logo-mark.png" alt="PotentialPro" class="h-8 w-8 object-contain"/>' +
                 '<span class="text-headline-lg-mobile font-headline-lg-mobile text-primary">' +
                 'PotentialPro</span></div>';
             document.body.insertBefore(hdr, document.body.firstChild);

@@ -28,6 +28,9 @@ from loguru import logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 load_dotenv()
 from db.database import get_connection
+# The ONE fixture matcher — see team_match() for why this file no longer has
+# its own. consensus.py owns it; dedupe_fixtures.py and build_slip use it too.
+from models.consensus import team_sim
 
 TOKEN = os.getenv("FOOTBALL_DATA_TOKEN")
 BASE = "https://api.football-data.org/v4"
@@ -38,13 +41,32 @@ def _sim(a: str, b: str) -> float:
 
 
 def team_match(db_name: str, api_name: str) -> bool:
-    """Fuzzy team-name match, tolerant of 'FC'/'CF' suffixes etc."""
-    if _sim(db_name, api_name) > 0.75:
-        return True
-    # Try stripped common suffixes/prefixes
-    strip = lambda s: (s.lower().replace(" fc", "").replace("fc ", "")
-                       .replace(" cf", "").replace(" ec", "").strip())
-    return _sim(strip(db_name), strip(api_name)) > 0.78
+    """Fuzzy team-name match for GRADING. Delegates to the shared matcher.
+
+    This used to be a private raw-ratio check (>0.75, or >0.78 after stripping
+    'FC'/'CF'). It failed on the single most common English naming pattern —
+    the short name we store versus the full name the feeds return — because
+    the strings genuinely are that different:
+
+        Cardiff    vs Cardiff City      0.65 raw  -> NO MATCH
+        Swindon    vs Swindon Town      0.63 raw  -> NO MATCH
+        West Ham   vs West Ham United   0.60 raw  -> NO MATCH
+
+    Eleven of fourteen EFL Cup fixtures on 8 Aug 2026 failed this way. ESPN
+    HAD every score ("Cardiff City 3-2 Swindon Town", completed) and they sat
+    ungraded, showing "score pending" on the Picks page indefinitely.
+
+    That is bug #8's failure mode exactly, and worse than a random gap: the
+    unmatched set is not random, it is "clubs whose short name differs from
+    the feed's full name" — overwhelmingly English ones. A tier percentage
+    computed while those are missing is computed on a biased sample.
+
+    consensus.team_sim scores all three pairs above at 0.92 because it
+    normalises names and understands containment on a token boundary. It is
+    the same matcher consensus, build_slip and (since today) dedupe use —
+    there is no reason grading should hold a weaker private opinion.
+    """
+    return team_sim(db_name, api_name) >= 0.86
 
 
 def fetch_finished_from_api(days_back: int = 7) -> list | None:

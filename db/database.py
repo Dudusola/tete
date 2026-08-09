@@ -138,7 +138,11 @@ def init_db():
     # Live state from ESPN: 'pre' (not started), 'in' (playing), 'post'
     # (finished). This catches what a kickoff time alone cannot — delayed or
     # rescheduled matches, and anything already in play. NULL = unknown.
-    for col in ("live_state TEXT", "live_checked_at TEXT"):
+    # espn_league is the slug the fixture was matched under (e.g. 'eng.1').
+    # Storing it turns "what is the score right now?" from a 66-league sweep
+    # into one request per league actually involved, which is what makes an
+    # on-demand live score affordable on the free tier.
+    for col in ("live_state TEXT", "live_checked_at TEXT", "espn_league TEXT"):
         try:
             cursor.execute(f"ALTER TABLE matches ADD COLUMN {col}")
         except sqlite3.OperationalError:

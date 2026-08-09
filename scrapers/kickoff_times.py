@@ -185,8 +185,11 @@ def _fetch(args) -> list:
         except ValueError:
             continue
         state = ((ev.get("status") or {}).get("type") or {}).get("state", "")
+        # league is carried through so the matched fixture can record WHICH
+        # ESPN competition it belongs to — that is what lets the API ask for a
+        # live score with one request instead of sweeping every league.
         out.append((home, away, dt.strftime("%Y-%m-%d %H:%M"), state,
-                    _extract_odds(comp)))
+                    _extract_odds(comp), league))
     return out
 
 
@@ -224,8 +227,9 @@ def enrich(days: int = 2) -> int:
     updated = live = priced = 0
     for row in rows:
         best, best_state, best_score, best_odds = None, None, 0.0, None
+        best_league = None
         our_date = datetime.strptime(row["match_date"], "%Y-%m-%d").date()
-        for ref_home, ref_away, ref_utc, state, odds in reference:
+        for ref_home, ref_away, ref_utc, state, odds, ref_league in reference:
             ref_date = datetime.strptime(ref_utc[:10], "%Y-%m-%d").date()
             # +/-1 day: sources disagree on date near midnight (bug #2's rule).
             if abs((ref_date - our_date).days) > 1:
@@ -238,6 +242,7 @@ def enrich(days: int = 2) -> int:
             if score > best_score:
                 best, best_state, best_score = ref_utc, state, score
                 best_odds = odds
+                best_league = ref_league
 
         if not (best and best_score >= SIM_MEAN):
             continue
@@ -247,8 +252,9 @@ def enrich(days: int = 2) -> int:
                          (best, row["match_id"]))
             updated += 1
         conn.execute(
-            "UPDATE matches SET live_state = ?, live_checked_at = ? "
-            "WHERE match_id = ?", (best_state, now, row["match_id"]))
+            "UPDATE matches SET live_state = ?, live_checked_at = ?, "
+            "espn_league = ? WHERE match_id = ?",
+            (best_state, now, best_league, row["match_id"]))
         if best_state in ("in", "post"):
             live += 1
 

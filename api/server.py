@@ -33,6 +33,7 @@ from models.markets import (derive_markets, build_slip, accumulator_probability,
                             kickoff_passed, teams_key)
 from scrapers.booking_codes import attach_sporty_odds
 from models.leagues import pretty_league
+from models.live_scores import attach as attach_live_scores
 from models.consensus import (build_consensus, _same_match, _sim,
                               _dates_close, same_teams)
 from scrapers.booking_codes import (decode as decode_booking,
@@ -239,7 +240,7 @@ def _started_today() -> list:
                -- kickoff_time joins kickoff_utc so the UI can label each row
                -- with its own day ("Yesterday 22:15"): this list spans two
                -- days and every row used to read as though it were today's.
-               m.kickoff_utc, m.kickoff_time, m.live_state,
+               m.kickoff_utc, m.kickoff_time, m.live_state, m.espn_league,
                mp.confidence, mp.best_bet, mp.best_bet_prob,
                r.home_goals AS result_home_goals,
                r.away_goals AS result_away_goals,
@@ -274,6 +275,16 @@ def _started_today() -> list:
         else:
             d["model_was_right"] = None      # not graded yet — not "wrong"
         out.append(d)
+
+    # Fill the gap between kickoff and the next pipeline run so a started
+    # match shows a real score — live or final — instead of "score pending".
+    # Never written to the ledger; grading stays with the results scrapers.
+    try:
+        attach_live_scores(out)
+    except Exception:
+        # Decoration must never 500 the page. attach() already logs and
+        # degrades per-league; this is the belt to that pair of braces.
+        pass
     return out
 
 

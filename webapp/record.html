@@ -32,7 +32,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <!-- Desktop Nav -->
 <nav class="hidden md:flex sticky top-0 z-40 w-full justify-between items-center px-gutter h-16 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant shadow-sm">
 <div class="flex items-center gap-2">
-<img src="logo.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+<img src="logo-mark.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
 <span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
 </div>
 <div class="flex space-x-lg">
@@ -55,21 +55,23 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <!-- Hero -->
 <section class="mt-gutter mx-gutter md:mx-0 p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-center text-center">
 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image:radial-gradient(circle at 50% -20%,#acf847 0%,transparent 60%);"></div>
-<!-- Was "Overall Hit Rate", which it is not: this figure is HIGH+MEDIUM only,
-     and it sat directly above a tier table summing to 191 picks. Excluding
-     LOW is correct — those are never served as bets — but the label has to
-     say so, and the fuller number is shown underneath rather than omitted. -->
-<span class="text-label-sm text-on-primary-container uppercase tracking-widest mb-xs relative z-10">Hit rate on served picks</span>
+<!-- The HEADLINE is every prediction we have made, LOW included. It was
+     HIGH+MEDIUM (a friendlier 60.0% vs 57.1%) under the words "Overall Hit
+     Rate" — leading with the subset means the biggest number on the page is
+     the flattering one, which is not what a credibility page is for. The
+     served-picks figure is still here, one line down, because it is the
+     honest measure of what we actually publish as bets. -->
+<span class="text-label-sm text-on-primary-container uppercase tracking-widest mb-xs relative z-10">Hit rate — every prediction</span>
 <div class="text-display-lg font-display-lg text-secondary-fixed relative z-10 flex items-baseline">
 <span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
 </div>
-<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10">HIGH + MEDIUM picks, scored against real full-time results</p>
+<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10">All tiers incl. LOW, scored against real full-time results</p>
 <!-- primary-fixed-dim, not on-primary-container: the latter renders ~4:1 on
      this dark hero, and the whole point of this line is that it be read. -->
 <p id="all-tiers-line" class="text-label-sm text-primary-fixed-dim mt-xs relative z-10"></p>
 <div class="w-full h-px bg-surface-tint/30 my-4 relative z-10"></div>
 <div class="flex justify-between w-full max-w-xs relative z-10">
-<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-picks">—</span><span class="text-label-sm text-on-primary-container">Served Picks</span></div>
+<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-picks">—</span><span class="text-label-sm text-on-primary-container">Scored Picks</span></div>
 <div class="w-px h-full bg-surface-tint/30"></div>
 <div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-secondary-fixed" id="total-correct">—</span><span class="text-label-sm text-on-primary-container">Correct</span></div>
 </div>
@@ -130,7 +132,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=31"></script>
+<script src="js/api.js?v=32"></script>
 <script>
 const TIER_STYLE = {
     HIGH:   { bar:"bg-secondary",          badge:"bg-secondary-container text-on-secondary-container", icon:"verified",   border:"hover:border-secondary" },
@@ -208,17 +210,19 @@ async function loadRecord() {
         const [overall, tiers] = await Promise.all([
             PotentialProAPI.stats(), PotentialProAPI.statsTiers(),
         ]);
-        document.getElementById("overall-rate").textContent = overall.accuracy != null ? Math.round(overall.accuracy) : "0";
-        document.getElementById("total-picks").textContent = overall.scored_picks || 0;
-        document.getElementById("total-correct").textContent = overall.correct || 0;
+        // Headline = ALL tiers. The served (HIGH+MEDIUM) figure moves to the
+        // supporting line: still prominent, no longer the biggest number.
+        const at = overall.all_tiers || {};
+        document.getElementById("overall-rate").textContent =
+            at.accuracy != null ? Math.round(at.accuracy) : "0";
+        document.getElementById("total-picks").textContent = at.scored_picks || 0;
+        document.getElementById("total-correct").textContent = at.correct || 0;
 
-        // The number the headline excludes. Shown rather than omitted so the
-        // hero and the tier table below it can be reconciled by a reader.
-        const at = overall.all_tiers;
         const allLine = document.getElementById("all-tiers-line");
-        if (allLine && at && at.scored_picks) {
+        if (allLine && overall.scored_picks) {
             allLine.textContent =
-                `All tiers incl. LOW: ${at.accuracy}% (${at.correct}/${at.scored_picks})`;
+                `Picks we actually serve (HIGH + MEDIUM): ${overall.accuracy}% ` +
+                `(${overall.correct}/${overall.scored_picks})`;
         }
 
         // Draw ceiling. Without it 60% reads as mediocre rather than as most

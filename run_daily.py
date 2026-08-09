@@ -216,6 +216,13 @@ def run_pipeline() -> list:
 
     logger.info(f"═══ Daily pipeline — {datetime.now().strftime('%A, %d %B %Y %H:%M')} ═══")
 
+    # 0. Schema migrations. init_db() only ran from main.py and by hand, so a
+    #    new column existed on whichever machine happened to run it — and the
+    #    cloud, which owns the committed DB, never did. A step that writes a
+    #    column the cloud has not added fails there and only there. Idempotent:
+    #    every ALTER is wrapped in "already exists" handling.
+    run_step("Apply DB migrations", ["db/database.py"], DEGRADED)
+
     # 1. Fresh fixtures from all sources
     #    Individually these are OPTIONAL/DEGRADED, but the GROUP is critical:
     #    see the gate below. One source dying is survivable; all of them dying

@@ -64,7 +64,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 <nav class="hidden md:flex fixed top-0 left-0 w-full z-50 bg-surface-container-lowest border-b border-outline-variant shadow-sm h-16 justify-between items-center px-lg mx-auto">
 <div class="flex items-center gap-xl">
 <div class="flex items-center gap-2">
-  <img src="logo.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+  <img src="logo-mark.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
   <span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
 </div>
 <div class="flex gap-md">
@@ -135,7 +135,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=31"></script>
+<script src="js/api.js?v=32"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -358,14 +358,32 @@ function renderStarted(started) {
         //                        score yet (results land on the next pipeline
         //                        run). Calling that "in play" was simply wrong.
         // Not graded is still never shown as a loss.
+        // Four states, and every one of them now shows a NUMBER when a number
+        // exists. "score pending" used to cover three different situations —
+        // playing now, finished-but-ungraded, and no-source — which is why it
+        // could sit there for days looking like a delay.
         let outcome;
         if (graded) {
+            // Ledger score: the authoritative one, and the only one we grade on.
             outcome = `<span class="text-label-sm font-bold ${right ? "text-secondary" : "text-error"}">
                  ${s.result_home_goals}–${s.result_away_goals} ${right ? "✓" : "✗"}</span>`;
+        } else if (s.live_score && !s.live_final) {
+            // Being played right now, with the running score and ESPN's own
+            // clock text ("45'+2", "HT").
+            outcome = `<span class="text-label-sm text-error font-bold whitespace-nowrap">
+                 <span class="pp-live-dot"></span> ${escapeHtml(s.live_score)}
+                 <span class="font-normal text-on-surface-variant">${escapeHtml(s.live_detail || "live")}</span></span>`;
+        } else if (s.live_score) {
+            // Final score straight from the feed, ahead of the pipeline
+            // grading it. Shown WITHOUT a ✓/✗ on purpose: the tick means "the
+            // ledger scored this", and only a recorded result earns it.
+            outcome = `<span class="text-label-sm font-bold text-on-surface whitespace-nowrap">
+                 ${escapeHtml(s.live_score)}
+                 <span class="font-normal text-on-surface-variant">FT</span></span>`;
         } else if (s.live_state === "in") {
             outcome = `<span class="text-label-sm text-error font-bold"><span class="pp-live-dot"></span> live</span>`;
         } else {
-            outcome = `<span class="text-label-sm text-on-surface-variant" title="Finished — the score is recorded on the next pipeline run">score pending</span>`;
+            outcome = `<span class="text-label-sm text-on-surface-variant" title="No results source covers this competition yet — see track_record_health.py">no score source</span>`;
         }
         return `
         <div class="flex items-center justify-between gap-sm px-md py-xs rounded-lg bg-surface-container-low opacity-70">
