@@ -473,13 +473,53 @@ def get_stats():
         WHERE mp.confidence IN ('HIGH','MEDIUM')
           AND mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = mp.match_id)
     """).fetchone()
+    # The same figures across EVERY tier, including LOW. The endpoint has
+    # always returned HIGH+MEDIUM while calling itself "overall", and the web
+    # app printed it under the words "Overall Hit Rate" directly above a tier
+    # table summing to 191 picks. Excluding LOW is right — we never serve
+    # those as bets — but the number must not claim to be something it isn't,
+    # and the difference is not cosmetic: 60.0% served vs 57.1% all-in.
+    all_row = conn.execute("""
+        SELECT COUNT(*) AS total,
+               SUM(CASE
+                   WHEN (mp.best_bet='Home Win' AND r.outcome='H')
+                     OR (mp.best_bet='Draw'     AND r.outcome='D')
+                     OR (mp.best_bet='Away Win' AND r.outcome='A')
+                   THEN 1 ELSE 0 END) AS correct,
+               SUM(CASE WHEN r.outcome='D' THEN 1 ELSE 0 END) AS draws
+        FROM model_predictions mp
+        JOIN results r ON r.match_id = mp.match_id
+        WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
+                       WHERE mp2.match_id = mp.match_id)
+    """).fetchone()
     conn.close()
+
     total = row["total"] or 0
     correct = row["correct"] or 0
+    all_total = all_row["total"] or 0
+    all_correct = all_row["correct"] or 0
+    draws = all_row["draws"] or 0
+
     return {
+        # Unchanged keys so existing clients keep working. These are the
+        # SERVED picks (HIGH+MEDIUM) — the ones actually published as bets.
         "scored_picks": total,
         "correct": correct,
         "accuracy": round(correct / total * 100, 1) if total else None,
+        "basis": "HIGH+MEDIUM (picks we actually serve)",
+        # Everything we have ever predicted, LOW included.
+        "all_tiers": {
+            "scored_picks": all_total,
+            "correct": all_correct,
+            "accuracy": round(all_correct / all_total * 100, 1) if all_total else None,
+        },
+        # The model has never once chosen 'Draw' as its best bet (0 of 360
+        # predictions), so every drawn match is an automatic loss and the
+        # ledger's maximum achievable accuracy is the non-draw share. Without
+        # this, 60% reads as mediocre when it is 79% of what is reachable.
+        "draws": draws,
+        "draw_pct": round(draws / all_total * 100, 1) if all_total else None,
+        "ceiling_pct": round((all_total - draws) / all_total * 100, 1) if all_total else None,
     }
 
 

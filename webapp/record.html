@@ -55,20 +55,34 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <!-- Hero -->
 <section class="mt-gutter mx-gutter md:mx-0 p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-center text-center">
 <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image:radial-gradient(circle at 50% -20%,#acf847 0%,transparent 60%);"></div>
-<span class="text-label-sm text-on-primary-container uppercase tracking-widest mb-xs relative z-10">Overall Hit Rate</span>
+<!-- Was "Overall Hit Rate", which it is not: this figure is HIGH+MEDIUM only,
+     and it sat directly above a tier table summing to 191 picks. Excluding
+     LOW is correct — those are never served as bets — but the label has to
+     say so, and the fuller number is shown underneath rather than omitted. -->
+<span class="text-label-sm text-on-primary-container uppercase tracking-widest mb-xs relative z-10">Hit rate on served picks</span>
 <div class="text-display-lg font-display-lg text-secondary-fixed relative z-10 flex items-baseline">
 <span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
 </div>
-<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10">Verified personal-testing performance</p>
+<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10">HIGH + MEDIUM picks, scored against real full-time results</p>
+<!-- primary-fixed-dim, not on-primary-container: the latter renders ~4:1 on
+     this dark hero, and the whole point of this line is that it be read. -->
+<p id="all-tiers-line" class="text-label-sm text-primary-fixed-dim mt-xs relative z-10"></p>
 <div class="w-full h-px bg-surface-tint/30 my-4 relative z-10"></div>
 <div class="flex justify-between w-full max-w-xs relative z-10">
-<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-picks">—</span><span class="text-label-sm text-on-primary-container">Total Picks</span></div>
+<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-picks">—</span><span class="text-label-sm text-on-primary-container">Served Picks</span></div>
 <div class="w-px h-full bg-surface-tint/30"></div>
 <div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-secondary-fixed" id="total-correct">—</span><span class="text-label-sm text-on-primary-container">Correct</span></div>
 </div>
 </section>
 
 <!-- Per-tier -->
+<!-- Draw ceiling. Sits between the headline rate and the tier table because it
+     is the context that makes both readable: the model never predicts a draw,
+     so ~24% of matches are losses it structurally cannot avoid. Populated from
+     /api/stats, hidden until the numbers arrive so it can never show stale or
+     invented figures. -->
+<p id="draw-ceiling" class="hidden mt-lg mx-gutter md:mx-0 p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+
 <section class="mt-xl px-gutter md:px-0">
 <div class="flex items-center justify-between mb-md">
 <h2 class="text-body-lg font-semibold text-primary">Performance by Tier</h2>
@@ -197,6 +211,30 @@ async function loadRecord() {
         document.getElementById("overall-rate").textContent = overall.accuracy != null ? Math.round(overall.accuracy) : "0";
         document.getElementById("total-picks").textContent = overall.scored_picks || 0;
         document.getElementById("total-correct").textContent = overall.correct || 0;
+
+        // The number the headline excludes. Shown rather than omitted so the
+        // hero and the tier table below it can be reconciled by a reader.
+        const at = overall.all_tiers;
+        const allLine = document.getElementById("all-tiers-line");
+        if (allLine && at && at.scored_picks) {
+            allLine.textContent =
+                `All tiers incl. LOW: ${at.accuracy}% (${at.correct}/${at.scored_picks})`;
+        }
+
+        // Draw ceiling. Without it 60% reads as mediocre rather than as most
+        // of what is reachable — the model has never picked a draw, so every
+        // drawn match is a loss it cannot avoid.
+        const ceil = document.getElementById("draw-ceiling");
+        if (ceil && overall.ceiling_pct != null) {
+            ceil.innerHTML =
+                `<strong class="text-primary">Why ${overall.ceiling_pct}% is the ceiling.</strong> ` +
+                `The model always backs a home or away win — it has never rated a draw as the ` +
+                `most likely result. ${overall.draws} of ${at.scored_picks} scored matches ` +
+                `(${overall.draw_pct}%) ended level, and each one counts as a loss it could not ` +
+                `avoid. So the best achievable hit rate on this ledger is ${overall.ceiling_pct}%, ` +
+                `not 100%.`;
+            ceil.classList.remove("hidden");
+        }
 
         const container = document.getElementById("tier-cards");
         container.innerHTML = TIER_ORDER.map(t => tierCard(t, tiers[t])).join("");
