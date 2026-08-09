@@ -204,6 +204,14 @@ def main():
     #    real match never gets two predictions/picks
     run_step("Dedupe fixtures", ["db/dedupe_fixtures.py", "--apply"], required=False)
 
+    # Same competition, two spellings ('serie-a' from PredictZ vs 'Serie A'):
+    # the Builder's league filter showed two chips with identical text. Runs
+    # after dedupe so merged rows are relabelled once. Only collapses labels
+    # that share teams — see the module docstring for why name matching alone
+    # would have fused Chinese and Uzbek "Super League".
+    run_step("Normalise league labels",
+             ["db/normalize_leagues.py", "--apply"], required=False)
+
     # 3b. Real UTC kickoff times (ESPN, keyless). Without these the app
     #     recommends matches that already kicked off: PredictZ leaves
     #     kickoff_time at '00:00' for ~88% of fixtures, which means UNKNOWN.
