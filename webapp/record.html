@@ -85,6 +85,22 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
      invented figures. -->
 <p id="draw-ceiling" class="hidden mt-lg mx-gutter md:mx-0 p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
 
+<!-- Weekly trend. A lifetime percentage hides everything that matters —
+     whether calibration is improving, whether a change helped, whether a good
+     month is carrying a bad one. Single series, so no legend: the heading
+     names it. Colour comes from the same tokens as the rest of the page, so
+     dark mode is handled by the existing overrides rather than a second
+     palette. -->
+<section id="trend-section" class="hidden mt-xl px-gutter md:px-0">
+  <div class="flex items-baseline justify-between mb-md">
+    <h2 class="text-body-lg font-semibold text-primary">Week by week</h2>
+    <span class="text-label-sm text-on-surface-variant">hit rate, all tiers</span>
+  </div>
+  <div id="trend-chart" class="flex items-end gap-xs h-40 border-b border-outline-variant pb-0"></div>
+  <div id="trend-labels" class="flex gap-xs mt-xs"></div>
+  <p id="trend-note" class="text-label-sm text-on-surface-variant mt-sm"></p>
+</section>
+
 <section class="mt-xl px-gutter md:px-0">
 <div class="flex items-center justify-between mb-md">
 <h2 class="text-body-lg font-semibold text-primary">Performance by Tier</h2>
@@ -132,7 +148,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=33"></script>
+<script src="js/api.js?v=34"></script>
 <script>
 const TIER_STYLE = {
     HIGH:   { bar:"bg-secondary",          badge:"bg-secondary-container text-on-secondary-container", icon:"verified",   border:"hover:border-secondary" },
@@ -204,6 +220,58 @@ async function openDrill(tier) {
     }
 }
 
+/* Weekly hit-rate bars.
+
+   The design decision that matters here is SAMPLE SIZE. The weeks range from
+   8 graded picks to 96, and a 70% week on 10 picks is noise while a 63% week
+   on 96 is evidence. Drawing them as equal bars would invite reading the noise
+   as a trend — the classic way a chart lies without a single wrong number. So
+   thin weeks are drawn muted and labelled with their n, and the note under the
+   chart says so outright.
+
+   Single series, so no legend (the heading names it). Values are printed as
+   text, so identity and magnitude never depend on colour alone. Colour uses
+   the page's own tokens, which the dark-mode overrides already remap. */
+async function renderTrend() {
+    const section = document.getElementById("trend-section");
+    const chart = document.getElementById("trend-chart");
+    const labels = document.getElementById("trend-labels");
+    const note = document.getElementById("trend-note");
+    if (!section || !chart) return;
+    let weeks = [];
+    try {
+        weeks = (await PotentialProAPI.statsTrend()).weeks || [];
+    } catch (err) { return; }
+    if (weeks.length < 2) return;               // one bar is not a trend
+
+    const THIN = 20;                            // below this, treat as noise
+    // Bars are sized in PIXELS against a fixed track, not as a percentage of
+    // the column. A percentage resolves against a box that also contains the
+    // value label, which compressed the scale until 54% and 70% drew almost
+    // the same height — a chart lying without a single wrong number.
+    const TRACK = 120;
+    const top = Math.max(80, ...weeks.map(w => w.accuracy));   // zero baseline
+    chart.innerHTML = weeks.map(w => {
+        const h = Math.max(3, Math.round(w.accuracy / top * TRACK));
+        const thin = w.total < THIN;
+        return `<div class="flex-1 flex flex-col justify-end items-center"
+                     title="${escapeHtml(w.starting)} — ${w.correct}/${w.total} correct (${w.accuracy}%)">
+          <span class="text-label-sm ${thin ? "text-on-surface-variant" : "text-primary font-bold"} mb-1">${Math.round(w.accuracy)}</span>
+          <div class="w-full rounded-t ${thin ? "bg-outline-variant" : "bg-secondary"}"
+               style="height:${h}px"></div>
+        </div>`;
+    }).join("");
+    labels.innerHTML = weeks.map(w =>
+        `<div class="flex-1 text-center text-label-sm text-on-surface-variant">
+           ${escapeHtml((w.starting || "").slice(5))}<br><span class="opacity-70">n=${w.total}</span>
+         </div>`).join("");
+    const thinCount = weeks.filter(w => w.total < THIN).length;
+    note.textContent = thinCount
+        ? `Faded bars are weeks with fewer than ${THIN} graded picks — too few to read as a trend.`
+        : "";
+    section.classList.remove("hidden");
+}
+
 async function loadRecord() {
     document.getElementById("tier-cards").innerHTML = ppSkeleton(150) + ppSkeleton(150) + ppSkeleton(150);
     try {
@@ -239,6 +307,8 @@ async function loadRecord() {
                 `not 100%.`;
             ceil.classList.remove("hidden");
         }
+
+        renderTrend();
 
         const container = document.getElementById("tier-cards");
         container.innerHTML = TIER_ORDER.map(t => tierCard(t, tiers[t])).join("");

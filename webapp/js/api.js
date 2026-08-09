@@ -533,6 +533,7 @@ const PotentialProAPI = {
     consensus:   ()          => apiGet("/api/consensus"),
     stats:       ()          => apiGet("/api/stats"),
     statsTiers:  ()          => apiGet("/api/stats/tiers"),
+    statsTrend:  ()          => apiGet("/api/stats/trend"),
     scoredPicks: (tier)      => apiGet(`/api/stats/picks${tier ? `?tier=${tier}` : ""}`),
     fixtures:    ()          => apiGet("/api/fixtures"),
     checkSlip:   (legs)      => apiPost("/api/slip/check", {legs}),

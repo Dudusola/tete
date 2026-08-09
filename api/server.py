@@ -315,8 +315,65 @@ def get_picks():
     off, kept separate so the UI can show them greyed out with results.
     """
     picks = _attach_consensus(_model_predictions(only_strong=True))
+    _attach_market_check(picks)
     return {"count": len(picks), "generated_at": _last_generated_at(),
             "picks": picks, "started": _started_today()}
+
+
+def _attach_market_check(picks: list) -> None:
+    """Add the bookmaker's price for each pick's own selection, in place.
+
+    This exists because of how a real error got caught. The engine was pricing
+    "Under 2.5" at 91% while SportyBet paid odds implying about half that. Boss
+    spotted it from the betting side — "not only are we picking unders, we are
+    picking unders the bookie added high odds to" — which is a check the app
+    could have been making for itself all along.
+
+    A bookmaker's line is the closest thing to a market consensus that exists.
+    Showing it beside our own number turns every pick into a standing
+    comparison: a large gap is either genuine value or a bug in our maths, and
+    both are worth seeing. The margin is removed (the two-way overround is
+    normalised out) so the figures are comparable rather than flattering.
+
+    Best-effort and never fatal: odds are decoration, and the picks must render
+    whether or not SportyBet answers.
+    """
+    if not picks:
+        return
+    try:
+        # The mapper identifies a 1X2 outcome by looking for the TEAM NAME in
+        # the selection text (scrapers/booking_codes._wanted_outcome), which is
+        # how build_slip phrases it: "Arsenal Win", not "Home Win". Passing the
+        # generic wording matched neither team, fell through to the draw
+        # branch, and returned DRAW odds for every pick — making every one look
+        # like a 40-point value edge. The comparison caught my own bug on its
+        # first run, which is a fair advertisement for having it.
+        def _selection(p):
+            bb = p.get("best_bet") or ""
+            if bb == "Home Win":
+                return f"{p['home_team']} Win"
+            if bb == "Away Win":
+                return f"{p['away_team']} Win"
+            return bb                      # "Draw" maps as-is
+        legs = [{"home_team": p["home_team"], "away_team": p["away_team"],
+                 "market": "Match Result", "selection": _selection(p)}
+                for p in picks]
+        odds = attach_sporty_odds(legs)["odds"]
+    except Exception:
+        return
+
+    for p, o in zip(picks, odds):
+        p["book_odds"] = o
+        p["book_probability"] = None
+        p["market_gap"] = None
+        if not o or o <= 1.0:
+            continue
+        implied = 1.0 / o
+        p["book_probability"] = round(implied, 4)
+        ours = p.get("best_bet_prob")
+        if ours:
+            # Positive gap = we rate it higher than the market does.
+            p["market_gap"] = round(ours - implied, 4)
 
 
 @app.get("/api/picks/all")
@@ -551,6 +608,57 @@ def get_stats():
         "draw_pct": round(draws / all_total * 100, 1) if all_total else None,
         "ceiling_pct": round((all_total - draws) / all_total * 100, 1) if all_total else None,
     }
+
+
+@app.get("/api/stats/trend")
+def get_stats_trend(weeks: int = Query(8, ge=2, le=26)):
+    """Hit rate week by week, so the record shows a DIRECTION not just a total.
+
+    A single lifetime percentage hides everything that matters: whether
+    calibration is improving, whether a model change helped, whether a good
+    month is carrying a bad one. 57% overall means something different if last
+    week was 40% than if last week was 70%.
+
+    Bucketed by the match date rather than when the result was recorded — the
+    question is how the model did on that week's football, not how quickly the
+    scraper caught up with it.
+    """
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT strftime('%Y-%W', m.match_date) AS wk,
+               MIN(m.match_date) AS starting,
+               COUNT(*) AS total,
+               SUM(CASE
+                   WHEN (mp.best_bet='Home Win' AND r.outcome='H')
+                     OR (mp.best_bet='Draw'     AND r.outcome='D')
+                     OR (mp.best_bet='Away Win' AND r.outcome='A')
+                   THEN 1 ELSE 0 END) AS correct
+        FROM model_predictions mp
+        JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
+        WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
+                       WHERE mp2.match_id = mp.match_id)
+        GROUP BY wk
+        ORDER BY wk
+    """).fetchall()
+    conn.close()
+
+    out = []
+    for r in rows:
+        total = r["total"] or 0
+        if not total:
+            continue
+        out.append({
+            "week": r["wk"],
+            "starting": r["starting"],
+            "total": total,
+            "correct": r["correct"] or 0,
+            "accuracy": round((r["correct"] or 0) / total * 100, 1),
+        })
+    # Trailing `weeks` only: the early weeks ran on a different model version
+    # and a much thinner ledger, so showing them as part of a trend line
+    # invites reading noise as movement.
+    return {"weeks": out[-weeks:], "count": len(out[-weeks:])}
 
 
 @app.get("/api/stats/tiers")

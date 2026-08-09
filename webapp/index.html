@@ -98,6 +98,12 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
   <div id="status" class="text-label-sm text-on-surface-variant"></div>
 </div>
 
+<!-- League filter. The Builder has had one for weeks; Picks did not, so on a
+     busy day the only way to find a league was to scroll. Built from the
+     leagues actually present in today's picks rather than a fixed list, so it
+     can never offer a league with nothing behind it. -->
+<div id="league-filter" class="flex flex-wrap gap-xs mb-md"></div>
+
 <!-- Prediction feed (cards injected here) -->
 <div id="picks-feed" class="grid grid-cols-1 md:grid-cols-2 gap-md md:gap-lg"></div>
 
@@ -135,7 +141,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=33"></script>
+<script src="js/api.js?v=34"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -159,6 +165,36 @@ function consensusBadge(c) {
     }
     return `<span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold" title="Sources disagree on the outcome — extra caution">
       <span class="material-symbols-outlined text-[14px]">alt_route</span>sources split</span>`;
+}
+
+/* The bookmaker's price for this exact pick, beside our own number.
+
+   A bookmaker's line is the closest thing to a market consensus that exists,
+   and this app learned the hard way what happens without it: the engine priced
+   "Under 2.5" at 91% while the book paid odds implying half that, and nobody
+   noticed until Boss spotted it from the betting side. Now every pick carries
+   the comparison. A wide gap is either real value or a bug in our maths — and
+   either way it should be visible rather than discovered weeks later.
+
+   Neutral styling on purpose. A green "VALUE" badge would be a recommendation,
+   and a 15-point gap on a model whose HIGH tier has 34 graded picks has not
+   earned that. It states two numbers and lets the reader judge. */
+function marketCheck(p) {
+    if (p.book_probability == null || p.book_odds == null) return "";
+    const ours = Math.round((p.best_bet_prob || 0) * 100);
+    const book = Math.round(p.book_probability * 100);
+    const gap = ours - book;
+    const wide = Math.abs(gap) >= 15;
+    return `
+  <div class="flex items-center justify-between gap-xs mb-md px-sm py-1 rounded-lg bg-surface border border-outline-variant text-label-sm">
+    <span class="text-on-surface-variant">Our model <strong class="text-primary">${ours}%</strong></span>
+    <span class="text-on-surface-variant">·</span>
+    <span class="text-on-surface-variant">SportyBet <strong class="text-primary">${p.book_odds}</strong> (${book}%)</span>
+    <span class="${wide ? "text-error font-bold" : "text-on-surface-variant"}"
+          title="${wide ? "We disagree with the market by more than 15 points — treat with caution" : "In line with the market"}">
+      ${gap > 0 ? "+" : ""}${gap}
+    </span>
+  </div>`;
 }
 
 function renderCard(p) {
@@ -221,6 +257,7 @@ function renderCard(p) {
       </div>
     </div>
   </div>
+  ${marketCheck(p)}
   <div class="flex gap-xs mb-md text-label-sm text-on-surface-variant">
     <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">H ${homePct}%</span>
     <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">D ${drawPct}%</span>
@@ -276,6 +313,7 @@ function skeletonCard() {
 
 let ALL_PICKS = [];
 let CURRENT_TIER = "ALL";
+let CURRENT_LEAGUE = "ALL";
 let UPDATED_AT = null;
 
 function paintTierChips() {
@@ -288,11 +326,48 @@ function paintTierChips() {
     });
 }
 
+function buildLeagueChips() {
+    const box = document.getElementById("league-filter");
+    if (!box) return;
+    // Count by DISPLAY name so "serie-a" and "Serie A" cannot appear twice.
+    const counts = new Map();
+    ALL_PICKS.forEach(p => {
+        const name = p.league_display || prettyLeague(p.league);
+        counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    if (counts.size < 2) { box.innerHTML = ""; return; }   // one league: pointless
+    const names = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    box.innerHTML =
+        `<button data-league="ALL" class="league-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">All leagues</button>` +
+        names.map(([n, c]) =>
+            `<button data-league="${escapeHtml(n)}" class="league-chip px-md py-base rounded-full text-label-sm border border-outline-variant transition">${escapeHtml(n)} (${c})</button>`
+        ).join("");
+    box.querySelectorAll(".league-chip").forEach(ch =>
+        ch.addEventListener("click", () => {
+            CURRENT_LEAGUE = ch.dataset.league; paintLeagueChips(); renderFeed();
+        }));
+    paintLeagueChips();
+}
+
+function paintLeagueChips() {
+    document.querySelectorAll(".league-chip").forEach(c => {
+        const on = c.dataset.league === CURRENT_LEAGUE;
+        c.classList.toggle("bg-secondary-container", on);
+        c.classList.toggle("text-on-secondary-container", on);
+        c.classList.toggle("border-secondary-container", on);
+        c.classList.toggle("text-on-surface-variant", !on);
+    });
+}
+
 function renderFeed() {
     const feed = document.getElementById("picks-feed");
     const status = document.getElementById("status");
-    const shown = CURRENT_TIER === "ALL"
+    let shown = CURRENT_TIER === "ALL"
         ? ALL_PICKS : ALL_PICKS.filter(p => p.confidence === CURRENT_TIER);
+    if (CURRENT_LEAGUE !== "ALL") {
+        shown = shown.filter(p =>
+            (p.league_display || prettyLeague(p.league)) === CURRENT_LEAGUE);
+    }
     if (shown.length === 0) {
         feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
           No ${CURRENT_TIER === "ALL" ? "" : CURRENT_TIER.toLowerCase() + " "}picks in this view.</div>`;
@@ -325,6 +400,7 @@ async function loadPicks() {
             status.textContent = "";
             return;
         }
+        buildLeagueChips();
         renderFeed();
     } catch (err) {
         feed.innerHTML = "";
