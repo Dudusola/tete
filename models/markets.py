@@ -391,68 +391,58 @@ def build_slip(all_options: list, risk: str, num_games: int,
     # than its stated odds imply.
     cap = max(2, -(-num_games // 2))          # ceil(n/2), min 2
 
-    # ── Market budget: how much of a slip each KIND of market may occupy ────
+    # ── Repetition penalty, not a quota ─────────────────────────────────────
     #
-    # The correlation cap above stops six identical legs. This is a different
-    # question: which markets should form the BACKBONE of a slip at all.
+    # A fixed budget ("2 goals legs, 2 handicaps, 2 double chance") makes every
+    # slip the same shape, which is its own kind of wrong. What actually needs
+    # preventing is DEGENERACY, and the cause of that is specific and worth
+    # naming: the goals markets return the SAME number for every fixture,
+    # because their total is a league-average prior. "Under 4.5 = 86%" is not
+    # 86% for this match, it is 86% for all matches. So when the slip picks the
+    # best option per fixture, that constant wins the same tie over and over
+    # and the slip becomes six copies of one idea.
     #
-    # The ordering is by how much the market actually knows about the fixture,
-    # which is not a matter of taste:
-    #   * Match Result / Double Chance / Draw No Bet are the model's own output.
-    #     They carry its full per-match signal. No extra limit — the backbone.
-    #   * Handicap is a re-expression of the same win probabilities through the
-    #     score matrix. Real information, but derived, so it supports rather
-    #     than leads.
-    #   * Over/Under, BTTS and Result & Goals rest on a league-average goals
-    #     TOTAL (see _means_from_1x2). They are accurate in aggregate and
-    #     nearly identical fixture to fixture, so they carry no per-match edge.
-    #     They earn a place when a fixture offers nothing better — not more.
+    # A soft penalty fixes the degeneracy without dictating a shape: each time
+    # a market family is used, its next appearance is worth slightly less. A
+    # genuinely better pick still wins — a 92% handicap will beat a
+    # once-used 86% under — but a market cannot keep winning ties on repeat.
+    # Nothing is forbidden, no count is prescribed, and the mix falls out of
+    # the numbers.
     #
-    # This is why a slip should not fill with Unders even when they price at
-    # 86%: the number is right, but it is the same right number every week, so
-    # spending six legs on it is spending six legs on one idea.
-    GROUP_BUDGET = {"goals": 1, "btts": 1, "handicap": 2}
+    # Deterministic, as decision #9 requires: the same query gives the same
+    # slip, because the penalty depends only on what has been chosen so far.
+    REPEAT_DECAY = 0.90
 
-    def _group(opt) -> str | None:
-        m = (opt.market or "")
-        if m.startswith("Over/Under") or m == "Result & Goals":
-            return "goals"
-        if m == "Both Teams To Score":
-            return "btts"
-        if m == "Handicap":
-            return "handicap"
-        return None                            # core market: no extra budget
-
-    family_count, group_count = {}, {}
-    for leg in pinned_legs:                    # a Banker counts toward both
+    family_count = {}
+    for leg in pinned_legs:                    # a Banker counts as one use
         family_count[_market_family(leg)] = family_count.get(_market_family(leg), 0) + 1
-        g = _group(leg)
-        if g:
-            group_count[g] = group_count.get(g, 0) + 1
 
     chosen = []
     slots = max(0, num_games - len(pinned_legs))
     for c in fixtures:
         if len(chosen) >= slots:
             break
-        for opt in c["opts"]:                  # ranked best-first
+        # Pick this fixture's best option AFTER the repetition penalty, rather
+        # than its best raw option. Ties that would otherwise always fall to
+        # the same constant market now rotate naturally.
+        best_opt, best_value = None, -1.0
+        for opt in c["opts"]:
             fam = _market_family(opt)
-            if family_count.get(fam, 0) >= cap:
-                continue                       # family full — try this
-                                               # fixture's next-best market
-            g = _group(opt)
-            if g and group_count.get(g, 0) >= GROUP_BUDGET[g]:
-                continue                       # this KIND of market has had
-                                               # its share of the slip
-            chosen.append(opt)
-            family_count[fam] = family_count.get(fam, 0) + 1
-            if g:
-                group_count[g] = group_count.get(g, 0) + 1
-            break
-        # If every option for this fixture is in a full family, the fixture is
-        # skipped and a later one takes the slot. Deliberate: dropping a
-        # fixture costs one pick, repeating a saturated market costs the slip
-        # its independence.
+            used = family_count.get(fam, 0)
+            if used >= cap:
+                continue                       # hard backstop only: no single
+                                               # market may take more than half
+                                               # the slip, because that is a
+                                               # correlated bet wearing a
+                                               # diversified costume
+            value = opt.probability * (REPEAT_DECAY ** used)
+            if value > best_value:
+                best_opt, best_value = opt, value
+        if best_opt is None:
+            continue
+        chosen.append(best_opt)
+        fam = _market_family(best_opt)
+        family_count[fam] = family_count.get(fam, 0) + 1
 
     return pinned_legs + chosen
 
@@ -501,9 +491,9 @@ if __name__ == "__main__":
     assert len(slip) == 3, f"expected 3, got {len(slip)}"
     print("PASS - duplicates collapsed across the date window.")
 
-    # 2. Market budget + correlation cap. Six fixtures whose best bet is the
-    #    same low-information market must NOT produce six identical legs.
-    #    Each fixture offers three markets so the slip can still fill to six.
+    # 2. Six fixtures whose best bet is the same market must NOT produce six
+    #    identical legs. No quota is enforced — a repetition penalty makes the
+    #    mix emerge — so the assertions below check for degeneracy, not shape.
     many = []
     for i in range(6):
         many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.90, "LOW",
@@ -518,8 +508,10 @@ if __name__ == "__main__":
         counts[l.market] = counts.get(l.market, 0) + 1
     print(f"\nBudget test: {len(slip)} legs -> {counts}")
     assert len(slip) == 6, f"expected 6 legs, got {len(slip)}"
-    assert counts.get("Over/Under 2.5", 0) <= 1, "goals budget breached"
-    assert counts.get("Handicap", 0) <= 2, "handicap budget breached"
+    # No quota is asserted on purpose — the mix is meant to be spontaneous.
+    # What must hold is that no single market swallows the slip, and that more
+    # than one idea is represented.
     for m, n in counts.items():
-        assert n <= 3, f"correlation cap breached: {n} legs of {m}"
-    print("PASS - goals <=1, handicap <=2, no family over ceil(n/2).")
+        assert n <= 3, f"one market took {n} of 6 legs ({m})"
+    assert len(counts) >= 2, f"slip is a single market: {counts}"
+    print("PASS - varied mix, no market over ceil(n/2).")
