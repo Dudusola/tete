@@ -76,18 +76,13 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 </div>
 </div>
 </nav>
-<!-- Mobile Header -->
-<header class="md:hidden px-gutter pb-sm" style="padding-top:max(12px, env(safe-area-inset-top))">
-<div class="flex items-center gap-2">
-  <img src="logo.png" alt="PotentialPro" class="h-8 w-8 object-contain"/>
-  <h1 class="text-headline-lg-mobile font-headline-lg-mobile text-primary">PotentialPro</h1>
-</div>
-<p class="text-body-md text-on-surface-variant mt-base">Data-driven picks for champions</p>
-</header>
+<!-- The mobile brand bar is injected by api.js so all five pages share one
+     copy. This page's title lives below and shows at EVERY width — it used to
+     be hidden md:block, which meant a phone never saw "Today's Picks". -->
 <main class="max-w-container-max mx-auto px-gutter md:px-lg py-md md:py-xl">
-<header class="hidden md:block mb-xl">
-<h1 class="text-headline-lg font-headline-lg text-primary">Today's Picks</h1>
-<p class="text-body-lg text-on-surface-variant mt-base">Data-driven picks for champions</p>
+<header class="mb-lg md:mb-xl">
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Today's Picks</h1>
+<p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">Data-driven picks for champions</p>
 </header>
 
 <!-- Summary stat strip -->
@@ -136,7 +131,7 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=27"></script>
+<script src="js/api.js?v=28"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {

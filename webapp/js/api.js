@@ -127,31 +127,30 @@ const API_BASE = (function () {
             linkRow.style.alignItems = "center";
             linkRow.appendChild(makeBtn("theme-toggle"));
         }
-        // ── Mobile header, injected where a page lacks one ──────────────────
-        // Only index.html had one, so on a phone the other four pages opened
-        // with no branding and no title — you couldn't tell at a glance which
-        // app you were in, or which screen. Added here rather than pasted into
-        // four files so it stays identical everywhere.
+        // ── Mobile brand bar ────────────────────────────────────────────────
+        // This used to inject the PAGE TITLE on any page lacking a mobile
+        // header — but it never hid the page's OWN title, so phones showed the
+        // heading twice (literally "Slip Builder" above "Slip Builder", and
+        // "Slip Checker" above "Check a Slip"). Meanwhile index.html's
+        // hand-written mobile header showed the BRAND, so "Today's Picks"
+        // appeared nowhere on a phone, and record.html buried its title inside
+        // a mobile-only header so DESKTOP had no title at all. Five pages,
+        // five different behaviours for the same thing.
+        //
+        // Now there is one rule: the brand bar is the brand (mobile only —
+        // desktop has the top nav for that), and the page's own <h1> is the
+        // title at every width. Nothing is duplicated and nothing is missing.
+        // Keep new pages to that shape rather than adding a title here.
         if (!document.querySelector("header.md\\:hidden")) {
-            const titles = {
-                "slip.html": "Slip Builder",
-                "consensus.html": "Consensus",
-                "checker.html": "Slip Checker",
-                "record.html": "Track Record",
-            };
-            const page = location.pathname.split("/").pop() || "index.html";
-            const title = titles[page];
-            if (title) {
-                const hdr = document.createElement("header");
-                hdr.className = "md:hidden px-gutter pb-sm";
-                hdr.style.paddingTop = "max(12px, env(safe-area-inset-top))";
-                hdr.innerHTML =
-                    '<div class="flex items-center gap-2">' +
-                    '<img src="logo.png" alt="PotentialPro" class="h-8 w-8 object-contain"/>' +
-                    '<h1 class="text-headline-lg-mobile font-headline-lg-mobile text-primary">' +
-                    title + "</h1></div>";
-                document.body.insertBefore(hdr, document.body.firstChild);
-            }
+            const hdr = document.createElement("header");
+            hdr.className = "md:hidden px-gutter pb-sm";
+            hdr.style.paddingTop = "max(12px, env(safe-area-inset-top))";
+            hdr.innerHTML =
+                '<div class="flex items-center gap-2">' +
+                '<img src="logo.png" alt="PotentialPro" class="h-8 w-8 object-contain"/>' +
+                '<span class="text-headline-lg-mobile font-headline-lg-mobile text-primary">' +
+                'PotentialPro</span></div>';
+            document.body.insertBefore(hdr, document.body.firstChild);
         }
 
         // ── Brand → home: the logo + name on every page links back to Picks ──
@@ -174,25 +173,46 @@ const API_BASE = (function () {
             document.body.appendChild(mobileBtn);
             return;
         }
+        // Which two move into the sheet. This used to bury RECORD and surface
+        // Checker, leaving the phone bar as Picks/Builder/Checker/More — the
+        // reverse of what CLAUDE.md describes, and backwards for this product:
+        // the track record IS the credibility claim, while the Checker is a
+        // secondary tool you seek out deliberately. Bar is now
+        // Picks/Builder/Record/More.
+        const EXTRAS = /consensus\.html|checker\.html/;
         const here = location.pathname.split("/").pop() || "index.html";
         const extras = [...bottomNav.querySelectorAll("a")]
-            .filter(a => /consensus\.html|record\.html/.test(a.getAttribute("href")));
-        const onExtraPage = /consensus\.html|record\.html/.test(here);
+            .filter(a => EXTRAS.test(a.getAttribute("href")));
+        const onExtraPage = EXTRAS.test(here);
 
         const backdrop = document.createElement("div");
         backdrop.id = "pp-backdrop";
         const sheet = document.createElement("div");
         sheet.id = "pp-sheet";
         sheet.innerHTML = `<div class="pp-grab"></div>`;
+        // The five pages don't share one nav markup: index/slip/record put the
+        // label in a child <span class="text-label-sm">, while consensus and
+        // checker put that class on the <a> itself with the label as a bare
+        // text node. querySelector only searches DESCENDANTS, so on those two
+        // pages it found nothing and the row fell back to the href — the
+        // "More" sheet literally read "record.html". Read the anchor's own
+        // text with the icon removed instead: that works for both shapes, and
+        // NAV_LABELS backstops it so a filename can never reach the user.
+        const NAV_LABELS = {"index.html": "Picks", "slip.html": "Builder",
+                            "record.html": "Track Record",
+                            "consensus.html": "Consensus",
+                            "checker.html": "Slip Checker"};
         extras.forEach(a => {
             const href = a.getAttribute("href");
             const icon = a.querySelector(".material-symbols-outlined");
-            const label = a.querySelector(".text-label-sm");
+            const clone = a.cloneNode(true);
+            clone.querySelectorAll(".material-symbols-outlined").forEach(n => n.remove());
+            const label = clone.textContent.trim() || NAV_LABELS[href] || "Open";
             const row = document.createElement("a");
             row.href = href;
             row.className = "pp-row text-body-md" + (here === href ? " active" : "");
             row.innerHTML = `<span class="material-symbols-outlined">${icon ? icon.textContent : "circle"}</span>
-              <span>${label ? label.textContent : href}</span>`;
+              <span>${label}</span>`;
             sheet.appendChild(row);
             a.remove();
         });

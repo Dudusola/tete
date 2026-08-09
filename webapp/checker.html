@@ -65,7 +65,10 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
     "no model view" for anything outside them. This is an experiment: judge it by
     whether its calls hold up, not by how confident it sounds.
   </p>
-  <div class="flex gap-xs">
+  <!-- Three controls in one row squeezed the CODE FIELD — the actual input —
+       down to ~60px on a 390px phone: the placeholder rendered as "e.g. A1B".
+       Stack on mobile, single row from sm up. -->
+  <div class="flex flex-col sm:flex-row gap-xs">
     <select id="bc-provider" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
       <option value="sportybet">SportyBet</option>
       <option value="football.com">football.com</option>
@@ -73,7 +76,9 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
       <option value="betano">Betano</option>
       <option value="bet9ja">Bet9ja</option>
     </select>
-    <input id="bc-code" type="text" placeholder="e.g. A1B2C3" class="flex-1 rounded-lg border border-outline-variant px-md py-sm text-body-md uppercase"/>
+    <input id="bc-code" type="text" placeholder="e.g. A1B2C3" autocapitalize="characters"
+           autocomplete="off" spellcheck="false" inputmode="latin"
+           class="flex-1 min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md uppercase"/>
     <button id="bc-btn" class="bg-secondary-container text-on-secondary-container rounded-lg px-md py-sm text-label-sm font-bold">Decode</button>
   </div>
   <div id="bc-status" class="text-label-sm text-on-surface-variant mt-sm"></div>
@@ -119,7 +124,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=27"></script>
+<script src="js/api.js?v=28"></script>
 <script>
 let FIXTURES = [];
 let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
