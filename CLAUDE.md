@@ -128,8 +128,19 @@ generate predictions on demand.
 ## API endpoints (port 8080)
 GET / ; GET /api/picks ; GET /api/picks/all ; GET /api/slip?risk=&games= ;
 GET /api/consensus ; GET /api/stats ; GET /api/stats/tiers ;
-GET /api/stats/picks?tier= (drill-down) ; GET /api/fixtures (for slip-checker) ;
-POST /api/slip/check (score a user-assembled slip). CORS allow_origins=["*"].
+GET /api/stats/picks?tier= (drill-down) ; GET /api/stats/trend (weekly hit
+rate, for the Record chart) ; GET /api/fixtures (for slip-checker) ;
+GET /api/leagues ; POST /api/slip/check (score a user-assembled slip).
+Booking: POST /api/booking/decode | generate | convert | merge | split |
+optimize ; GET /api/booking/providers (authoritative list of who we can read
+from vs create on — they are NOT the same set). CORS allow_origins=["*"].
+
+Payload notes worth knowing before adding a consumer:
+- /api/picks carries `league_display` (readable league), `book_odds` /
+  `book_probability` / `market_gap` (the bookmaker check), `consensus`, and a
+  `started` list whose legs get `live_score` / `live_detail` / `live_final`.
+- /api/stats returns the SERVED (HIGH+MEDIUM) figures in its top-level keys
+  and everything else under `all_tiers`, plus `draws` / `ceiling_pct`.
 
 ## The model
 Random Forest (scikit-learn), 65,174 matches. Features: form ppg, goals for/against
@@ -288,7 +299,8 @@ unknown until the honest ledger matures.
     reading SHARE_POST_URLS, so the two lists could drift (they had).
     **Decoding and encoding are different permissions on the same API — never
     infer one from the other. One dict per capability, read by everyone.**
-    Bet9ja/Betano generation still needs a captured real request (own ids).
+    Bet9ja generation is now BUILT (see the booking-code decision below);
+    Betano still needs one, and uses its own ids too.
 
 13. **A pulsing LIVE badge on matches that finished 12 hours earlier (Aug 2026).**
     `matches.live_state` is a SNAPSHOT kickoff_times.py writes at scrape time,
@@ -374,17 +386,64 @@ unknown until the honest ledger matures.
   dumps unknown shapes to data/raw/ — needs a REAL code to validate the parse.
   MSport is stubbed pending a captured payload. Unofficial API = ToS grey area;
   fine for personal phase, reassess before commercial.
-  **Bet9ja code READING added (July 2026):** GET sports.bet9ja.com/desktop/feapi/
-  CouponAjax/GetBookABetCoupon?couponCode=<CODE> (found in their JS bundle;
-  R="OK"/coupon data, ERROR_CODE 333 = unknown code, -123 = missing param).
-  decode_bet9ja parses defensively and dumps unknown shapes to data/raw/ —
-  NEEDS A REAL CODE to finalize the leg parse. Bet9ja GENERATION found but not
-  built: POST /desktop/feapi/PlacebetAjax/BookABetV2 with {BETSLIP: json, IS_PASSBET:0}
-  — BETSLIP uses Bet9ja's internal event/market/sign IDs (their own palimpsest,
-  NOT Betradar like Sporty/MSport), so it needs a captured real BookABetV2 request
-  (book one bet manually with devtools open, or run a --headed Playwright capture).
-  Their events feed: /desktop/feapi/PalimpsestAjax/GetSports works; GetEventsInDailyBundleV3
-  returned ERROR 319 from curl — params/headers not yet cracked.
+  **Bet9ja READ + GENERATE — both DONE (9 Aug 2026).** Bet9ja runs its own
+  palimpsest of event/market/sign ids, NOT Betradar, so none of the
+  Sporty/MSport/football.com mapping applies. `generate_bet9ja()` in
+  scrapers/booking_codes.py; `generate_code(legs, "bet9ja")` routes to it.
+
+  How the contract was obtained — this is the reusable part. The plan on file
+  was "capture a real BookABetV2 request with devtools". That route FAILED:
+  the browser tool returns URL/method/status but NOT request bodies. What
+  worked was reading their own JS bundle
+  (cnt.bet9ja.com/cdn/bet9ja/sportsbook/js/desktop/bundle_<ver>.min.js) and
+  grepping for the endpoint name. **A minified bundle beats a capture — a
+  capture gives one example, the source gives the field names.**
+
+      cw = t => post("/PlacebetAjax/BookABetV2",
+                     form({BETSLIP: JSON.stringify(t.BETSLIP), IS_PASSBET: 0}))
+      Df = (BSTYPE, TAB, NUMLINES, COMB, TYPE, STAKE, POTWINMIN, POTWINMAX,
+            BONUSMIN, BONUSMAX, ODDMIN, ODDMAX, ODDS, FIXED) => ({...})
+      Tf = betslip => ({BETS:[Df(...)], EVS:{...}, IMPERSONIZE:0})
+
+  Form-encoded POST, `BETSLIP` is an **OBJECT** (their code type-checks it),
+  not the array every guess assumed — which is why blind probing only ever
+  returned an opaque ERROR_CODE 100. **The shape was wrong before the contents
+  could matter; an opaque error usually means the envelope, not the payload.**
+
+  Hard-won specifics:
+  - **The shareable code is `RIS`.** `COUPONCODE` is a UUID and useless to a
+    punter; the bundle prefers RIS and only falls back to COUPONCODE.
+  - **BSTYPE 3 = single, BSTYPE 1 = accumulator**, mutually exclusive — each
+    returns ERROR_CODE 103 in the other's place. Values 4-7 are ACCEPTED and
+    return STATUS 100 with NO code: a silent success. Always assert a code
+    came back.
+  - A fixture within ~10 min of kickoff returns STATUS 1xx and no code.
+
+  Events feed (the bit CLAUDE.md previously called uncracked): GetSports needs
+  `DISP` (1); GetEventsInGroup needs `DISP` + `GROUPID`. GetEventsInDailyBundleV3
+  still errors 319 — don't bother, GetEventsInGroup is the working path. Their
+  errors name the missing parameter in ERROR_DATA.parameterName, which is how
+  the contract was walked out one field at a time.
+
+  **decode_bet9ja is FIXED** — it had never seen a real code and probed for an
+  ODDS/EVENTS list that does not exist. Legs live under `D.O`, keyed
+  `"<EVENT_ID>$<MARKET>_<SIGN>"`, the same key shape the booking payload uses.
+
+  **Market coverage, surveyed live across 24 events (not assumed): Bet9ja has
+  NO Draw No Bet and NO Handicap.** It offers 1X2, Double Chance, GG/NG,
+  Over/Under, Odd/Even and half-time variants. Since our slips are DC/DNB/
+  Handicap-heavy, a typical slip only PARTIALLY maps. Unmappable legs are
+  returned as `unmapped` and never bent onto a neighbouring market — putting
+  money on a bet nobody chose is worse than admitting we could not place it.
+
+  Verified end to end: 4-leg mixed slip booked as 5MKSVML and decoded back to
+  the same four legs at the same odds; a manually-booked code (5MKRXK8) also
+  decodes. Everything is anonymous coupon creation — no account, no stake, no
+  wager placed, same as the SportyBet integration.
+
+  **1xbet: still blocked.** .com is behind Cloudflare ("Just a moment");
+  .ng's /service-api/LineFeed/ exists but returns HTTP 406 NotAcceptable with
+  "Contact the developer". Needs a different approach, not more probing.
 - **Build engine/API before frontend** so screens map to real endpoints.
 - **Consensus** should eventually be a badge on Picks + a confidence booster in the
   engine, not just a standalone screen. Standalone page kept for the transparency story.
