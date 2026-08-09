@@ -51,6 +51,57 @@ def _matrix_prob(matrix: list, cond) -> float:
                for j, p in enumerate(row) if cond(i, j))
 
 
+_MEANS_CACHE: dict = {}
+
+# Average total goals in a football match. The SCALE for the handicap score
+# matrix — the 1X2 probabilities cannot supply a total, only a split.
+LEAGUE_AVG_TOTAL_GOALS = 2.70
+
+
+def _means_from_1x2(H: float, A: float) -> tuple:
+    """Poisson means implied by our win probabilities, at a normal goal total.
+
+    Used ONLY for handicaps. The split between the two means is fitted to the
+    share of non-draw probability belonging to the home side, which is what
+    the model actually knows; the total is a league-average prior, which it
+    does not.
+
+    The predicted SCORELINE is deliberately not used here. It is an integer
+    ("1-0", "0-0"), and feeding it in as a rate is what priced Under 2.5 at
+    91-99% while bookmakers had it near even money — a predicted value
+    consumed as though it were a measured one, which is bug #1's mistake.
+    """
+    key = (round(H, 3), round(A, 3))
+    hit = _MEANS_CACHE.get(key)
+    if hit:
+        return hit
+
+    T = LEAGUE_AVG_TOTAL_GOALS
+    denom = H + A
+    share = 0.5 if denom <= 0 else H / denom
+
+    best, best_err = 0.5, float("inf")
+    r = 0.20                      # bounded: never drive a side to zero goals
+    while r <= 0.80 + 1e-9:
+        mx = _poisson_matrix(T * r, T * (1 - r), max_goals=8)
+        h = a = 0.0
+        for i, row in enumerate(mx):
+            for j, prob in enumerate(row):
+                if i > j:
+                    h += prob
+                elif i < j:
+                    a += prob
+        got = 0.5 if (h + a) <= 0 else h / (h + a)
+        err = (got - share) ** 2
+        if err < best_err:
+            best, best_err = r, err
+        r += 0.01
+
+    out = (round(T * best, 3), round(T * (1 - best), 3))
+    _MEANS_CACHE[key] = out
+    return out
+
+
 def derive_markets(pred: dict) -> list:
     """Derive all bet markets for one match from model + Forebet data."""
     H = pred["home_win_prob"]
@@ -89,6 +140,31 @@ def derive_markets(pred: dict) -> list:
         add("Draw No Bet", f"{home} (DNB)", H / (H + A))
         add("Draw No Bet", f"{away} (DNB)", A / (H + A))
 
+    # ── Handicap ±1.5, available on EVERY fixture ───────────────────────────
+    #
+    # Handicap used to be derived from the predicted-scoreline block below, so
+    # it only existed when a scoreline was present — 1 of 18 upcoming fixtures.
+    # It was effectively invisible.
+    #
+    # It is separated out because a handicap asks a question the model can
+    # answer. A handicap is about the MARGIN, and margin is what the 1X2
+    # probabilities describe. Over/Under and BTTS ask about the TOTAL, which
+    # nothing in this engine models — that is why they stay on the old
+    # scoreline path and stay rare. Mixing the two is what produced
+    # "Under 2.5 at 91%, LOW RISK" against a bookmaker price near even money.
+    #
+    # Scale is a league-average total; the split comes from our win
+    # probabilities. Approximate, and honest about being so — but the ORDERING
+    # it produces (which side needs the cushion, and how big) is driven by the
+    # model rather than invented.
+    if (H + A) > 0:
+        mu_h, mu_a = _means_from_1x2(H, A)
+        hmx = _poisson_matrix(mu_h, mu_a)
+        add("Handicap", f"{home} +1.5", _matrix_prob(hmx, lambda i, j: i - j >= -1))
+        add("Handicap", f"{away} +1.5", _matrix_prob(hmx, lambda i, j: j - i >= -1))
+        add("Handicap", f"{home} -1.5", _matrix_prob(hmx, lambda i, j: i - j >= 2))
+        add("Handicap", f"{away} -1.5", _matrix_prob(hmx, lambda i, j: j - i >= 2))
+
     # Goals markets from predicted scoreline
     phg = pred.get("predicted_home_goals")
     pag = pred.get("predicted_away_goals")
@@ -115,10 +191,10 @@ def derive_markets(pred: dict) -> list:
         add("Both Teams To Score", "BTTS - No", 1 - btts_yes)
 
         # Asian Handicap ±1.5 (two-way, no push)
-        add("Handicap", f"{home} -1.5", _matrix_prob(mx, lambda i, j: i - j >= 2))
-        add("Handicap", f"{away} +1.5", _matrix_prob(mx, lambda i, j: j - i >= -1))
-        add("Handicap", f"{away} -1.5", _matrix_prob(mx, lambda i, j: j - i >= 2))
-        add("Handicap", f"{home} +1.5", _matrix_prob(mx, lambda i, j: i - j >= -1))
+        # Handicap is NOT derived here any more — it is computed above from the
+        # 1X2 probabilities for every fixture. Leaving it in both places would
+        # give the handful of fixtures that carry a scoreline two different
+        # handicap prices for the same bet.
 
         # Result & Goals combos: model's win prob x P(goals line | that result)
         winner = home if H >= A else away
