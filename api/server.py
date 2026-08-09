@@ -175,8 +175,20 @@ def _predictions_with_goals() -> list:
         JOIN model_predictions mp ON mp.id = (
             SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = m.match_id
         )
+        -- "Latest row that HAS goals", not "latest row". Every goals-based
+        -- market — Over/Under, BTTS, Handicap, Result & Goals — is derived
+        -- from the Poisson score matrix, which needs predicted_home/away_goals.
+        -- Taking the plain MAX(id) meant the newest row won even when it had
+        -- NULL goals, and the newest row is usually the ESPN odds row that
+        -- kickoff_times writes (goals NULL by design). Result: 181 of 187
+        -- upcoming fixtures HAD goals data, yet the Builder derived Over/Under
+        -- for exactly one of them, so those markets had all but disappeared.
+        -- Identical mistake to the consensus NULL-pct bug (#11): a newer empty
+        -- row silently deleting an older real one.
         LEFT JOIN scraped_predictions p ON p.id = (
-            SELECT MAX(p2.id) FROM scraped_predictions p2 WHERE p2.match_id = m.match_id
+            SELECT MAX(p2.id) FROM scraped_predictions p2
+            WHERE p2.match_id = m.match_id
+              AND p2.predicted_home_goals IS NOT NULL
         )
         WHERE m.match_date >= date('now')
           AND m.status != 'finished'
