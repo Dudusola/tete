@@ -135,6 +135,35 @@ def derive_markets(pred: dict) -> list:
     return options
 
 
+def _market_family(opt) -> str:
+    """Group markets that would win or lose TOGETHER across different matches.
+
+    The unit that matters for accumulator correlation is not the market name,
+    it is the DIRECTION of the bet against a shared factor:
+
+      * "Over 2.5" here and "Over 1.5" there are both overs — a high-scoring
+        round of fixtures carries both, so they belong to one family even
+        though the lines differ.
+      * "Over 2.5" here and "UNDER 2.5" there are opposite bets on the same
+        factor. They partially hedge, so they must NOT share a family —
+        counting them together would penalise a slip that is actually more
+        balanced than a single-direction one.
+      * Match Result / Double Chance / Draw No Bet are team-specific. They
+        still share a mild "favourites hold" factor, so they are capped, but
+        each market keeps its own family rather than being lumped together.
+    """
+    market = (opt.market or "").strip()
+    selection = (opt.selection or "").lower()
+    if market.startswith("Over/Under") or "goals" in selection:
+        if "under" in selection:
+            return "goals-under"
+        if "over" in selection:
+            return "goals-over"
+    if market == "Both Teams To Score":
+        return "btts-no" if "no" in selection else "btts-yes"
+    return market
+
+
 def _teams_key(opt) -> str:
     """Sorted-teams fingerprint (date-independent) so home/away flips and
     cross-source rows collapse together."""
@@ -225,25 +254,63 @@ def build_slip(all_options: list, risk: str, num_games: int,
             continue   # fixture already locked in by a Banker
         by_teams.setdefault(key, []).append(opt)
 
-    chosen = []
+    # Per fixture, keep the RANKED options rather than only the best one. The
+    # correlation cap below needs a fallback: if a fixture's top pick is in a
+    # market family that is already full, we want that fixture's next-best pick
+    # in another family, not to lose the fixture.
+    fixtures = []          # each: {"date": str, "opts": [BetOption ranked]}
     for team_key, opts in by_teams.items():
-        # Within a team group, cluster by date window and keep the single
-        # highest-probability option per real fixture.
-        clusters = []  # each: {"date": str, "best": BetOption}
+        clusters = []
         for opt in sorted(opts, key=lambda o: o.probability, reverse=True):
             placed = False
             for c in clusters:
                 if _dates_close(c["date"], opt.match_date):
-                    # same fixture; we already have the higher-prob best
+                    c["opts"].append(opt)      # same fixture, lower-ranked
                     placed = True
                     break
             if not placed:
-                clusters.append({"date": opt.match_date, "best": opt})
-        for c in clusters:
-            chosen.append(c["best"])
+                clusters.append({"date": opt.match_date, "opts": [opt]})
+        fixtures.extend(clusters)
 
-    chosen.sort(key=lambda o: o.probability, reverse=True)
-    return pinned_legs + chosen[:max(0, num_games - len(pinned_legs))]
+    # Best fixtures first — the ordering the slip has always used.
+    fixtures.sort(key=lambda c: c["opts"][0].probability, reverse=True)
+
+    # ── Correlation cap ─────────────────────────────────────────────────────
+    # Six legs of "Under 2.5 Goals" is not six bets, it is one bet on a
+    # low-scoring afternoon, staked six times. Each leg is individually the
+    # best call for its fixture, so the old "highest probability per fixture,
+    # take the top N" logic produced exactly that — and then reported an
+    # accumulator probability that multiplies the legs as if independent,
+    # which materially OVERSTATES the real chance of the slip landing.
+    #
+    # This is not the "randomise for variety" idea that decision #9 rejects.
+    # Nothing here is random, the slip stays deterministic, and the reason is
+    # accuracy rather than appearance: a correlated accumulator is a worse bet
+    # than its stated odds imply.
+    cap = max(2, -(-num_games // 2))          # ceil(n/2), min 2
+    family_count = {}
+    for leg in pinned_legs:                    # a Banker counts toward the cap
+        family_count[_market_family(leg)] = family_count.get(_market_family(leg), 0) + 1
+
+    chosen = []
+    slots = max(0, num_games - len(pinned_legs))
+    for c in fixtures:
+        if len(chosen) >= slots:
+            break
+        for opt in c["opts"]:                  # ranked best-first
+            fam = _market_family(opt)
+            if family_count.get(fam, 0) >= cap:
+                continue                       # family full — try this
+                                               # fixture's next-best market
+            chosen.append(opt)
+            family_count[fam] = family_count.get(fam, 0) + 1
+            break
+        # If every option for this fixture is in a full family, the fixture is
+        # skipped and a later one takes the slot. Deliberate: dropping a
+        # fixture costs one pick, repeating a saturated market costs the slip
+        # its independence.
+
+    return pinned_legs + chosen
 
 
 def accumulator_probability(slip: list) -> float | None:
@@ -263,21 +330,45 @@ def accumulator_probability(slip: list) -> float | None:
 
 
 if __name__ == "__main__":
-    # Test: same fixture, two sources, dates a day apart -> must collapse
-    from types import SimpleNamespace
-    def mk(mid, h, a, date, prob, risk):
-        return BetOption(mid, h, a, "WC", date, "00:00", "Double Chance",
-                         f"{h} or Draw", prob, risk)
+    # NOTE: dates are RELATIVE to today. They used to be hardcoded to July
+    # 2026, which meant that from August onwards kickoff_passed() filtered
+    # every fixture and the test asserted "expected 3, got 0" on every run —
+    # a self-test that always fails teaches people to ignore self-tests.
+    from datetime import date, timedelta
+    d1 = (date.today() + timedelta(days=2)).strftime("%Y-%m-%d")
+    d2 = (date.today() + timedelta(days=3)).strftime("%Y-%m-%d")
+
+    def mk(mid, h, a, dt, prob, risk, market="Double Chance", selection=None):
+        return BetOption(mid, h, a, "WC", dt, "00:00", market,
+                         selection or f"{h} or Draw", prob, risk)
+
+    # 1. Same fixture from two sources, dates a day apart -> must collapse.
     opts = [
-        mk("forebet_1", "Switzerland", "Algeria", "2026-07-03", 0.53, "MEDIUM"),
-        mk("predictz_9", "Switzerland", "Algeria", "2026-07-02", 0.52, "MEDIUM"),
-        mk("forebet_2", "Portugal", "Croatia", "2026-07-03", 0.51, "MEDIUM"),
-        mk("predictz_8", "Portugal", "Croatia", "2026-07-02", 0.50, "MEDIUM"),
-        mk("forebet_3", "Spain", "Austria", "2026-07-02", 0.59, "MEDIUM"),
+        mk("forebet_1", "Switzerland", "Algeria", d2, 0.53, "MEDIUM"),
+        mk("predictz_9", "Switzerland", "Algeria", d1, 0.52, "MEDIUM"),
+        mk("forebet_2", "Portugal", "Croatia", d2, 0.51, "MEDIUM"),
+        mk("predictz_8", "Portugal", "Croatia", d1, 0.50, "MEDIUM"),
+        mk("forebet_3", "Spain", "Austria", d1, 0.59, "MEDIUM"),
     ]
     slip = build_slip(opts, "MEDIUM", 10)
     print("Slip legs (should be 3 unique fixtures, no Switzerland/Portugal dupes):")
     for leg in slip:
         print(f"  {leg.home_team} vs {leg.away_team} [{leg.match_date}] {leg.probability:.0%}")
     assert len(slip) == 3, f"expected 3, got {len(slip)}"
-    print("\nPASS - duplicates collapsed across the date window.")
+    print("PASS - duplicates collapsed across the date window.")
+
+    # 2. Correlation cap: six fixtures whose best bet is the same market must
+    #    NOT produce six identical legs. Each fixture also offers a fallback,
+    #    so the slip should still fill to six.
+    many = []
+    for i in range(6):
+        many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.90, "LOW",
+                       "Over/Under 2.5", "Under 2.5 Goals"))
+        many.append(mk(f"m{i}", f"Home{i}", f"Away{i}", d1, 0.80, "LOW",
+                       "Double Chance", f"Home{i} or Draw"))
+    slip = build_slip(many, "LOW", 6)
+    unders = sum(1 for l in slip if l.selection == "Under 2.5 Goals")
+    print(f"\nCap test: {len(slip)} legs, {unders} of them 'Under 2.5 Goals'")
+    assert len(slip) == 6, f"expected 6 legs, got {len(slip)}"
+    assert unders <= 3, f"correlation cap breached: {unders} same-family legs"
+    print("PASS - no more than ceil(n/2) legs share a market family.")
