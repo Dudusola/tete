@@ -20,11 +20,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 # directories: models/ also holds predict.py and train.py (pandas, scikit-learn)
 # and scrapers/ holds the Playwright scrapers. None are used by the API, and
 # copying them would drag heavy, irrelevant code into the image.
+#
+# ⚠️ ADDING A NEW MODULE THAT api/server.py IMPORTS? ADD IT HERE TOO.
+# This allowlist is a trap worth knowing about: a missing file does NOT fail
+# loudly. The image builds fine, the container dies on ModuleNotFoundError at
+# import, /healthz never answers, and Render keeps the PREVIOUS version
+# running — so the API stays up serving stale code and the deploy looks like
+# it simply "didn't happen". That is exactly how league_display appeared to
+# deploy for 10 minutes without ever reaching production (Aug 2026).
 COPY api/__init__.py api/server.py            ./api/
 COPY db/__init__.py db/database.py            ./db/
-COPY models/__init__.py models/markets.py models/consensus.py ./models/
+COPY models/__init__.py models/markets.py models/consensus.py models/leagues.py ./models/
 COPY scrapers/__init__.py scrapers/booking_codes.py ./scrapers/
 COPY deploy/render/sync_ledger.py deploy/render/app_entry.py ./
+
+# Data files models/leagues.py reads at import time.
+COPY data/league_codes.json ./data/league_codes.json
 
 # The ledger is committed to the repo, so it ships INSIDE the image — the API
 # has real data the moment it boots, with no network round-trip. sync_ledger
