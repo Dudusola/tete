@@ -326,6 +326,26 @@ unknown until the honest ledger matures.
       **When a query deliberately spans two days, the LABEL has to say so.**
 
 ## Decisions & their reasoning
+- **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
+  `run_daily.py` used to have one flag, `required`, and only "Generate
+  predictions" set it — so every other failure exited 0, GitHub went green,
+  and the log printed "Pipeline complete". The deduper crashed on six
+  consecutive runs, printing a traceback each time, and every one of those
+  runs is green in the Actions history.
+    - `CRITICAL` — aborts. Only "Generate predictions", plus the group gate
+      "every fixture source failed".
+    - `DEGRADED` — continues, run ends RED and alerts. **The default.** A step
+      that fails is a bug until proven otherwise.
+    - `OPTIONAL` — logged, never red. Needs a written justification at the
+      call site. Only 5 steps qualify: Forebet fixtures/results (IP-blocked by
+      design, redundant), CSV refresh (source lags anyway), analysis backfill
+      (prose, not prediction), consensus report (only prints).
+  **Do not add a step as OPTIONAL to quiet a failure — fix the step.** The bar
+  is "there is a real fallback", not "it fails a lot". Group gates exist for
+  "any one is fine, none is fatal", which per-step severity cannot express.
+  Dedupe is DEGRADED not CRITICAL deliberately: its failure corrupts the
+  ledger but RECOVERABLY (the next run merged 115 duplicate rows), and
+  aborting would cost a day of picks to fix what the next run repairs.
 - **Web app / PWA, not React Native** — free deploy, one codebase, installable. RN deferred to paying-users phase.
 - **Do NOT invite testers until 2–3 weeks of REAL track record accumulates.** One-shot
   credibility. The ledger builds itself for free while we wait. This is a hard rule.
