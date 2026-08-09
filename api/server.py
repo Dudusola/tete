@@ -22,7 +22,7 @@ Endpoints:
 
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import FastAPI, Query, Body
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
@@ -55,6 +55,43 @@ app.add_middleware(
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
+
+# A football match cannot still be in play three and a half hours after kickoff.
+# 90 minutes + half time + stoppage is ~2h; extra time and penalties push it to
+# ~2h45. 3.5h is generous and still far short of "yesterday evening".
+LIVE_MAX_HOURS = 3.5
+
+
+def effective_live_state(row: dict) -> str | None:
+    """`live_state` with its expiry applied.
+
+    The column is a SNAPSHOT written by kickoff_times.py at scrape time, not a
+    live feed. A match that happened to be in play when the pipeline ran keeps
+    live_state='in' FOREVER — until some later run happens to re-scrape it. The
+    pipeline runs a couple of times a day, so matches sat on the Picks page
+    with a red pulsing LIVE badge more than twelve hours after full time
+    (verified 9 Aug 2026: Boca Juniors v Velez, kicked off 10.7h earlier, still
+    'in'; nine more like it).
+
+    Chasing this with more scraping would not fix it — no daily pipeline can
+    track a 90-minute state. The state itself has to carry an expiry: past
+    LIVE_MAX_HOURS after kickoff, 'in' means "finished, we just never saw the
+    final whistle", which is 'post'.
+    """
+    state = row.get("live_state")
+    if state != "in":
+        return state
+    ko = row.get("kickoff_utc")
+    if not ko:
+        return state          # no kickoff time = can't age it; leave as-is
+    try:
+        t = datetime.fromisoformat(str(ko).replace("Z", "+00:00"))
+    except ValueError:
+        return state
+    if t.tzinfo is None:
+        t = t.replace(tzinfo=timezone.utc)
+    hours = (datetime.now(timezone.utc) - t).total_seconds() / 3600
+    return "post" if hours > LIVE_MAX_HOURS else state
 
 def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> list:
     """Latest prediction per match.
@@ -101,7 +138,8 @@ def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> 
         ORDER BY mp.best_bet_prob DESC
     """).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    # live_state is a snapshot; age it before it leaves the API.
+    return [dict(r, live_state=effective_live_state(dict(r))) for r in rows]
 
 
 def _last_generated_at() -> str | None:
@@ -143,7 +181,8 @@ def _predictions_with_goals() -> list:
           AND (m.live_state IS NULL OR m.live_state = 'pre')
     """).fetchall()
     conn.close()
-    return [dict(r) for r in rows]
+    # live_state is a snapshot; age it before it leaves the API.
+    return [dict(r, live_state=effective_live_state(dict(r))) for r in rows]
 
 
 def _attach_consensus(picks: list) -> list:
@@ -213,6 +252,7 @@ def _started_today() -> list:
     out = []
     for r in rows:
         d = dict(r)
+        d["live_state"] = effective_live_state(d)
         if d.get("result_outcome"):
             winner = {"H": "Home Win", "D": "Draw",
                       "A": "Away Win"}.get(d["result_outcome"])
@@ -510,7 +550,7 @@ def get_fixtures():
             "match_date": p["match_date"],
             "kickoff_time": p["kickoff_time"],
             "kickoff_utc": p.get("kickoff_utc"),
-            "live_state": p.get("live_state"),
+            "live_state": effective_live_state(p),
             "markets": [
                 {"market": o.market, "selection": o.selection,
                  "probability": round(o.probability, 4), "risk": o.risk}

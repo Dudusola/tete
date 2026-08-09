@@ -352,9 +352,21 @@ function hasKickedOff(p) {
     return d ? d < new Date() : false;
 }
 
-/* Is it being played right now? Drives the LIVE badge. */
+/* Is it being played right now? Drives the LIVE badge.
+
+   live_state is a SNAPSHOT the pipeline wrote when it last scraped, not a live
+   feed — a match in play at scrape time stays 'in' until something re-scrapes
+   it. That put a pulsing red LIVE badge on matches that had finished 12 hours
+   earlier. The API now ages the field (effective_live_state), but this guard
+   stays: a cached/offline payload from the service worker can still carry a
+   stale 'in', and the badge is the most confidently wrong thing on the page.
+   3.5h covers 90 min + half time + stoppage + extra time + penalties. */
+const LIVE_MAX_MS = 3.5 * 60 * 60 * 1000;
 function isLive(p) {
-    return !!p && p.live_state === "in";
+    if (!p || p.live_state !== "in") return false;
+    const ko = kickoffDate(p.match_date, p.kickoff_time, p.kickoff_utc);
+    if (!ko) return true;              // no kickoff time — can't age it
+    return (Date.now() - ko.getTime()) < LIVE_MAX_MS;
 }
 
 /* "x min ago" for SQLite UTC timestamps like "2026-07-17 06:05:12" */

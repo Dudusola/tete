@@ -290,6 +290,25 @@ unknown until the honest ledger matures.
     infer one from the other. One dict per capability, read by everyone.**
     Bet9ja/Betano generation still needs a captured real request (own ids).
 
+13. **A pulsing LIVE badge on matches that finished 12 hours earlier (Aug 2026).**
+    `matches.live_state` is a SNAPSHOT kickoff_times.py writes at scrape time,
+    not a live feed — but the API and the web app both read it as current
+    truth. A match in play when the pipeline ran keeps `live_state='in'`
+    forever, until some later run happens to re-scrape that fixture. The
+    pipeline runs a couple of times a day, so it never does. Verified 9 Aug:
+    ten fixtures still 'in', kicked off 10.7-12.4h earlier (Boca Juniors v
+    Velez, New England v Houston...). The most confidently-wrong element on
+    the page: a red pulsing "LIVE — being played right now" on last night's
+    football. FIX: `effective_live_state()` in api/server.py ages the field —
+    past LIVE_MAX_HOURS (3.5h, covering 90min + HT + stoppage + ET + pens)
+    'in' becomes 'post'. Applied at every point live_state leaves the API, and
+    mirrored in api.js's isLive() because the service worker can serve a
+    cached payload carrying a stale 'in'.
+    **More scraping would NOT have fixed this — no daily pipeline can track a
+    90-minute state. A snapshot masquerading as live state needs an EXPIRY,
+    not a faster refresh. Any field named like a live status should be asked:
+    what happens to it when nothing runs for 12 hours?**
+
 ## Decisions & their reasoning
 - **Web app / PWA, not React Native** — free deploy, one codebase, installable. RN deferred to paying-users phase.
 - **Do NOT invite testers until 2–3 weeks of REAL track record accumulates.** One-shot
