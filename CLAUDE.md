@@ -350,13 +350,30 @@ unknown until the honest ledger matures.
    tier (HIGH → 5/13). **Boost DISABLED in rf_v1e**; the protective HIGH→MEDIUM
    demote is kept. Re-enable only if a matured ledger shows agreement-with-model
    wins. index.html still renders the chips; boosted picks simply won't occur.
-4. **Investigate the HIGH-tier inversion (NEW top priority).** With honest
-   coverage, HIGH 5/13 (38%) < MEDIUM 15/20 (75%). Beyond the boost, the tier is
-   polluted by 60-70% picks: the ≥73% picks are ~4/1, everything ≤70% is ~1/7,
-   and WC/MLS favorites drew or got upset (3 WC "Home Win" HIGH picks ended 0-0).
-   Candidate fixes once the sample matures: raise the HIGH threshold from ≥65% to
-   ~72%, and/or league-aware confidence (MLS parity, WC draw-proneness). Do NOT
-   hard-change calibration on 13 samples — let rf_v1e accumulate first.
+4. **HIGH-tier inversion: RESOLVED ITSELF as the sample grew (re-measured
+   9 Aug 2026 — do not act on the old numbers below).** The inversion that was
+   top priority (HIGH 5/13 = 38% < MEDIUM 15/20 = 75%) was a 13-sample artefact.
+   On 184 graded 1X2 picks the tiers now rank in the right order:
+     HIGH 17/25 (68.0%) > MEDIUM 26/44 (59.1%) > LOW 65/115 (56.5%)
+   And rf_v1e is the best era by a distance: 41/62 (66.1%) vs rf_v1d 54.2%,
+   rf_v1c 44.4%, rf_v1b 54.5%, rf_v1 60.0% — so disabling the consensus boost
+   looks vindicated.
+
+   **What is NOT resolved — probability calibration in the middle.** Bucketing
+   by the model's own stated probability:
+     35-40% -> 47.8% (23)   |  55-60% -> 60.7% (28)
+     40-45% -> 57.9% (38)   |  60-65% -> 50.0% (20)  <- worst band
+     45-50% -> 58.6% (29)   |  65-70% -> 57.1% (7)
+     50-55% -> 60.0% (25)   |  >=70%  -> 85.7% (14)
+   The model is UNDER-confident at the bottom (35-40% picks win ~48%) and
+   OVER-confident at 60-70%. Nearly all the HIGH tier's edge comes from the
+   >=70% picks; 65-70% is barely better than a coin. That still points at
+   raising the HIGH threshold from >=65% to ~70%, exactly as suspected — but
+   the 65-70% band has only 7 graded picks, so it is NOT yet actionable.
+
+   **Rule stands: don't hard-change calibration on thin samples.**
+   `db/track_record_health.py` wants ~30+ HIGH picks; we have 25. Re-run this
+   bucket analysis at 30+ before touching the threshold.
 5. Model-vs-Forebet-on-real-results tracker (needs mature ledger) — validates the premise.
 6. Polish: truncated league names ("world-cup-2026-last-"), add "Checker" to all navs.
 7. **Web push notifications for the PWA — DESIGNED, DEFERRED ON PURPOSE (Aug 2026).**

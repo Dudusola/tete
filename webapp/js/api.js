@@ -485,6 +485,20 @@ const PotentialProAPI = {
             44px is the accessibility floor on both iOS and Android. */
       nav a, nav button, .theme-toggle { min-height: 44px; }
 
+      /* 4b. ...but the nav was the only thing covered, and the nav is not what
+             people actually tap. The Checker's market chips (.add-leg) are the
+             PRIMARY interaction on that page and were ~26px tall — 56 of them
+             under the floor on a 390px phone, sitting a few pixels apart. Same
+             for the remove-leg × and the tier chips.
+             Scoped to pointer:coarse so a mouse keeps the compact layout;
+             inline-flex because min-height does nothing on a plain inline box. */
+      @media (pointer: coarse) {
+        .add-leg, .rm, .tier-chip, .pin-leg-btn, .swap-leg-btn {
+          min-height: 44px; min-width: 44px;
+          display: inline-flex; align-items: center; justify-content: center;
+        }
+      }
+
       /* 5. Very small phones (360px and below are still common in Nigeria):
             stop headline text forcing horizontal overflow. */
       @media (max-width: 380px) {
