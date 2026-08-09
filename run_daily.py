@@ -85,6 +85,7 @@ def send_telegram(text: str):
 def ledger_health() -> list[str]:
     """Check the DB actually grew. Silent stalls are worse than loud failures."""
     problems = []
+    conn = None
     try:
         conn = sqlite3.connect(os.getenv("DB_PATH", "./db/sports_predictor.db"))
         today = datetime.now().strftime("%Y-%m-%d")
@@ -95,13 +96,67 @@ def ledger_health() -> list[str]:
         recent_results = conn.execute(
             "SELECT COUNT(*) FROM results WHERE recorded_at >= ?", [cutoff]
         ).fetchone()[0]
-        conn.close()
         if upcoming == 0:
             problems.append("no upcoming fixtures in DB - both scrapers likely blocked")
         if recent_results == 0:
             problems.append("no results recorded in 3 days - the ledger is stalled")
+        problems += source_health(conn)
     except sqlite3.Error as e:
         problems.append(f"health check could not read DB: {e}")
+    finally:
+        if conn is not None:
+            conn.close()
+    return problems
+
+
+def source_health(conn) -> list[str]:
+    """A prediction source going silent must be LOUD.
+
+    Every scraper step is required=False, so one dying leaves the pipeline
+    reporting SUCCESS while a whole opinion disappears. That is exactly how
+    API-Football's account suspension (6 Aug 2026) went unnoticed until the
+    consensus page was found empty days later - the step printed a warning
+    and the run went green.
+
+    Two distinct questions, because they fail independently:
+      1. Is each source still WRITING rows at all?
+      2. Do at least two sources produce USABLE opinions on upcoming matches?
+         PredictZ writes plenty of rows but leaves home/draw/away pct NULL
+         whenever it has no odds (190 of 228 upcoming rows on 9 Aug 2026), and
+         consensus.py's _best_outcome skips a row with NULL pcts. So "rows
+         landed" does NOT imply "consensus has anything to compare".
+    """
+    problems = []
+    expected = {"predictz", "apifootball", "espn"}
+    if os.getenv("PP_SKIP_FOREBET", "").strip() != "1":
+        expected.add("forebet")
+
+    cutoff = (datetime.now() - timedelta(days=2)).strftime("%Y-%m-%d %H:%M:%S")
+    fresh = {row[0] for row in conn.execute(
+        "SELECT DISTINCT source FROM scraped_predictions WHERE scraped_at >= ?",
+        [cutoff])}
+    for src in sorted(expected - fresh):
+        problems.append(f"source '{src}' has written nothing in 2 days - "
+                        f"check its step in the log (a failed scraper does not "
+                        f"fail the run)")
+
+    today = datetime.now().strftime("%Y-%m-%d")
+    usable = conn.execute("""
+        SELECT p.source, COUNT(DISTINCT p.match_id)
+        FROM scraped_predictions p
+        JOIN matches m ON m.match_id = p.match_id
+        WHERE m.match_date >= ?
+          AND p.home_win_pct IS NOT NULL
+          AND p.draw_pct IS NOT NULL
+          AND p.away_win_pct IS NOT NULL
+        GROUP BY p.source
+    """, [today]).fetchall()
+    opinionated = [s for s, n in usable if n > 0]
+    if len(opinionated) < 2:
+        problems.append(
+            "consensus is blind: only "
+            f"{', '.join(opinionated) or 'no source'} has usable H/D/A "
+            "percentages on upcoming matches (need 2+ to cross-check)")
     return problems
 
 

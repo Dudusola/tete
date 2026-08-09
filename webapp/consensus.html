@@ -70,10 +70,11 @@ Fixtures where independent prediction sources agree on the outcome. Agreement ac
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=26"></script>
+<script src="js/api.js?v=27"></script>
 <script>
 const OUTCOME_NAME = {"H": "Home Win", "D": "Draw", "A": "Away Win"};
-const SOURCE_NAME = {"forebet": "Forebet", "predictz": "PredictZ"};
+const SOURCE_NAME = {"forebet": "Forebet", "predictz": "PredictZ",
+                     "espn": "ESPN odds", "apifootball": "API-Football"};
 
 function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
@@ -138,9 +139,17 @@ async function loadConsensus() {
             <span><strong class="text-primary">${data.covered_by_multiple}</strong> covered by 2+ sources</span>
             <span>•</span>
             <span><strong class="text-secondary">${data.agreed_count}</strong> with full agreement</span>`;
+        if (data.sources && data.sources.length) {
+            summary.innerHTML += `<span>•</span><span>sources live: <strong class="text-primary">${
+                data.sources.map(s => escapeHtml(SOURCE_NAME[s] || s)).join(", ")}</strong></span>`;
+        }
         if (!data.agreed_picks || data.agreed_picks.length === 0) {
+            // Say WHY it's empty. "No consensus right now" reads as a quiet
+            // off-season when it can equally mean a source died — which is
+            // what actually happened when API-Football was suspended.
             grid.innerHTML = `<div class="text-on-surface-variant bg-surface-container-lowest border border-outline-variant rounded-xl p-md col-span-full text-center">
-                No consensus picks right now. Agreement appears when both sources cover the same fixtures — coverage grows when league seasons are in full swing.</div>`;
+                <div class="text-primary font-bold mb-1">No consensus picks right now</div>
+                <div>${escapeHtml(data.diagnosis || "No fixtures are covered by two or more sources yet — coverage grows when league seasons are in full swing.")}</div></div>`;
             return;
         }
         grid.innerHTML = data.agreed_picks.map(renderCard).join("");

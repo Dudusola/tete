@@ -169,7 +169,19 @@ def get_latest_predictions_by_source() -> dict:
         -- live under the same match - taking one row per match would
         -- silently erase the second source and kill consensus.
         -- (GROUP BY subquery, not a correlated one - correlated was ~15s)
+        -- ...and only among rows that actually CARRY an opinion. PredictZ
+        -- writes a row per fixture whether or not it found odds, leaving
+        -- home/draw/away pct NULL when it didn't (190 of 228 upcoming rows on
+        -- 9 Aug 2026). A NULL-pct row is not a newer verdict, it is the
+        -- absence of one -- but MAX(id) happily picked it, so _best_outcome
+        -- returned None and PredictZ vanished from every entry. Result: 19
+        -- upcoming matches each covered by TWO sources reported
+        -- covered_by_multiple = 0, and the page looked like a data drought
+        -- rather than a bug. Filter first, then take the latest.
         JOIN (SELECT MAX(id) AS latest_id FROM scraped_predictions
+              WHERE home_win_pct IS NOT NULL
+                AND draw_pct IS NOT NULL
+                AND away_win_pct IS NOT NULL
               GROUP BY match_id, source) k ON k.latest_id = p.id
         WHERE m.match_date >= date('now')
     """).fetchall()

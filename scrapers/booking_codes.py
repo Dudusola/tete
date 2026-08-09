@@ -419,10 +419,16 @@ def generate_code(legs: list[dict], provider: str = "sportybet") -> dict:
     """Our slip legs -> booking code on the chosen bookmaker.
     legs: [{home_team, away_team, market, selection}]
     Returns {code, share_url, mapped: [...], unmapped: [...]}."""
-    post_url = {"sportybet": SHARE_POST_URL,
-                "msport": MSPORT_SHARE_POST_URL}.get(provider)
+    provider = (provider or "").lower().strip()
+    # SHARE_POST_URLS is the single source of truth for "who can we book on"
+    # (it is what /api/booking/providers reports). Hardcoding a subset here is
+    # how football.com ended up bookable by convert_code but not by the slip
+    # builder -- same platform, same Betradar ids, just a missing dict entry.
+    post_url = SHARE_POST_URLS.get(provider)
     if not post_url:
-        raise BookingCodeError(f"Can't generate codes for '{provider}'.")
+        raise BookingCodeError(
+            f"Can't generate codes for '{provider}'. Supported: "
+            f"{', '.join(sorted(SHARE_POST_URLS))}")
     events = fetch_sportybet_events()
     if not events:
         raise BookingCodeError("Couldn't load SportyBet's fixture list.")
@@ -738,10 +744,20 @@ PROVIDERS = {
 # a different market. Not something to guess with someone's bet.
 SPORTY_PLATFORM = {"sportybet", "football.com", "msport"}
 
+# Bookmakers we can CREATE codes on. Deliberately narrower than PROVIDERS
+# (decoding) and than SPORTY_PLATFORM (id compatibility): reading a code and
+# writing one are different endpoints with different permissions.
+#
+# football.com is absent ON PURPOSE. It DECODES SportyBet codes perfectly
+# (same backend, same Betradar ids), but POSTing selections to
+# football.com/api/<cc>/orders/share returns bizCode 19999 "Sorry, something
+# went wrong" for ng/gh/ke, and 503 for other country codes -- with the exact
+# same body that SportyBet accepts (verified 9 Aug 2026, code M1X4QK). Their
+# share-creation endpoint simply isn't open to us. Don't re-add it without a
+# successful POST in hand; a provider listed here is promised to the UI.
 SHARE_POST_URLS = {
     "sportybet": SHARE_POST_URL,
     "msport": MSPORT_SHARE_POST_URL,
-    "football.com": "https://www.football.com/api/ng/orders/share",
 }
 
 

@@ -365,14 +365,39 @@ def get_leagues():
 
 @app.get("/api/consensus")
 def get_consensus():
-    """Cross-source agreement between Forebet and PredictZ."""
+    """Cross-source agreement between the live prediction sources.
+
+    Ships a `diagnosis` alongside the picks. An empty consensus page has
+    several very different causes -- one source suspended, one source writing
+    rows with no percentages, or genuinely no overlap -- and they need
+    different responses. Rendering the same "no consensus right now" for all
+    of them hid API-Football's account suspension for three days.
+    """
     consensus = build_consensus()
     agreed = [c for c in consensus if c["agree"]]
     multi = [c for c in consensus if len(c["sources"]) >= 2]
+
+    live = sorted({s for c in consensus for s in c["sources"]})
+    if len(live) < 2:
+        diagnosis = ("Only one source is currently publishing usable "
+                     "percentages" + (f" ({live[0]})" if live else "") +
+                     ". Consensus needs at least two to compare.")
+    elif not multi:
+        diagnosis = (f"{len(live)} sources are live ({', '.join(live)}) but "
+                     "they cover different fixtures, so none can be "
+                     "cross-checked yet.")
+    elif not agreed:
+        diagnosis = (f"{len(multi)} fixture(s) have two or more sources, but "
+                     "the sources disagree on every one.")
+    else:
+        diagnosis = None
+
     return {
         "total_fixtures": len(consensus),
         "covered_by_multiple": len(multi),
         "agreed_count": len(agreed),
+        "sources": live,
+        "diagnosis": diagnosis,
         "agreed_picks": agreed,
     }
 
@@ -648,7 +673,8 @@ def booking_merge(sources: List[dict] = Body(...),
 @app.post("/api/booking/generate")
 def booking_generate(legs: List[dict] = Body(..., embed=True),
                      provider: str = Body("sportybet")):
-    """Turn slip legs into a real booking code (SportyBet or MSport).
+    """Turn slip legs into a real booking code on any SHARE_POST_URLS
+    bookmaker (SportyBet, MSport, football.com — one shared Betradar mapping).
     Each leg: {home_team, away_team, market, selection}. Legs the bookmaker
     doesn't list (small leagues, started games) come back as `unmapped`."""
     try:

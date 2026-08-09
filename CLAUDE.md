@@ -246,6 +246,50 @@ unknown until the honest ledger matures.
     from the response, or it will be right today and wrong in six weeks. And
     never let a "not found" label stand in for "we didn't look far enough".**
 
+11. **Consensus silently empty — "latest row" beat "latest OPINION" (Aug 2026).**
+    The consensus page showed nothing and `/api/consensus` reported
+    `covered_by_multiple: 0` — which READ as a data drought (Forebet skipped in
+    the cloud, API-Football down) but was a query bug. 19 upcoming fixtures each
+    had TWO sources with usable H/D/A percentages. consensus.py picked
+    `MAX(id) per (match_id, source)`; PredictZ writes a row per fixture whether
+    or not it found odds, leaving the pct columns NULL when it didn't (190 of
+    228 upcoming rows). So the newest PredictZ row was often an EMPTY one,
+    `_best_outcome` returned None, and PredictZ vanished from every entry.
+    FIX: filter to rows with non-NULL pcts *inside* the MAX(id) subquery —
+    a NULL-pct row is the absence of a verdict, not a newer verdict. After the
+    fix: 19/19 covered, 19 agreeing.
+    **When "latest per group" meets nullable payload columns, filter before
+    taking the max, or a newer empty row silently deletes an older real one.**
+    Two related things found in the same pass:
+    - **API-Football's account is SUSPENDED** (`{'access': 'Your account is
+      suspended, check on https://dashboard.api-football.com.'}`), so that
+      source has written nothing since 6 Aug. Its pipeline step is
+      `required=False`, so the run stayed GREEN while a whole source died —
+      the bug #5/#8/#9 pattern again. FIX: `source_health()` in run_daily.py
+      now alerts when an expected source writes nothing in 2 days, AND when
+      fewer than 2 sources have usable percentages on upcoming matches
+      ("consensus is blind"). Fixing the account needs Boss (billing/ToS).
+    - **The two live sources are not independent.** ESPN's pcts and PredictZ's
+      pcts are both DERIVED FROM BOOKMAKER ODDS, so 19/19 "agreement" is
+      largely two views of the same market, not two opinions. Forebet was the
+      genuinely independent model. Do not sell current consensus as strong
+      corroboration until an independent source is back.
+    - `/api/consensus` now returns `sources` + `diagnosis`, and consensus.html
+      renders the reason it is empty. An empty page must say WHICH failure it is.
+
+12. **football.com can READ codes but not CREATE them (Aug 2026).** It decodes
+    SportyBet codes perfectly (same backend, same Betradar ids), so it looked
+    like a free third bookmaker for generation — and it was already listed in
+    `SHARE_POST_URLS`, which `convert_code`/`merge_codes` trusted. But POSTing
+    the identical selections body SportyBet had just accepted returns
+    `bizCode 19999` on `/api/ng|gh|ke/orders/share` and 503 elsewhere.
+    Removed from SHARE_POST_URLS with the probe recorded inline.
+    Also fixed: `generate_code` had its OWN hardcoded provider dict instead of
+    reading SHARE_POST_URLS, so the two lists could drift (they had).
+    **Decoding and encoding are different permissions on the same API — never
+    infer one from the other. One dict per capability, read by everyone.**
+    Bet9ja/Betano generation still needs a captured real request (own ids).
+
 ## Decisions & their reasoning
 - **Web app / PWA, not React Native** — free deploy, one codebase, installable. RN deferred to paying-users phase.
 - **Do NOT invite testers until 2–3 weeks of REAL track record accumulates.** One-shot
