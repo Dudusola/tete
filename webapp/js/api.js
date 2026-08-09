@@ -274,6 +274,85 @@ const LEAGUE_CODES = {
     AuV: "Australia Victoria", AuN: "Australia NSW", AuS: "Australia South",
     AuT: "Australia Tasmania", Sc1: "Scottish Premiership", ScC: "Scottish Cup",
     Nz2: "New Zealand", UCL: "Champions League", ECL: "Conference League",
+
+    // ── Second pass (Aug 2026) ───────────────────────────────────────────
+    // 109 code labels were still reaching the UI raw ("Sy1", "Fnl", "KW"),
+    // across 633 matches. Forebet's scheme is <Country><Tier>, with C = cup,
+    // W = women. Each entry below was identified from the CLUBS actually
+    // recorded under it, not from guessing the abbreviation.
+    //
+    // Codes I could NOT identify with confidence are deliberately left out —
+    // prettyLeague() then shows the raw code, which is ugly but honest.
+    // Labelling a league wrongly is the same class of error as the fake
+    // scores: a confident-looking string that isn't true.
+    WC: "World Cup", UEL: "Europa League", CLW: "Women's Champions League",
+    CS: "Copa Sudamericana", LC: "Leagues Cup",
+
+    // Europe
+    Upl: "Ukrainian Premier League", Ua2: "Ukraine First League",
+    By1: "Belarus Premier League", By2: "Belarus First League",
+    ByC: "Belarus Cup", ByW: "Belarus Women",
+    Ge1: "Georgia Erovnuli Liga", Ge2: "Georgia Erovnuli Liga 2",
+    GeC: "Georgia Cup", Am1: "Armenia Premier League",
+    Lv1: "Latvia Virsliga", Lv2: "Latvia First League", LvC: "Latvia Cup",
+    Lt1: "Lithuania A Lyga", Lt2: "Lithuania First League",
+    Ee1: "Estonia Meistriliiga", Ee2: "Estonia Esiliiga", EeC: "Estonia Cup",
+    Fo1: "Faroe Islands Premier", Fo2: "Faroe Islands First Division",
+    Is2: "Iceland 1. deild", Is3: "Iceland 2. deild", IsC: "Iceland Cup",
+    IsW: "Iceland Women", NIW: "Northern Ireland Women",
+    Ie1: "Ireland Premier Division", Ie2: "Ireland First Division",
+    Se4: "Sweden Division 2", SeC: "Svenska Cupen",
+    SeW2: "Sweden Elitettan", NoW: "Norway Toppserien",
+    No3: "Norway Second Division", FiW: "Finland Kansallinen Liiga",
+    Fi4: "Finland Kolmonen", DkC: "Denmark Cup",
+    PlC: "Polish Cup", IlC: "Israel Cup", KzC: "Kazakhstan Cup",
+    Ru2: "Russia First League", Fnl: "Russia First League",
+    Ru3: "Russia Second League", RuW: "Russia Women",
+    Ma1: "Morocco Botola Pro",
+
+    // Asia & Oceania
+    Kr2: "K League 2", Kr3: "K3 League", KrW: "Korea WK League",
+    CnC: "Chinese FA Cup", CnW: "China Women's Super League",
+    JpW2: "Japan Nadeshiko 2", JpW3: "Japan Nadeshiko 3",
+    Sy1: "Syrian Premier League", Lb: "Lebanese Premier League",
+    KW: "Kuwait Premier League", Kg1: "Kyrgyzstan Premier League",
+    Tj1: "Tajikistan Higher League", Tm1: "Turkmenistan Yokary Liga",
+    Mn1: "Mongolia Premier League", Mo1: "Macau Liga de Elite",
+    Vn1: "Vietnam V.League 1", VnW: "Vietnam Women",
+    Fj1: "Fiji Premier League", AuA: "Australia Capital Territory",
+    AuC: "Australia Cup",
+
+    // Africa
+    Et1: "Ethiopia Premier League", Tz1: "Tanzania Premier League",
+    Zw1: "Zimbabwe Premier League", Mw1: "Malawi Super League",
+    Cm1: "Cameroon Elite One", Cm2: "Cameroon Ligue 2",
+    Gm1: "Gambia GFA League", Sl1: "Sierra Leone Premier League",
+    CD1: "DR Congo Linafoot", Dj1: "Djibouti Premier League",
+
+    // Americas
+    Ca1: "Canadian Premier League", CaC: "Canadian Championship",
+    Mx2: "Liga de Expansion MX", Gt1: "Guatemala Liga Nacional",
+    Cr1: "Costa Rica Primera", Ni1: "Nicaragua Primera",
+    Aw1: "Aruba Division di Honor",
+    Cl1: "Chile Primera", ClC: "Copa Chile",
+    Co2: "Colombia Primera B", CoC: "Copa Colombia",
+    Ec2: "Ecuador Serie B", Pe2: "Peru Liga 2",
+    Py2: "Paraguay Intermedia", PyC: "Paraguay Cup",
+    Uy1: "Uruguay Primera", Uy2: "Uruguay Segunda",
+    BrG: "Brazil Gaucho",
+    // Youth and lower tiers where the clubs pin it down unambiguously.
+    CzU: "Czech U19", De6: "Germany U19",
+    De5: "Germany Oberliga",              // Ammerthal, Kirchanschoring, Cham
+    Es3: "Spain Primera Federacion",      // CE Sabadell
+    Es4: "Spain Segunda Federacion",      // Pena Deportiva, Caudal Deportivo
+
+    // STILL UNMAPPED ON PURPOSE (8 labels, ~40 matches): AtL, Ar4, Ru4, Cz3,
+    // Cz4, De4, Pl3, Sv1. Each is a lower tier whose exact competition the
+    // clubs do not settle — De4 holds Erzgebirge Aue, who play in 3. Liga,
+    // which contradicts the <Country><Tier> reading, and Sv1 holds an Aruban
+    // club. Guessing a plausible name for these would put a confident,
+    // unverified label in front of users. They render as the raw code until
+    // someone confirms them against Forebet directly.
 };
 
 function prettyLeague(s) {
