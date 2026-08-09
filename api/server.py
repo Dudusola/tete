@@ -38,7 +38,8 @@ from models.consensus import (build_consensus, _same_match, _sim,
                               _dates_close, same_teams)
 from scrapers.booking_codes import (decode as decode_booking,
                                     generate_code, BookingCodeError,
-                                    convert_code, merge_codes,
+                                    convert_code, merge_codes, split_code,
+                                    _selections_from_legs, _post_selections,
                                     PROVIDERS, SHARE_POST_URLS)
 
 app = FastAPI(
@@ -753,6 +754,81 @@ def booking_decode(provider: str = Body("sportybet"), code: str = Body(...)):
             "legs": legs, "total_legs": len(legs), "covered_legs": covered,
             "scorable_legs": scorable,
             "accumulator_probability": round(combined, 4) if scorable else None}
+
+
+@app.post("/api/booking/split")
+def booking_split(provider: str = Body(...), code: str = Body(...),
+                  parts: int = Body(2), to_provider: str = Body(None)):
+    """One code -> several smaller codes.
+
+    A 10-leg acca needs all ten; two 5-leg codes can pay on one half. This is
+    the only slip tool that improves the expected outcome without touching a
+    single selection.
+    """
+    try:
+        return {"ok": True, **split_code(provider, code, parts, to_provider)}
+    except BookingCodeError as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/booking/optimize")
+def booking_optimize(provider: str = Body(...), code: str = Body(...),
+                     min_probability: float = Body(0.5),
+                     to_provider: str = Body(None)):
+    """Drop the legs OUR model rates below `min_probability`, rebuild the code.
+
+    This is the one slip tool that is not just plumbing. Merging, splitting and
+    converting are mechanical — any site can do them. Deciding WHICH leg is
+    dragging a slip down needs a model and a track record to justify trusting
+    it, which is the thing this project actually has.
+
+    Deliberate design choices:
+      * Legs we have NO view on are KEPT, never dropped. "We don't cover this
+        fixture" is not evidence against the bet, and silently deleting a
+        user's selection because we are ignorant of it would be the worst
+        possible behaviour.
+      * Every drop is returned with the probability that caused it, so the user
+        can see the reasoning rather than trusting a black box.
+      * The original code is never modified — a new one is created.
+    """
+    decoded = booking_decode(provider=provider, code=code)
+    if not decoded.get("ok"):
+        return decoded
+
+    legs = decoded["legs"]
+    keep, dropped = [], []
+    for leg in legs:
+        p = leg.get("our_probability")
+        if p is not None and p < min_probability:
+            dropped.append({"leg": leg, "our_probability": p,
+                            "reason": f"model rates this {round(p * 100)}%, "
+                                      f"below the {round(min_probability * 100)}% floor"})
+        else:
+            keep.append(leg)
+
+    if not keep:
+        return {"ok": False,
+                "error": "Every leg fell below the floor — nothing left to book. "
+                         "Lower the threshold or rebuild the slip."}
+    if not dropped:
+        return {"ok": True, "unchanged": True, "code": decoded["code"],
+                "kept": keep, "dropped": [],
+                "message": "Nothing to trim — no leg is below the floor."}
+
+    target = (to_provider or provider or "").lower().strip()
+    try:
+        sels, unmappable = _selections_from_legs(keep, provider)
+        if not sels:
+            return {"ok": False,
+                    "error": "The kept legs can't be rebuilt on this bookmaker."}
+        new_code = _post_selections(sels, target)
+    except BookingCodeError as e:
+        return {"ok": False, "error": str(e)}
+
+    return {"ok": True, "unchanged": False, "code": new_code,
+            "from_code": decoded["code"], "kept": keep, "dropped": dropped,
+            "kept_legs": len(sels), "dropped_legs": len(dropped),
+            "provider": target}
 
 
 @app.get("/api/booking/providers")

@@ -873,6 +873,53 @@ def merge_codes(sources: list[dict], to_provider: str) -> dict:
             "conflicts": conflicts, "dropped": dropped, "to": to_provider}
 
 
+def split_code(provider: str, code: str, parts: int = 2,
+               to_provider: str | None = None) -> dict:
+    """One booking code -> several smaller ones.
+
+    The point is risk, not tidiness. A 10-leg accumulator needs all ten to land;
+    two 5-leg codes can pay out on one half while the other misses. Splitting
+    is the only one of these tools that IMPROVES a punter's expected outcome
+    without changing any selection.
+
+    Legs are dealt round-robin rather than sliced into blocks, so each code
+    gets a mix of the slip's strong and weak legs instead of one code
+    inheriting every long shot. Order within the original slip is arbitrary
+    anyway — it is whatever the bookmaker returned.
+
+    Only works within SPORTY_PLATFORM, where event/market/outcome ids mean the
+    same thing on both sides; see convert_code for why that matters.
+    """
+    provider = (provider or "").lower().strip()
+    to_provider = (to_provider or provider).lower().strip()
+    if parts < 2:
+        raise BookingCodeError("Splitting needs at least 2 parts.")
+
+    legs = decode(provider, code)
+    sels, dropped = _selections_from_legs(legs, provider)
+    if len(sels) < parts:
+        raise BookingCodeError(
+            f"Can't split {len(sels)} usable leg(s) into {parts} codes — "
+            f"each code needs at least one leg.")
+
+    usable = [l for l in legs if l.get("event_id") and l.get("market_id")
+              and l.get("outcome_id")]
+    buckets = [[] for _ in range(parts)]
+    leg_buckets = [[] for _ in range(parts)]
+    for i, (sel, leg) in enumerate(zip(sels, usable)):
+        buckets[i % parts].append(sel)
+        leg_buckets[i % parts].append(leg)
+
+    out = []
+    for bucket, blegs in zip(buckets, leg_buckets):
+        new_code = _post_selections(bucket, to_provider)
+        out.append({"code": new_code, "legs": blegs, "leg_count": len(bucket)})
+    logger.success(f"Split {provider} {code} -> {parts} codes on {to_provider} "
+                   f"({len(sels)} legs, {len(dropped)} dropped)")
+    return {"codes": out, "parts": parts, "dropped": dropped,
+            "from": provider, "to": to_provider}
+
+
 def decode(provider: str, code: str) -> list[dict]:
     fn = PROVIDERS.get((provider or "").lower().strip())
     if not fn:

@@ -537,6 +537,17 @@ const PotentialProAPI = {
     fixtures:    ()          => apiGet("/api/fixtures"),
     checkSlip:   (legs)      => apiPost("/api/slip/check", {legs}),
     decodeCode:  (provider, code) => apiPost("/api/booking/decode", {provider, code}),
+    // Slip tools. convert and merge existed in the API for weeks with no way
+    // to reach them from the app — built, shipped, and invisible.
+    splitCode:   (provider, code, parts, to_provider) =>
+                     apiPost("/api/booking/split", {provider, code, parts, to_provider}),
+    optimizeCode: (provider, code, min_probability, to_provider) =>
+                     apiPost("/api/booking/optimize",
+                             {provider, code, min_probability, to_provider}),
+    convertCode: (from_provider, code, to_provider) =>
+                     apiPost("/api/booking/convert", {from_provider, code, to_provider}),
+    mergeCodes:  (sources, to_provider) =>
+                     apiPost("/api/booking/merge", {sources, to_provider}),
     generateCode: (legs, provider) => apiPost("/api/booking/generate", {legs, provider: provider || "sportybet"}),
 };
 /* ── Motion / UI-consistency layer (July 2026) ────────────────────────────

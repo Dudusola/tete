@@ -83,6 +83,65 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
   </div>
   <div id="bc-status" class="text-label-sm text-on-surface-variant mt-sm"></div>
   <div id="bc-legs" class="mt-sm space-y-sm"></div>
+
+  <!-- Slip tools. Convert and Merge have existed in the API for weeks with no
+       way to reach them from the app; Split and Optimise are new. They act on
+       the code typed above, so there is nothing extra to paste. -->
+  <div class="mt-md pt-md border-t border-outline-variant">
+    <div class="flex items-center gap-2 mb-sm">
+      <span class="material-symbols-outlined text-[18px] text-on-surface-variant">construction</span>
+      <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">Slip tools</span>
+    </div>
+    <div class="flex flex-wrap gap-xs items-center">
+      <button id="tool-optimize" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
+        Trim weak legs
+      </button>
+      <select id="tool-floor" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+        <option value="0.5">below 50%</option>
+        <option value="0.6" selected>below 60%</option>
+        <option value="0.7">below 70%</option>
+      </select>
+      <span class="w-px h-6 bg-outline-variant mx-1"></span>
+      <button id="tool-split" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
+        Split into
+      </button>
+      <select id="tool-parts" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+        <option value="2" selected>2 codes</option>
+        <option value="3">3 codes</option>
+        <option value="4">4 codes</option>
+      </select>
+      <span class="w-px h-6 bg-outline-variant mx-1"></span>
+      <button id="tool-convert" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
+        Convert to
+      </button>
+      <select id="tool-target" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+        <option value="sportybet">SportyBet</option>
+        <option value="msport" selected>MSport</option>
+      </select>
+    </div>
+    <p class="text-label-sm text-on-surface-variant mt-xs">
+      Splitting is the only one that improves your odds without changing a selection:
+      a 10-leg code needs all ten, two 5-leg codes can pay on one half.
+    </p>
+    <div id="tool-result" class="mt-sm"></div>
+  </div>
+
+  <!-- Merge is separate: it is the one tool that takes MORE than one code. -->
+  <div class="mt-md pt-md border-t border-outline-variant">
+    <div class="flex items-center gap-2 mb-sm">
+      <span class="material-symbols-outlined text-[18px] text-on-surface-variant">merge</span>
+      <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">Merge codes</span>
+    </div>
+    <div class="flex flex-col sm:flex-row gap-xs">
+      <input id="merge-codes" type="text" placeholder="A1B2C3, D4E5F6" autocapitalize="characters"
+             autocomplete="off" spellcheck="false"
+             class="flex-1 min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md uppercase"/>
+      <button id="tool-merge" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
+        Merge
+      </button>
+    </div>
+    <div id="merge-result" class="mt-sm"></div>
+  </div>
 </div>
 <input id="search" type="text" placeholder="Search team…" class="w-full mb-md rounded-lg border border-outline-variant px-md py-sm text-body-md"/>
 <div id="fixture-list" class="space-y-sm max-h-[70vh] overflow-y-auto pr-1">
@@ -124,7 +183,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </nav>
 
 <script src="config.js?v=2"></script>
-<script src="js/api.js?v=32"></script>
+<script src="js/api.js?v=33"></script>
 <script>
 let FIXTURES = [];
 let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
@@ -257,6 +316,117 @@ function renderDecodedLeg(l) {
     </div>`;
 }
 
+/* ── Slip tools ──────────────────────────────────────────────────────────
+   Every tool acts on the provider + code already typed into the decode box,
+   so there is no second place to paste a code. A returned code is rendered
+   with a copy button, because a code you cannot copy is useless. */
+function codeChip(code, label) {
+    return `<div class="bg-secondary-container text-on-secondary-container rounded-lg p-sm flex items-center justify-between gap-sm mb-xs">
+      <div>
+        <div class="text-label-sm">${esc(label)}</div>
+        <div class="text-headline-md font-headline-md font-bold tracking-widest">${esc(code)}</div>
+      </div>
+      <button class="bg-surface text-primary rounded-lg px-md py-sm text-label-sm font-bold"
+        onclick="navigator.clipboard.writeText('${esc(code)}').then(()=>{this.textContent='Copied!'})">Copy</button>
+    </div>`;
+}
+
+function toolInputs() {
+    return {
+        provider: document.getElementById("bc-provider").value,
+        code: (document.getElementById("bc-code").value || "").trim().toUpperCase(),
+    };
+}
+
+async function runTool(fn, outId) {
+    const out = document.getElementById(outId);
+    const btns = document.querySelectorAll(".tool-btn");
+    const {code} = toolInputs();
+    if (!code && outId === "tool-result") {
+        out.innerHTML = `<span class="text-error text-label-sm">Enter a booking code above first.</span>`;
+        return;
+    }
+    btns.forEach(b => b.disabled = true);
+    out.innerHTML = `<span class="text-on-surface-variant text-label-sm">Working…</span>`;
+    try {
+        const d = await fn();
+        if (!d.ok) {
+            out.innerHTML = `<span class="text-error text-label-sm">⚠️ ${esc(d.error || "That didn't work.")}</span>`;
+            return;
+        }
+        out.innerHTML = d.html;
+    } catch (err) {
+        // Distinguish "the API is unreachable" from "our own code threw".
+        // Labelling every failure a network error is how a ReferenceError in
+        // this very function spent an afternoon looking like an outage.
+        const network = (err instanceof TypeError) || /fetch|network/i.test(err.message || "");
+        out.innerHTML = `<span class="text-error text-label-sm">⚠️ ${
+            network ? "Couldn't reach the engine." : "Something went wrong rendering that: " + esc(err.message || String(err))
+        }</span>`;
+        console.error(err);
+    } finally {
+        btns.forEach(b => b.disabled = false);
+    }
+}
+
+function wireSlipTools() {
+    document.getElementById("tool-optimize").addEventListener("click", () =>
+        runTool(async () => {
+            const {provider, code} = toolInputs();
+            const floor = parseFloat(document.getElementById("tool-floor").value);
+            const d = await PotentialProAPI.optimizeCode(provider, code, floor);
+            if (!d.ok) return d;
+            if (d.unchanged) {
+                return {ok: true, html: `<span class="text-secondary text-label-sm">✓ ${esc(d.message)}</span>`};
+            }
+            // Show WHY each leg went. A tool that silently deletes someone's
+            // selections has to justify itself.
+            const gone = d.dropped.map(x =>
+                `<li>${esc((x.leg.home_team || "?") + " vs " + (x.leg.away_team || "?"))}
+                 — <span class="text-on-surface-variant">${esc(x.reason)}</span></li>`).join("");
+            return {ok: true, html:
+                codeChip(d.code, `Trimmed code — ${d.kept_legs} legs kept, ${d.dropped_legs} dropped`) +
+                `<div class="text-label-sm text-on-surface-variant">Removed:</div>
+                 <ul class="text-label-sm list-disc pl-5 mt-1">${gone}</ul>
+                 <div class="text-label-sm text-on-surface-variant mt-1">Legs we have no view on were kept — not covering a fixture is not evidence against it.</div>`};
+        }, "tool-result"));
+
+    document.getElementById("tool-split").addEventListener("click", () =>
+        runTool(async () => {
+            const {provider, code} = toolInputs();
+            const parts = parseInt(document.getElementById("tool-parts").value, 10);
+            const d = await PotentialProAPI.splitCode(provider, code, parts);
+            if (!d.ok) return d;
+            return {ok: true, html: d.codes.map((c, i) =>
+                codeChip(c.code, `Part ${i + 1} of ${d.parts} — ${c.leg_count} legs`)).join("")};
+        }, "tool-result"));
+
+    document.getElementById("tool-convert").addEventListener("click", () =>
+        runTool(async () => {
+            const {provider, code} = toolInputs();
+            const target = document.getElementById("tool-target").value;
+            const d = await PotentialProAPI.convertCode(provider, code, target);
+            if (!d.ok) return d;
+            const dropped = d.dropped && d.dropped.length
+                ? `<div class="text-label-sm text-on-surface-variant mt-1">${d.dropped.length} leg(s) couldn't be carried over.</div>` : "";
+            return {ok: true, html: codeChip(d.code, `On ${esc(d.to)} — ${d.legs ? d.legs.length : ""} legs`) + dropped};
+        }, "tool-result"));
+
+    document.getElementById("tool-merge").addEventListener("click", () =>
+        runTool(async () => {
+            const raw = (document.getElementById("merge-codes").value || "").trim().toUpperCase();
+            const provider = document.getElementById("bc-provider").value;
+            const codes = raw.split(/[\s,]+/).filter(Boolean);
+            if (codes.length < 2) return {ok: false, error: "Enter at least two codes, separated by a comma."};
+            const d = await PotentialProAPI.mergeCodes(
+                codes.map(c => ({provider, code: c})), provider);
+            if (!d.ok) return d;
+            const conflicts = d.conflicts && d.conflicts.length
+                ? `<div class="text-label-sm text-error mt-1">Conflicting picks on: ${d.conflicts.map(esc).join(", ")} — kept the first.</div>` : "";
+            return {ok: true, html: codeChip(d.code, `Merged — ${d.merged_legs} legs`) + conflicts};
+        }, "merge-result"));
+}
+
 async function decodeBookingCode() {
     const status = document.getElementById("bc-status");
     const legsEl = document.getElementById("bc-legs");
@@ -290,6 +460,7 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("search").addEventListener("input", e => renderFixtures(e.target.value));
     document.getElementById("clear-btn").addEventListener("click", () => { SLIP = []; renderSlip(); });
     document.getElementById("bc-btn").addEventListener("click", decodeBookingCode);
+    wireSlipTools();
     document.getElementById("bc-code").addEventListener("keydown", e => { if (e.key === "Enter") decodeBookingCode(); });
 });
 </script>
