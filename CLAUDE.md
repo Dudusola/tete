@@ -691,19 +691,59 @@ unknown until the honest ledger matures.
    rf_v1c 44.4%, rf_v1b 54.5%, rf_v1 60.0% — so disabling the consensus boost
    looks vindicated.
 
-   **What is NOT resolved — probability calibration in the middle.** Bucketing
-   by the model's own stated probability:
-     35-40% -> 47.8% (23)   |  55-60% -> 60.7% (28)
-     40-45% -> 57.9% (38)   |  60-65% -> 50.0% (20)  <- worst band
-     45-50% -> 58.6% (29)   |  65-70% -> 57.1% (7)
-     50-55% -> 60.0% (25)   |  >=70%  -> 85.7% (14)
-   The model is UNDER-confident at the bottom (35-40% picks win ~48%) and
-   OVER-confident at 60-70%. Nearly all the HIGH tier's edge comes from the
-   >=70% picks; 65-70% is barely better than a coin. That still points at
-   raising the HIGH threshold from >=65% to ~70%, exactly as suspected — but
-   the 65-70% band has only 7 graded picks, so it is NOT yet actionable.
+   **RE-MEASURED 11 Aug 2026 at 265 graded picks — and the answer FLIPPED.
+   Do not act on the 9 Aug numbers above; they are kept only to show the
+   direction of travel.** The sample passed the ~30-HIGH bar this file set as
+   the precondition (HIGH now has 39 graded), so the question was finally
+   answerable. Current tiers: HIGH 30/39 (76.9%) > MEDIUM 40/65 (61.5%) >
+   LOW 85/161 (52.8%).
 
-   **Rule stands: don't hard-change calibration on thin samples.**
+     band     n   actual   claimed   95% CI          verdict
+     35-40%  38   47.4%    37.8%     [31.5, 63.2]    within noise
+     40-45%  48   58.3%    42.6%     [44.4, 72.3]    MISCALIBRATED
+     45-50%  39   51.3%    48.0%     [35.6, 67.0]    within noise
+     50-55%  36   52.8%    52.6%     [36.5, 69.1]    within noise
+     55-60%  40   67.5%    57.7%     [53.0, 82.0]    within noise
+     60-65%  30   50.0%    62.0%     [32.1, 67.9]    within noise
+     65-70%  12   75.0%    66.6%     [50.5, 99.5]    within noise
+     >=70%   22   86.4%    77.3%     [72.0, 100.0]   within noise
+
+   **DO NOT raise the HIGH threshold to 70%.** That was the standing
+   recommendation and it is now unsupported: the 65-70% band went from 57.1%
+   (n=7) to 75.0% (n=12) as the sample grew, and HIGH overall is 28/34 (82.4%)
+   on the probability cut. Raising the bar would throw away a band that is
+   doing its job. The 60-65% dip that looked like "the worst band" is still
+   50% but its CI [32.1, 67.9] comfortably contains the claimed 62% — at n=30
+   it is not distinguishable from noise. **Two consecutive re-measurements have
+   now reversed the conclusion drawn from thin data. The rule earned its
+   keep.**
+
+   **The real signal is one nobody was looking for: the model is
+   SYSTEMATICALLY UNDER-confident.** 7 of the 8 bands come in ABOVE what the
+   model claimed (sign test p ~ 0.035 — individually each band is noise, but
+   the one-directional pattern is not). Only 40-45% is significant alone, and
+   it is under-confident by +15.7 points. That band sits in LOW, i.e. **picks
+   we hide as bets may be winning more often than we admit.** The suspicion
+   for two weeks was over-confidence at the top; the evidence points the other
+   way, at the bottom.
+
+   **BUT — and this is why nothing was changed — that pattern is exactly what
+   a COVERAGE BIAS looks like.** Grading coverage is 84.4%; bug #8 established
+   that the picks we fail to grade are NOT a random sample (when that backfill
+   landed, HIGH fell 57% -> 38% because the missing rows were mostly losses).
+   If the ungraded 15.6% still skews to losses, every "actual" above is
+   inflated and the apparent under-confidence is an artefact of the
+   denominator, not a property of the model. Recalibrating on it would bake a
+   measurement error into the engine. **Distinguish these BEFORE touching any
+   threshold: get coverage materially above 84%, or show the ungraded picks
+   resemble the graded ones. Until then this is a lead, not a finding.**
+
+   Era check (rf_v1e is current): rf_v1e 82/135 = 60.7% [52.5, 69.0];
+   rf_v1d 41/76 = 53.9%; rf_v1 21/33 = 63.6% (thin). rf_v1e remains the best
+   era with a real sample, so disabling the consensus boost still looks right.
+
+   **Rule stands, and has now been vindicated twice: don't hard-change
+   calibration on thin samples.**
    `db/track_record_health.py` wants ~30+ HIGH picks; we have 25. Re-run this
    bucket analysis at 30+ before touching the threshold.
 5. Model-vs-Forebet-on-real-results tracker (needs mature ledger) — validates the premise.
