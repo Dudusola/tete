@@ -427,6 +427,13 @@ def run_pipeline() -> list:
     # rule drift silently — that is how dedupe_fixtures.py ended up with a
     # weaker team matcher than consensus.py for months. This compares them.
     run_step("Check league-code mirror", ["tools/check_league_codes.py"], DEGRADED)
+    # Same class of bug as the league-code mirror: two lists that must agree,
+    # where the drift is silent. A module the API imports but the Dockerfile
+    # does not copy makes the container die on import, and Render responds by
+    # serving the PREVIOUS image — so the deploy looks fine and the new
+    # feature is just missing. Caught three times by hand; now checked.
+    run_step("Check Docker image completeness",
+             ["tools/check_docker_copies.py"], DEGRADED)
 
     # 3b. Real UTC kickoff times (ESPN, keyless). Without these the app
     #     recommends matches that already kicked off: PredictZ leaves
