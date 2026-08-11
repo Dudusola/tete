@@ -217,10 +217,16 @@ const API_BASE = (function () {
 
         // Active section gets a filled pill AND a top rule, so the current
         // page is identifiable without relying on colour alone.
-        const here = location.pathname.split("/").pop() || "index.html";
+        //
+        // Compare basenames with the extension stripped. Cloudflare Pages
+        // serves these as EXTENSIONLESS urls — /checker, not /checker.html —
+        // so a raw comparison against the href matches locally and never on
+        // production, which is the worst kind of bug to ship: it looks correct
+        // on every machine you test it on. An empty path is the index.
+        const norm = u => (u || "").split("/").pop().replace(/\.html$/, "") || "index";
+        const here = norm(location.pathname);
         bottomNav.querySelectorAll("a").forEach(a => {
-            const on = (a.getAttribute("href") || "") === here;
-            a.classList.toggle("pp-nav-on", on);
+            a.classList.toggle("pp-nav-on", norm(a.getAttribute("href")) === here);
         });
     });
 })();
