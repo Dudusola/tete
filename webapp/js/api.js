@@ -61,19 +61,12 @@ const API_BASE = (function () {
       #theme-toggle-mobile.floating { position:fixed; right:16px; bottom:84px; z-index:40;
         background:#f7f9fb; box-shadow:0 2px 8px rgba(0,0,0,0.18); }
       html.dark #theme-toggle-mobile.floating { background:#1d2022; }
-      @media (min-width:768px) { #theme-toggle-mobile, #pp-sheet, #pp-backdrop { display:none !important; } }
-      /* "More" bottom sheet (mobile) */
-      #pp-backdrop { position:fixed; inset:0; z-index:55; background:rgba(0,0,0,0.4); }
-      #pp-sheet { position:fixed; left:0; right:0; bottom:0; z-index:56; border-radius:16px 16px 0 0;
-        background:#ffffff; box-shadow:0 -6px 24px rgba(0,0,0,0.2); padding:8px 16px 88px; }
-      html.dark #pp-sheet { background:#191c1e; }
-      #pp-sheet .pp-row { display:flex; align-items:center; gap:12px; width:100%; padding:14px 8px;
-        border-radius:12px; color:inherit; text-decoration:none; font:inherit; background:none;
-        border:none; cursor:pointer; }
-      #pp-sheet .pp-row.active { background:#acf847; color:#457000; }
-      html.dark #pp-sheet .pp-row.active { background:#354a12; color:#acf847; }
-      #pp-sheet .pp-grab { width:36px; height:4px; border-radius:2px; background:#c6c6cd; margin:6px auto 10px; }
-      html.dark #pp-sheet .pp-grab { background:#42474a; }
+      @media (min-width:768px) { #theme-toggle-mobile { display:none !important; } }
+      /* Mobile bottom-nav active state (replaces the old "More" sheet) */
+      nav[class*="md:hidden"] a.pp-nav-on { position:relative; }
+      nav[class*="md:hidden"] a.pp-nav-on::before { content:""; position:absolute; top:0;
+        left:22%; right:22%; height:3px; border-radius:0 0 3px 3px; background:#416900; }
+      html.dark nav[class*="md:hidden"] a.pp-nav-on::before { background:#91db2a; }
       /* Shared skeleton + toast */
       .pp-skel { border-radius:12px; background:#e6e8ea; animation:pp-pulse 1.4s ease-in-out infinite; }
       html.dark .pp-skel { background:#272a2c; }
@@ -188,81 +181,47 @@ const API_BASE = (function () {
             while (row.firstChild) link.appendChild(row.firstChild);
         });
 
-        // ── Mobile nav declutter: Consensus + Checker + theme toggle move into
-        //    a "More" bottom sheet behind a hamburger (4 items instead of 6) ──
+        // ── Mobile bottom nav: all five, no "More" ──────────────────────────
+        //
+        // This used to hide two of the five sections behind a hamburger and a
+        // bottom sheet. The reason given was decluttering, but the arithmetic
+        // never supported it: five items on the narrowest phone we care about
+        // (320px) is 64px each, comfortably past the 44px tap-target floor.
+        // So the sheet bought nothing and cost a tap, a second interaction
+        // model to learn, and two features that looked second-class.
+        //
+        // Everything is now one tap from everywhere, which is also what the
+        // desktop nav does — one mental model instead of two.
         const bottomNav = document.querySelector("nav[class*='md:hidden']");
-        const mobileBtn = makeBtn("theme-toggle-mobile");
-        if (!bottomNav) {
-            mobileBtn.classList.add("floating");
-            document.body.appendChild(mobileBtn);
-            return;
+        if (!bottomNav) return;
+
+        // The theme toggle moves to the mobile BRAND BAR at the top. It is a
+        // setting, not a destination, so it does not belong in a navigation
+        // bar competing with the five sections.
+        //
+        // The class is literally "md:hidden" — a colon that CSS treats as a
+        // pseudo-selector, so it must be escaped as "md\:hidden" in a
+        // querySelector string. Getting that wrong makes the selector INVALID
+        // and querySelector THROWS, which silently killed the rest of this
+        // handler. Matching on classList avoids the trap entirely.
+        const brandBar = [...document.querySelectorAll("header")]
+            .find(h => h.classList.contains("md:hidden"));
+        if (brandBar && !document.getElementById("theme-toggle-mobile")) {
+            // Appended to the HEADER, never to its first child — that child is
+            // the brand link, so a toggle inside it would also navigate home.
+            brandBar.style.display = "flex";
+            brandBar.style.alignItems = "center";
+            brandBar.style.justifyContent = "space-between";
+            brandBar.appendChild(makeBtn("theme-toggle-mobile"));
         }
-        // Which two move into the sheet. This used to bury RECORD and surface
-        // Checker, leaving the phone bar as Picks/Builder/Checker/More — the
-        // reverse of what CLAUDE.md describes, and backwards for this product:
-        // the track record IS the credibility claim, while the Checker is a
-        // secondary tool you seek out deliberately. Bar is now
-        // Picks/Builder/Record/More.
-        const EXTRAS = /consensus\.html|checker\.html/;
+
+        // Active section gets a filled pill AND a top rule, so the current
+        // page is identifiable without relying on colour alone.
         const here = location.pathname.split("/").pop() || "index.html";
-        const extras = [...bottomNav.querySelectorAll("a")]
-            .filter(a => EXTRAS.test(a.getAttribute("href")));
-        const onExtraPage = EXTRAS.test(here);
-
-        const backdrop = document.createElement("div");
-        backdrop.id = "pp-backdrop";
-        const sheet = document.createElement("div");
-        sheet.id = "pp-sheet";
-        sheet.innerHTML = `<div class="pp-grab"></div>`;
-        // The five pages don't share one nav markup: index/slip/record put the
-        // label in a child <span class="text-label-sm">, while consensus and
-        // checker put that class on the <a> itself with the label as a bare
-        // text node. querySelector only searches DESCENDANTS, so on those two
-        // pages it found nothing and the row fell back to the href — the
-        // "More" sheet literally read "record.html". Read the anchor's own
-        // text with the icon removed instead: that works for both shapes, and
-        // NAV_LABELS backstops it so a filename can never reach the user.
-        const NAV_LABELS = {"index.html": "Picks", "slip.html": "Builder",
-                            "record.html": "Track Record",
-                            "consensus.html": "Consensus",
-                            "checker.html": "Slip Checker"};
-        extras.forEach(a => {
-            const href = a.getAttribute("href");
-            const icon = a.querySelector(".material-symbols-outlined");
-            const clone = a.cloneNode(true);
-            clone.querySelectorAll(".material-symbols-outlined").forEach(n => n.remove());
-            const label = clone.textContent.trim() || NAV_LABELS[href] || "Open";
-            const row = document.createElement("a");
-            row.href = href;
-            row.className = "pp-row text-body-md" + (here === href ? " active" : "");
-            row.innerHTML = `<span class="material-symbols-outlined">${icon ? icon.textContent : "circle"}</span>
-              <span>${label}</span>`;
-            sheet.appendChild(row);
-            a.remove();
+        bottomNav.querySelectorAll("a").forEach(a => {
+            const on = (a.getAttribute("href") || "") === here;
+            a.classList.toggle("pp-nav-on", on);
         });
-        const themeRow = document.createElement("div");
-        themeRow.className = "pp-row";
-        themeRow.style.justifyContent = "space-between";
-        themeRow.innerHTML = `<span style="display:flex;align-items:center;gap:12px;">
-          <span class="material-symbols-outlined">contrast</span><span>Theme</span></span>`;
-        themeRow.appendChild(mobileBtn);
-        sheet.appendChild(themeRow);
-
-        function setSheet(open) {
-            backdrop.style.display = open ? "block" : "none";
-            sheet.style.display = open ? "block" : "none";
-        }
-        setSheet(false);
-        backdrop.addEventListener("click", () => setSheet(false));
-        sheet.addEventListener("click", e => { if (e.target.closest("a.pp-row")) setSheet(false); });
-        document.body.append(backdrop, sheet);
-
-        const moreBtn = document.createElement("button");
-        moreBtn.className = "flex flex-col items-center justify-center p-2 min-w-[64px] " +
-            (onExtraPage ? "bg-secondary-container text-on-secondary-container rounded-xl" : "text-on-surface-variant");
-        moreBtn.innerHTML = `<span class="material-symbols-outlined mb-1">menu</span><span class="text-label-sm">More</span>`;
-        moreBtn.addEventListener("click", () => setSheet(sheet.style.display !== "block"));
-        bottomNav.appendChild(moreBtn);
     });
 })();
 
