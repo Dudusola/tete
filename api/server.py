@@ -413,6 +413,18 @@ def get_draw_picks():
             SELECT MAX(sp2.id) FROM scraped_predictions sp2
             WHERE sp2.match_id = m.match_id AND sp2.odds_home IS NOT NULL)
         WHERE m.match_date >= date('now')
+          -- The same three guards /api/picks uses. This list had only a
+          -- `live_state != 'post'` post-filter, which is NOT equivalent:
+          -- effective_live_state only ages a snapshot once kickoff is
+          -- LIVE_MAX_HOURS past, so a match that kicked off 90 minutes ago is
+          -- still 'pre'/'in' and sailed through. Verified leaking: NEC v
+          -- Olympiacos, kickoff 17:30 UTC, served as a backable draw at 19:30.
+          -- A NULL kickoff still passes on purpose — unknown must never be
+          -- read as "already played" (kickoff_times.py's rule).
+          AND (m.kickoff_utc IS NULL
+               OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
+          AND (m.live_state IS NULL OR m.live_state = 'pre')
+          AND m.match_id NOT IN (SELECT match_id FROM results)
     """).fetchall()
     conn.close()
 

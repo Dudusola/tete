@@ -211,8 +211,26 @@ function marketCheck(p) {
 }
 
 function renderCard(p) {
+    /* Draw-leaning cards are a DIFFERENT KIND OF THING and must not borrow the
+       1X2 card's furniture. Without this branch the Draws tab headlined
+       "Recommendation: Away Win, 44%" with a LOW badge, directly above AI text
+       arguing the match could end level — the card contradicted its own
+       analysis, in our own voice, on a tab labelled Draws. (The model has
+       never once rated a draw most likely, 0 of 360, so best_bet on this tab
+       is ALWAYS a home or away win. The contradiction was guaranteed, not
+       occasional.)
+
+       Note what this deliberately does NOT do: it does not overwrite best_bet
+       with "Draw" server-side. That would read as a tip, and models/draws.py
+       is explicit that this is a FILTER, not a tip — backing every draw
+       returns -7.2%. So the card leads with the measured base rate for this
+       band, names it as history rather than as a prediction, and still shows
+       the model's own 1X2 lean underneath. Nothing is hidden and nothing is
+       recommended. */
+    const isDraw = !!p.draw_lean;
     const conf = p.confidence || "MEDIUM";
-    const prob = Math.round((p.best_bet_prob || 0) * 100);
+    const prob = isDraw ? Math.round(p.draw_lean.expected_pct || 0)
+                        : Math.round((p.best_bet_prob || 0) * 100);
     const homePct = Math.round((p.home_win_prob || 0) * 100);
     const drawPct = Math.round((p.draw_prob || 0) * 100);
     const awayPct = Math.round((p.away_win_prob || 0) * 100);
@@ -245,7 +263,9 @@ function renderCard(p) {
       <h2 class="text-headline-md font-headline-md text-primary mt-base">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
     </div>
     <div class="flex flex-col items-end gap-xs">
-      <div class="${badgeClasses(conf)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${conf}</div>
+      ${isDraw
+        ? `<div class="bg-tertiary-container text-on-tertiary-container px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs" title="How evenly the bookmaker prices the two sides — this is what ranks the list, not the model">${escapeHtml(p.draw_lean.tier)}</div>`
+        : `<div class="${badgeClasses(conf)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${conf}</div>`}
       ${consensusBadge(p.consensus)}
       ${p.consensus_adj === "boosted" ? `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Raised to HIGH because both sources back the model's pick"><span class="material-symbols-outlined text-[14px]">arrow_upward</span>consensus boost</span>` : ""}
       ${p.consensus_adj === "demoted" ? `<span class="inline-flex items-center gap-xs bg-error-container text-on-error-container px-sm py-base rounded-full text-label-sm font-bold" title="Lowered to MEDIUM because both sources back a different outcome"><span class="material-symbols-outlined text-[14px]">arrow_downward</span>tier lowered</span>` : ""}
@@ -253,14 +273,19 @@ function renderCard(p) {
   </div>
   <div class="bg-surface p-sm rounded-lg border border-outline-variant mb-md flex justify-between items-center">
     <div>
-      <div class="text-label-sm text-on-surface-variant mb-base">Recommendation</div>
-      <div class="text-body-lg font-semibold text-primary">${escapeHtml(p.best_bet)}</div>
-      ${p.predicted_home_goals != null ? `<div class="text-label-sm text-on-surface-variant mt-base flex items-center gap-xs">
-        <span class="material-symbols-outlined text-[14px]">scoreboard</span>
-        Expected: ${Math.round(p.predicted_home_goals)} – ${Math.round(p.predicted_away_goals)}</div>` : ""}
+      <div class="text-label-sm text-on-surface-variant mb-base">${isDraw ? "Evenly matched" : "Recommendation"}</div>
+      ${isDraw
+        ? `<div class="text-body-lg font-semibold text-primary">Draw is live here</div>
+           <div class="text-label-sm text-on-surface-variant mt-base">
+             Model's own lean: ${escapeHtml(p.best_bet)} (${Math.round((p.best_bet_prob||0)*100)}%) —
+             it has never once rated a draw most likely.</div>`
+        : `<div class="text-body-lg font-semibold text-primary">${escapeHtml(p.best_bet)}</div>
+           ${p.predicted_home_goals != null ? `<div class="text-label-sm text-on-surface-variant mt-base flex items-center gap-xs">
+             <span class="material-symbols-outlined text-[14px]">scoreboard</span>
+             Expected: ${Math.round(p.predicted_home_goals)} – ${Math.round(p.predicted_away_goals)}</div>` : ""}`}
     </div>
     <div class="text-right flex flex-col items-end">
-      <div class="text-label-sm text-on-surface-variant mb-base">Probability</div>
+      <div class="text-label-sm text-on-surface-variant mb-base" ${isDraw ? 'title="Measured on 90,381 matches — the historical draw rate for fixtures priced this evenly. NOT a prediction about this match."' : ""}>${isDraw ? "Draws, historically" : "Probability"}</div>
       <div class="relative w-12 h-12 flex items-center justify-center">
         <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
           <path class="text-surface-container-high stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"></path>
