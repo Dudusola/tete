@@ -18,6 +18,7 @@ Usage:
 
 import os
 import sys
+import time
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 
@@ -69,25 +70,67 @@ def team_match(db_name: str, api_name: str) -> bool:
     return team_sim(db_name, api_name) >= 0.86
 
 
+# football-data.org's FREE tier rejects a date range wider than 10 days with a
+# bare HTTP 400 — no message naming the limit. Discovered asking for 45 days
+# for the weekly deep backfill. So the window is CHUNKED rather than the
+# backfill being capped: a limit on one request is not a limit on how far back
+# we are allowed to look.
+MAX_RANGE_DAYS = 10
+
+
 def fetch_finished_from_api(days_back: int = 7) -> list | None:
-    """Finished matches from the last N days across free-tier competitions."""
-    date_from = (datetime.now() - timedelta(days=days_back)).strftime("%Y-%m-%d")
-    date_to = datetime.now().strftime("%Y-%m-%d")
-    try:
-        resp = requests.get(
-            f"{BASE}/matches",
-            headers={"X-Auth-Token": TOKEN},
-            params={"dateFrom": date_from, "dateTo": date_to,
-                    "status": "FINISHED"},
-            timeout=30,
-        )
-        resp.raise_for_status()
-    except requests.RequestException as e:
-        logger.error(f"football-data.org request failed: {e}")
+    """Finished matches from the last N days across free-tier competitions.
+
+    Returns None only if EVERY chunk failed. A partial result is still worth
+    grading — refusing it would throw away real scores because one window in
+    the middle timed out.
+    """
+    matches, failures, chunks = [], 0, 0
+    end = datetime.now()
+    remaining = max(1, int(days_back))
+
+    while remaining > 0:
+        span = min(remaining, MAX_RANGE_DAYS)
+        start = end - timedelta(days=span)
+        chunks += 1
+        try:
+            resp = requests.get(
+                f"{BASE}/matches",
+                headers={"X-Auth-Token": TOKEN},
+                params={"dateFrom": start.strftime("%Y-%m-%d"),
+                        "dateTo": end.strftime("%Y-%m-%d"),
+                        "status": "FINISHED"},
+                timeout=30,
+            )
+            resp.raise_for_status()
+            matches += resp.json().get("matches", [])
+        except requests.RequestException as e:
+            failures += 1
+            logger.warning(f"football-data.org {start:%Y-%m-%d}..{end:%Y-%m-%d} "
+                           f"failed: {e}")
+        end = start
+        remaining -= span
+        # The free tier allows ~10 requests/minute and answers a burst with a
+        # bare HTTP 429. A 45-day backfill is 5 windows, which is within the
+        # quota on its own but not if anything else has just called the API —
+        # observed live while testing. Pace them: this runs weekly and
+        # unattended, so 6 seconds a window costs nothing and removes the one
+        # way a deep backfill can silently return less than it should.
+        if remaining > 0:
+            time.sleep(6)
+
+    if failures == chunks:
+        logger.error(f"football-data.org: all {chunks} request(s) failed")
         return None
+    if failures:
+        logger.warning(f"football-data.org: {failures}/{chunks} windows failed - "
+                       f"grading what came back")
+    if chunks > 1:
+        logger.info(f"football-data.org: {len(matches)} finished matches "
+                    f"across {chunks} windows ({days_back} days)")
 
     out = []
-    for m in resp.json().get("matches", []):
+    for m in matches:
         ft = m.get("score", {}).get("fullTime", {})
         if ft.get("home") is None:
             continue
@@ -99,7 +142,7 @@ def fetch_finished_from_api(days_back: int = 7) -> list | None:
             "away_goals": ft["away"],
         })
     logger.info(f"API returned {len(out)} finished matches "
-                f"({date_from} → {date_to})")
+                f"(last {days_back} days)")
     return out
 
 
@@ -153,13 +196,13 @@ def score_our_fixtures(api_results: list) -> int:
     return inserted
 
 
-def run():
+def run(days: int = 7):
     if not TOKEN:
         logger.error("FOOTBALL_DATA_TOKEN missing from .env\n"
                      "  1. Register free: https://www.football-data.org/client/register\n"
                      "  2. Add to .env:   FOOTBALL_DATA_TOKEN=your_token")
         sys.exit(1)
-    api_results = fetch_finished_from_api()
+    api_results = fetch_finished_from_api(days)
     if api_results is None:
         sys.exit(1)          # request failed — flag it, don't pretend success
     if api_results:
@@ -169,4 +212,12 @@ def run():
 
 
 if __name__ == "__main__":
-    run()
+    # --days exists so the weekly deep backfill can reach further than the
+    # daily lookback. Without it, anything ungraded for longer than the
+    # default window is never graded at all — the hole that made the HIGH
+    # tier read 57% when it was really 38% (bug #8).
+    import argparse
+    _ap = argparse.ArgumentParser()
+    _ap.add_argument("--days", type=int, default=7,
+                     help="how far back to look for finished matches")
+    run(_ap.parse_args().days)

@@ -1,0 +1,100 @@
+# Weekly deep results backfill — the ledger's insurance policy.
+#
+# WHY THIS EXISTS
+# The daily pipeline grades results with a 7-day lookback and the evening
+# sweep uses 3. That is correct for normal operation and cheap to run. It is
+# also a permanent data-loss window: anything that goes ungraded for longer
+# than the lookback is never graded at all, because no later run ever looks
+# back that far.
+#
+# That is not hypothetical. Bug #9 was a TWELVE DAY silent stall, and bug #8
+# was a coverage gap that hid for weeks and, when finally backfilled, moved
+# the HIGH tier from 57% to 38% — the missing matches were mostly losses. A
+# ledger with holes does not just lose data, it reports a FLATTERING number,
+# because the picks that go unscored are not a random sample.
+#
+# The exposure is worst exactly when nobody is watching. If a scraper breaks
+# while Boss is away, the alerts fire into a Telegram nobody is reading, and
+# every day past the lookback is a day of evidence destroyed for good.
+#
+# So: once a week, look back 45 days and grade anything the daily runs missed.
+# Any gap shorter than 45 days heals itself with no human involved.
+#
+# Deliberately results-ONLY. It never scrapes fixtures, never predicts, never
+# writes analysis. It cannot change a pick — only record what actually
+# happened — which is what makes it safe to run unattended.
+
+name: Deep results backfill
+
+on:
+  workflow_dispatch:
+  schedule:
+    # 03:00 UTC Sunday. Deliberately far from the 11:00 pipeline and the
+    # 22:00 evening sweep; the concurrency group below is the real guard,
+    # this just avoids queueing behind them.
+    - cron: '0 3 * * 0'
+
+# Never write the ledger while the pipeline is writing it. Same group as the
+# other two workflows — one writer, always.
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Ensure DB schema exists
+        run: python db/database.py
+
+      # 45 days: comfortably longer than any outage this project has had
+      # (the record is 12 days), and ESPN still serves scoreboards that far
+      # back. Both sources, because they cover different competitions —
+      # football-data.org has the big European leagues, ESPN has the ~30 it
+      # misses (MLS, Liga MX, South America, UEFA qualifiers).
+      - name: Deep backfill from ESPN
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python scrapers/results_espn.py --days 45
+
+      - name: Deep backfill from football-data.org
+        if: always()
+        env:
+          FOOTBALL_DATA_TOKEN: ${{ secrets.FOOTBALL_DATA_TOKEN }}
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python scrapers/results_api.py --days 45
+
+      - name: Report coverage after backfill
+        if: always()
+        run: python models/gradeability.py
+
+      - name: Commit any newly graded results
+        if: always()
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add db/sports_predictor.db
+          if git diff --staged --quiet; then
+            echo "Nothing new to grade — the daily runs kept up."
+            exit 0
+          fi
+          git commit -m "ledger: weekly deep backfill $(date -u '+%Y-%m-%d')"
+          # --autostash + rebase for the same reason as daily.yml: a tracked
+          # file rewritten by a step must not block the pull (bug #14).
+          git pull --rebase --autostash
+          git push
