@@ -73,8 +73,14 @@ Fixtures where independent prediction sources agree on the outcome. Agreement ac
 <script src="js/api.js?v=37"></script>
 <script>
 const OUTCOME_NAME = {"H": "Home Win", "D": "Draw", "A": "Away Win"};
-const SOURCE_NAME = {"forebet": "Forebet", "predictz": "PredictZ",
-                     "espn": "ESPN odds", "apifootball": "API-Football"};
+// Labels say WHERE a number comes from, because that is what makes agreement
+// meaningful. "ESPN odds" and "PredictZ" both trace back to bookmaker prices,
+// so those two agreeing is two views of one market. ClubElo is a rating model
+// built from results and has never seen a line — an agreement including it is
+// worth strictly more, and the label should let a reader see that.
+const SOURCE_NAME = {"forebet": "Forebet (model)", "predictz": "PredictZ (odds)",
+                     "espn": "ESPN (odds)", "apifootball": "API-Football (odds)",
+                     "clubelo": "ClubElo (Elo model)"};
 
 function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
 
