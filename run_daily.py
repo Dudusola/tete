@@ -344,6 +344,22 @@ def run_pipeline() -> list:
     run_step("Normalise league labels",
              ["db/normalize_leagues.py", "--apply"], DEGRADED)
 
+    # ClubElo: the only opinion here that is NOT derived from bookmaker prices.
+    #
+    # Runs AFTER dedupe so it attaches to the surviving match_id rather than to
+    # a row that is about to be merged away. It is an OPINION source and never
+    # inserts a fixture — a second source creating matches is how bug #2's
+    # cross-source duplicates happened.
+    #
+    # OPTIONAL, for two independent reasons:
+    #   1. The service is genuinely flaky (502, 200, connection reset on three
+    #      consecutive probes). It retries internally; a bad afternoon must not
+    #      colour the run, or we recreate the daily-red noise of bug #14.
+    #   2. Zero matches is often CORRECT — it covers European club football, so
+    #      on a day of Copa Libertadores and MLS it has nothing to say. The
+    #      script distinguishes "feed empty" (fails) from "no overlap" (fine).
+    run_step("ClubElo independent opinion", ["scrapers/clubelo.py"], OPTIONAL)
+
     # The league-code table exists twice on purpose (JSON for the API, a JS
     # mirror so the offline PWA can still render names). Two copies of one
     # rule drift silently — that is how dedupe_fixtures.py ended up with a
