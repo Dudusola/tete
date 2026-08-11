@@ -35,8 +35,18 @@ generate predictions on demand.
   cloud one at once, and `git pull` before touching the DB.
 - Render free tier SLEEPS after ~15 min idle (~50s cold start). Deploys are
   automatic on push to main (`render.yaml`).
-- Frontend deploy is manual: `wrangler pages deploy webapp --project-name potentialpro`.
-  **Bump `api.js?v=N` in all 5 HTML files first** or browsers serve stale JS.
+- **Frontend deploy is AUTOMATIC (11 Aug 2026)** —
+  `.github/workflows/deploy-webapp.yml` fires on any push touching `webapp/`.
+  It stamps `js/api.js?v=<sha256 prefix>` into all five HTML files itself, so
+  the manual version bump that used to cause the "Couldn't book" stale-JS bug
+  is gone: a content hash cannot be forgotten and cannot be wrong.
+  It needs `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID` secrets; without
+  them it SKIPS with a notice instead of failing. `wrangler pages deploy webapp
+  --project-name potentialpro` still works by hand if ever needed.
+- The API image now also ships `webapp/`, so Render serves the site at its own
+  origin as a fallback. `api/server.py` had always mounted it; the Dockerfile
+  simply never copied the directory, so the mount silently did nothing and the
+  Render root 404'd for months — the same allowlist trap as models/leagues.py.
 - Worker secrets (BOT_TOKEN, GITHUB_TOKEN, WEBHOOK_SECRET) are write-only —
   `wrangler secret list` shows names, never values. GITHUB_TOKEN is a
   fine-grained read-only PAT; when it expires `/picks` says "couldn't reach the
@@ -72,6 +82,18 @@ generate predictions on demand.
 - scrapers/predictz.py    Playwright scrape of PredictZ; odds→implied probs. Flaky; pipeline tolerates failure.
 - scrapers/results.py     REAL final scores from Forebet. Hardened vs Cloudflare (retries, stealth, --headed).
 - scrapers/results_api.py Final scores from football-data.org API (free tier). Cloudflare-immune. Covers big leagues only.
+- scrapers/clubelo.py     THE independent opinion. Elo ratings from api.clubelo.com (free, no key,
+                          not behind Cloudflare). GET /Fixtures returns a goal-difference distribution
+                          per fixture; summing it gives real H/D/A. Every OTHER source here is derived
+                          from bookmaker prices, so this is the only one that can disagree for a
+                          different reason — which is the whole point of consensus.
+                          OPINION SOURCE ONLY: attaches to matches we already have, never inserts a
+                          fixture (that is how bug #2's duplicates happened). Odds columns left NULL
+                          so predict.py cannot mistake a rating model for a market line.
+                          Covers European club football + UEFA comps; 6 of 28 fixtures on 11 Aug,
+                          rising with the European season. Retries 3s/6s/9s — the service is a hobby
+                          API and returned 502/200/reset on three consecutive probes. OPTIONAL in the
+                          pipeline, and it distinguishes "feed empty" (fails) from "no overlap" (fine).
 - scrapers/results_espn.py Final scores from ESPN public scoreboard API (no key). Third results source,
                           Cloudflare-immune; ~30 leagues football-data misses: MLS/USL, Liga MX, South
                           America (Arg 1+2, Bra 2, Ecu, Col, Uru, Par, Chi, Per), UEFA comps (qualifiers!),
@@ -490,6 +512,28 @@ unknown until the honest ledger matures.
 - **Build engine/API before frontend** so screens map to real endpoints.
 - **Consensus** should eventually be a badge on Picks + a confidence booster in the
   engine, not just a standalone screen. Standalone page kept for the transparency story.
+
+- **The analysis has a CLOUD fallback now (11 Aug 2026).** Ollama was the only
+  fallback and it runs on a laptop — useless to a pipeline executing in GitHub
+  Actions, so a Gemini outage meant no analysis at all with nothing to take
+  over. Added Groq (free tier, OPEN-WEIGHT Llama, OpenAI-compatible API), and
+  the chain FAILS OVER at call time rather than only at startup:
+  `Gemini -> Groq -> Ollama`. A provider consulted only when the primary's KEY
+  is missing is no use during an outage, which is the only case that matters.
+  Chosen for being open-weights and OpenAI-shaped: if Groq disappears, the same
+  code points at any compatible host by changing `GROQ_BASE`. Safe to swap
+  freely — analysis is EXPLANATION ONLY and can never move a probability.
+  Secret: `GROQ_API_KEY`.
+
+- **Everything is now hands-off — what runs itself, and when.**
+  | What | Trigger |
+  |---|---|
+  | Pipeline (fixtures -> predictions -> Telegram -> bot feed -> ledger commit) | `daily.yml`, cron 11:00 UTC |
+  | Evening results sweep | `results.yml`, cron 22:00 UTC |
+  | API redeploy | Render, on every push to main |
+  | Web app deploy + cache-bust | `deploy-webapp.yml`, on any push touching `webapp/` |
+  The only human step left is a one-time pair of Cloudflare secrets; until they
+  exist the deploy workflow skips with a notice rather than failing.
 
 ## What's next (priority order)
 1. **Let the honest ledger accumulate 2–3 weeks.** Highest value, zero work. Scheduler

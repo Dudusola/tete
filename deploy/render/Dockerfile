@@ -37,6 +37,18 @@ COPY deploy/render/sync_ledger.py deploy/render/app_entry.py ./
 # Data files models/leagues.py reads at import time.
 COPY data/league_codes.json ./data/league_codes.json
 
+# The web app. api/server.py already mounts this at "/" when the directory
+# exists — but the directory never existed in the image, so the mount silently
+# did nothing and the Render root returned 404 for months. Same allowlist trap
+# as models/leagues.py: a missing COPY fails quietly, it does not fail loudly.
+#
+# With this, EVERY push redeploys a frontend that is guaranteed to match the
+# API it ships with. Cloudflare Pages remains the primary host (always-on and
+# fast, where Render's free tier sleeps for ~50s), but this means the site can
+# never be silently stale relative to the API, and there is a working URL even
+# if a Pages deploy is skipped.
+COPY webapp/ ./webapp/
+
 # The ledger is committed to the repo, so it ships INSIDE the image — the API
 # has real data the moment it boots, with no network round-trip. sync_ledger
 # then refreshes it in the background so a long-running instance doesn't serve

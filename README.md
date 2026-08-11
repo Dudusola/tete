@@ -116,6 +116,8 @@ before touching it — it's binary and cannot be merged.
 | Forebet | fixtures + Over 2.5 % | **laptop only** — Cloudflare 403s all cloud IPs |
 | Gemini 3.5 Flash Lite | the written analysis | free tier; Ollama/Gemma is the offline fallback |
 | SportyBet / MSport / Bet9ja | booking codes (read AND write) | unofficial APIs; Bet9ja uses its own ids, not Betradar |
+| **ClubElo** | **independent H/D/A probabilities** | free, no key; an Elo model built from RESULTS — the only source here that has never seen a bookmaker line |
+| Groq (Llama, open-weights) | analysis fallback | free tier; fires only if Gemini fails |
 
 Analysis is **explanation only, never the predictor**. Swapping the LLM cannot
 affect calibration.
@@ -244,17 +246,35 @@ The market check earns its place immediately: it caught a bug on its first run
 
 ## Operating it — what a new team member needs to know
 
-**Nothing depends on a laptop.** GitHub Actions runs the pipeline at 11:00 UTC
-(12:00 Lagos), commits the ledger to this repo, pushes to Telegram, and
-publishes the bot feed. Render redeploys the API on every push to `main`. The
-web app is the only manual deploy:
+**Nothing depends on a laptop, and nothing needs running by hand.**
+
+| What happens | When |
+|---|---|
+| Pipeline: fixtures → predictions → Telegram → bot feed → ledger commit | `daily.yml`, cron **11:00 UTC** (12:00 Lagos) |
+| Evening results sweep | `results.yml`, cron **22:00 UTC** |
+| API redeploy | Render, on every push to `main` |
+| Web app deploy **and** cache-bust | `deploy-webapp.yml`, on any push touching `webapp/` |
+
+The `api.js?v=N` cache-bust used to be a manual edit across five files, and
+forgetting it served stale JavaScript against new HTML — the cause of a real
+"Couldn't book" bug. CI now stamps a **content hash** instead: it cannot be
+forgotten and cannot be wrong. Identical file → identical query string, so
+caching still works; changed file → new string, so nobody sees stale JS.
+
+**One-time setup, the only human step left.** The deploy workflow needs
+Cloudflare credentials; until they exist it skips with a notice instead of
+failing, so nothing breaks in the meantime:
 
 ```bash
-npx wrangler pages deploy webapp --project-name potentialpro
+# Cloudflare dashboard -> My Profile -> API Tokens -> Create Token
+# (template "Edit Cloudflare Workers", or Account | Cloudflare Pages | Edit)
+gh secret set CLOUDFLARE_API_TOKEN  --body "<token>"
+gh secret set CLOUDFLARE_ACCOUNT_ID --body "<account id>"
 ```
 
-**Bump `api.js?v=N` in all five HTML files before deploying**, or browsers
-serve stale JavaScript. This has caused real bugs.
+Use `--body`, never a pipe: PowerShell 5.1 prepends a BOM that breaks the value
+server-side. Manual deploy still works if ever needed:
+`npx wrangler pages deploy webapp --project-name potentialpro`.
 
 ### How it fails, and how to tell
 
@@ -297,15 +317,21 @@ The health check answers "did fresh rows land?", which is the right question.
 
 ## Known limitations
 
-- **Consensus is currently blind.** It needs two sources with usable H/D/A
-  percentages; right now only ESPN qualifies, because PredictZ leaves those
-  columns NULL whenever it has no odds and API-Football's account is suspended
-  (twice — the second within hours of being wired in, well under quota). The
-  Consensus page says so itself rather than rendering an empty screen.
-  **The deeper point:** ESPN and PredictZ both price off the same bookmaker
-  markets, so even when both are present, "2 sources agree" is two views of one
-  market — not two independent opinions. Forebet was the genuinely independent
-  model and it cannot run in the cloud.
+- **Consensus now has a genuinely independent second opinion — but thin
+  coverage.** Until 11 Aug every source traced back to bookmaker prices
+  (PredictZ publishes odds-derived percentages; the ESPN rows are odds
+  converted), so "2 sources agree" meant two views of one market. **ClubElo**
+  fixes the independence: an Elo model built from results, which has never seen
+  a line. First run produced exactly what independence should — three
+  agreements and one genuine disagreement (Slovan Bratislava: ESPN home,
+  ClubElo away). Two market-derived feeds almost never disagree, which is why
+  the old consensus looked reassuring and said nothing.
+  **The remaining limit is coverage**: ClubElo covers European club football
+  and the UEFA competitions, so it matched 6 of 28 fixtures during a Scottish
+  Challenge Cup week. That rises with the European season. API-Football is
+  still suspended and Forebet still cannot run in the cloud (re-probed 11 Aug:
+  HTTP 403 from Actions on plain requests, Chromium *and* Firefox — IP
+  reputation, so no stealth work will fix it).
 - **Forebet cannot run in the cloud.** Cloudflare 403s GitHub Actions (plain
   HTTP, Chromium *and* Firefox) and blocks Workers with error 1042. Verified
   exhaustively — don't re-test without a budget for a residential proxy. It

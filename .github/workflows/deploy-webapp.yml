@@ -1,0 +1,74 @@
+# Deploy the web app automatically.
+#
+# This was the last manual step in the whole system. Everything else already
+# runs itself: the pipeline is on cron, the ledger commits itself, Telegram and
+# the bot feed publish from the pipeline, and Render redeploys the API on every
+# push. The frontend needed someone to remember two commands, in order, by hand
+# — and forgetting the first one (the cache-bust) shipped stale JavaScript,
+# which has caused real bugs before.
+#
+# ONE-TIME SETUP (the only thing a human has to do):
+#   1. Cloudflare dashboard -> My Profile -> API Tokens -> Create Token
+#      Template "Edit Cloudflare Workers", or a custom token with
+#      Account | Cloudflare Pages | Edit
+#   2. gh secret set CLOUDFLARE_API_TOKEN --body "<token>"
+#      gh secret set CLOUDFLARE_ACCOUNT_ID --body "<account id>"
+#      (--body, never a pipe: PowerShell 5.1 prepends a BOM that breaks the
+#      value server-side. Recorded in CLAUDE.md's gotchas.)
+#
+# Until those secrets exist this workflow skips cleanly rather than failing, so
+# adding it changes nothing until it is ready to work.
+
+name: Deploy web app
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'webapp/**'
+      - '.github/workflows/deploy-webapp.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The cache-bust, computed rather than remembered.
+      #
+      # webapp/js/api.js is loaded as "js/api.js?v=N" and N was bumped by hand.
+      # Forgetting it makes browsers serve the OLD script against NEW HTML,
+      # which is how the "Couldn't book" bug happened. A content hash cannot be
+      # forgotten and cannot be wrong: identical file, identical query string,
+      # so caches still work; changed file, new string, so nobody sees stale JS.
+      - name: Stamp api.js with a content hash
+        run: |
+          HASH=$(sha256sum webapp/js/api.js | cut -c1-10)
+          echo "api.js hash: $HASH"
+          sed -i -E "s|js/api\.js\?v=[A-Za-z0-9]+|js/api.js?v=$HASH|g" webapp/*.html
+          grep -o 'js/api\.js?v=[A-Za-z0-9]*' webapp/index.html | head -1
+
+      - name: Check deploy credentials
+        id: creds
+        env:
+          TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -n "$TOKEN" ] && [ -n "$ACCOUNT" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set — skipping deploy. See the header of this workflow for the one-time setup."
+          fi
+
+      - name: Publish to Cloudflare Pages
+        if: steps.creds.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy webapp --project-name potentialpro
