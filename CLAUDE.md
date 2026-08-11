@@ -775,6 +775,27 @@ unknown until the honest ledger matures.
    nothing. Anything beyond that is degrading picks to look bespoke.
 
 10. DEFERRED until football is validated: second sport, real booking codes.
+    **Basketball groundwork is DONE and written up — see `docs/basketball.md`
+    (11 Aug 2026).** Research only; nothing is wired into the pipeline. Probed
+    live, so it is fact not plan: ESPN's NBA scoreboard has the IDENTICAL
+    payload shape we already parse (so kickoff_times/results_espn/live_scores
+    port with a slug change) and carries completed scores back to 2010 (~18k
+    games, free training history); SportyBet basketball works off the same
+    endpoint and Betradar ids with `sportId=sr:sport:2`; `stats.nba.com` — the
+    source the popular reference repo depends on — TIMES OUT even from Boss's
+    own IP. The reference repo (kyleskom) has **no license**, so its code
+    cannot be reused commercially; take the ideas (days-rest feature, a
+    separate totals model), not the code.
+    **THE TRAP, confirmed by probe:** SportyBet basketball reuses market ids
+    1 / 11 / 18, but for basketball those are **REGULATION ONLY** — full-game
+    markets are 219 (Winner incl. OT), 223 (Handicap), 225 (O/U). The tell is
+    that basketball market 1 has a DRAW outcome, which is impossible unless
+    the clock stops at the 4th quarter. Reusing the football ids would book
+    real codes on regulation markets and grade them against final scores that
+    include overtime — bug #1's shape, silent, and only wrong on OT games.
+    Load-bearing unknown, answerable only in season (NBA starts late Oct 2026):
+    does ESPN carry NBA ODDS? If not, predict.py rightly refuses to invent a
+    prior and would generate zero picks. Check that FIRST.
 
 ## Gotchas
 - PowerShell `Out-File` writes null bytes → "source code string cannot contain null bytes". Use New-Item for empty files.
