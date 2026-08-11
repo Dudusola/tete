@@ -143,12 +143,74 @@ def ledger_health() -> list[str]:
         if recent_results == 0:
             problems.append("no results recorded in 3 days - the ledger is stalled")
         problems += source_health(conn)
+        problems += coverage_health(conn)
     except sqlite3.Error as e:
         problems.append(f"health check could not read DB: {e}")
     finally:
         if conn is not None:
             conn.close()
     return problems
+
+
+def coverage_health(conn) -> list[str]:
+    """Grading COVERAGE is a health metric, not a statistic.
+
+    This is bug #8 wearing a monitor. The pipeline ran daily, scored promptly,
+    reported green — and half the ledger was silently never graded, because a
+    handful of ESPN league slugs were missing. The tier percentages were
+    computed on the flattering half; when the backfill landed, HIGH fell from
+    57% to 38%. Nothing in the system had noticed, because "did today's run
+    record results?" was answered yes, and that was the only question asked.
+
+    So ask the other one: of everything old enough to have a result, what
+    share actually has one? That number degrades the moment a results source
+    quietly loses a competition, which is precisely the failure that hides.
+
+    Picks in leagues we KNOW we cannot verify are excluded from the ratio.
+    They are a limit, not a regression, and leaving them in would keep the
+    alarm on permanently — the noise trap of bug #14.
+    """
+    try:
+        conn.row_factory = sqlite3.Row
+        from models.gradeability import overall_coverage
+        cov = overall_coverage(conn)
+    except Exception as e:                       # never take the run down
+        return [f"coverage check failed to run: {e}"]
+
+    if not cov["eligible"] or cov["pct"] is None:
+        return []
+
+    # Coverage excluding the leagues we already know are unreadable — the
+    # part that is genuinely supposed to be gradeable.
+    fixable_eligible = cov["eligible"] - cov["untracked_picks"]
+    fixable_graded = cov["graded"]
+    if fixable_eligible <= 0:
+        return []
+    pct = fixable_graded / fixable_eligible * 100
+
+    # The floor is 75%, and it was chosen from measurement rather than taste.
+    #
+    # On 11 Aug 2026 a full ESPN backfill (--days 30, 54 results recorded) took
+    # coverage to 83.7% of gradeable picks and could reach no further. The
+    # residual is a thin spread — 5 picks here, 2 there, across a dozen
+    # competitions — not one lost league. So ~84% is what "working normally"
+    # looks like, and a floor at 85% would have fired every single day.
+    #
+    # That is not a harmless false alarm. A check that is red every day is
+    # noise, and noise is what hid a real outage in bug #14. Set the bar where
+    # crossing it MEANS something: below 75% a whole competition has gone
+    # unreadable, which is the bug-#8 shape this exists to catch.
+    #
+    # Deliberately no cause in the message. The last time an alert here named
+    # a cause it had not checked ("Ledger conflict — another writer touched
+    # the DB") it was wrong and cost a day of diagnosis.
+    if pct < 75:
+        return [f"grading coverage has fallen to {pct:.0f}% "
+                f"({fixable_graded}/{fixable_eligible} gradeable picks "
+                f"scored; ~84% is normal). Cause unknown — run "
+                f"`python models/gradeability.py` to see which league "
+                f"stopped being scored."]
+    return []
 
 
 def source_health(conn) -> list[str]:

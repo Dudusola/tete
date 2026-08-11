@@ -33,6 +33,7 @@ from models.markets import (derive_markets, build_slip, accumulator_probability,
                             kickoff_passed, teams_key)
 from scrapers.booking_codes import attach_sporty_odds
 from models.leagues import pretty_league
+from models.gradeability import overall_coverage
 from models.live_scores import attach as attach_live_scores
 from models.consensus import (build_consensus, _same_match, _sim,
                               _dates_close, same_teams)
@@ -579,6 +580,11 @@ def get_stats():
         WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
                        WHERE mp2.match_id = mp.match_id)
     """).fetchone()
+    # Grading coverage — the error bar on every number below it. A hit rate is
+    # a claim about the picks we could check, and the ones we couldn't are not
+    # a random sample (bug #8: the missing half was mostly losses). Publishing
+    # the accuracy without the coverage is how that went unnoticed for weeks.
+    coverage = overall_coverage(conn)
     conn.close()
 
     total = row["total"] or 0
@@ -607,6 +613,8 @@ def get_stats():
         "draws": draws,
         "draw_pct": round(draws / all_total * 100, 1) if all_total else None,
         "ceiling_pct": round((all_total - draws) / all_total * 100, 1) if all_total else None,
+        # {eligible, graded, pct, ungraded, untracked_leagues, untracked_picks}
+        "coverage": coverage,
     }
 
 

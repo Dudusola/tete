@@ -85,6 +85,14 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
      invented figures. -->
 <p id="draw-ceiling" class="hidden mt-lg mx-gutter md:mx-0 p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
 
+<!-- Grading coverage — the error bar on every figure above. A hit rate only
+     describes the picks we could verify, and the unverifiable ones are not a
+     random sample: when the missing half of the ledger was finally backfilled
+     (bug #8) the HIGH tier fell from 57% to 38%, because what was missing was
+     mostly losses. Publishing the rate without the coverage is how that hid.
+     A credibility page has to state what it did NOT check. -->
+<p id="coverage-note" class="hidden mt-md mx-gutter md:mx-0 p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+
 <!-- Weekly trend. A lifetime percentage hides everything that matters —
      whether calibration is improving, whether a change helped, whether a good
      month is carrying a bad one. Single series, so no legend: the heading
@@ -306,6 +314,32 @@ async function loadRecord() {
                 `avoid. So the best achievable hit rate on this ledger is ${overall.ceiling_pct}%, ` +
                 `not 100%.`;
             ceil.classList.remove("hidden");
+        }
+
+        // Grading coverage. Stated plainly, including the part we cannot
+        // check — a track record that only reports its successes at being
+        // checked is the same trap as reporting only the picks that won.
+        const cov = overall.coverage;
+        const covEl = document.getElementById("coverage-note");
+        if (covEl && cov && cov.pct != null) {
+            const untracked = (cov.untracked_leagues || []);
+            let extra = "";
+            if (untracked.length) {
+                extra =
+                    ` Of those, ${cov.untracked_picks} sit in ` +
+                    `${untracked.length === 1 ? "a league" : "leagues"} whose results ` +
+                    `are never published where we can read them ` +
+                    `(${untracked.map(prettyLeague).join(", ")}) — we do not expect ` +
+                    `to be able to grade them at all.`;
+            }
+            covEl.innerHTML =
+                `<strong class="text-primary">${cov.pct}% of the ledger was actually checked.</strong> ` +
+                `${cov.graded} of ${cov.eligible} predictions old enough to have a result ` +
+                `have been graded against a real full-time score. The remaining ` +
+                `${cov.ungraded} are not counted in any number on this page — neither as ` +
+                `wins nor losses.${extra} ` +
+                `Read every percentage above as a figure over the ${cov.pct}% we could verify.`;
+            covEl.classList.remove("hidden");
         }
 
         renderTrend();
