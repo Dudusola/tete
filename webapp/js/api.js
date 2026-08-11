@@ -62,6 +62,12 @@ const API_BASE = (function () {
         background:#f7f9fb; box-shadow:0 2px 8px rgba(0,0,0,0.18); }
       html.dark #theme-toggle-mobile.floating { background:#1d2022; }
       @media (min-width:768px) { #theme-toggle-mobile { display:none !important; } }
+      /* Mobile brand bar. Scoped to the mobile breakpoint so it can never
+         override the element's own md:hidden and duplicate the desktop logo. */
+      @media (max-width:767px) {
+        header.pp-brand-bar { display:flex; align-items:center;
+                              justify-content:space-between; }
+      }
       /* Mobile bottom-nav active state (replaces the old "More" sheet) */
       nav[class*="md:hidden"] a.pp-nav-on { position:relative; }
       nav[class*="md:hidden"] a.pp-nav-on::before { content:""; position:absolute; top:0;
@@ -209,9 +215,13 @@ const API_BASE = (function () {
         if (brandBar && !document.getElementById("theme-toggle-mobile")) {
             // Appended to the HEADER, never to its first child — that child is
             // the brand link, so a toggle inside it would also navigate home.
-            brandBar.style.display = "flex";
-            brandBar.style.alignItems = "center";
-            brandBar.style.justifyContent = "space-between";
+            //
+            // Layout comes from a CLASS, never an inline style. Setting
+            // `style.display = "flex"` here beat the element's own md:hidden
+            // rule — inline styles outrank stylesheet rules — so this mobile
+            // header stayed visible on desktop and the page showed TWO logos:
+            // this one and the desktop nav's.
+            brandBar.classList.add("pp-brand-bar");
             brandBar.appendChild(makeBtn("theme-toggle-mobile"));
         }
 
