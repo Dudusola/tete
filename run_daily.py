@@ -144,12 +144,61 @@ def ledger_health() -> list[str]:
             problems.append("no results recorded in 3 days - the ledger is stalled")
         problems += source_health(conn)
         problems += coverage_health(conn)
+        problems += analysis_health(conn)
     except sqlite3.Error as e:
         problems.append(f"health check could not read DB: {e}")
     finally:
         if conn is not None:
             conn.close()
     return problems
+
+
+def analysis_health(conn) -> list[str]:
+    """Are the picks we SERVE actually carrying their written analysis?
+
+    The analysis steps are OPTIONAL by design — prose is not prediction, and a
+    provider outage should not cost a day of picks. But "optional" has a
+    failure mode this project knows well: the run goes green while a whole
+    capability is silently gone, and the first person to notice is a user
+    looking at a blank explanation (bugs #5, #8, #9, #11 are all this shape).
+
+    The provider chain is Gemini -> Groq -> Ollama with failover at CALL time,
+    so all three must fail for this to fire. That is worth an alert.
+
+    Only served picks (HIGH/MEDIUM) count. LOW picks are never published, and
+    writing prose for them would burn free-tier quota on text nobody reads.
+    """
+    try:
+        rows = conn.execute("""
+            WITH latest AS (SELECT MAX(id) AS id FROM model_predictions
+                            GROUP BY match_id)
+            SELECT COUNT(*) AS n,
+                   SUM(CASE WHEN mp.gemma_analysis IS NULL
+                             OR TRIM(mp.gemma_analysis) = '' THEN 1 ELSE 0 END)
+                       AS blank
+            FROM model_predictions mp
+            JOIN latest l ON l.id = mp.id
+            JOIN matches m ON m.match_id = mp.match_id
+            WHERE m.match_date >= date('now')
+              AND mp.confidence IN ('HIGH','MEDIUM')
+        """).fetchone()
+    except sqlite3.Error as e:
+        return [f"analysis check could not read DB: {e}"]
+
+    total = (rows["n"] if hasattr(rows, "keys") else rows[0]) or 0
+    blank = (rows["blank"] if hasattr(rows, "keys") else rows[1]) or 0
+    if not total:
+        return []
+
+    # A few blanks are normal and self-healing: a fixture whose odds vanished
+    # cannot be re-predicted, so backfill_analysis.py fills the prose instead.
+    # Half of them blank means the provider chain itself is down.
+    if blank / total >= 0.5:
+        return [f"{blank} of {total} served picks have NO written analysis - "
+                f"all three providers (Gemini/Groq/Ollama) likely failed. "
+                f"Picks are still valid; run "
+                f"`python analysis/backfill_analysis.py` to fill them."]
+    return []
 
 
 def coverage_health(conn) -> list[str]:
