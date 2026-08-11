@@ -31,50 +31,57 @@ after a quiet spell takes ~50 seconds. Not a bug.
 
 ## Current status — read this before quoting any number
 
-Figures below are from `db/track_record_health.py` on 8 Aug 2026. Regenerate
-them rather than trusting this table — the ledger moves daily.
+Figures below were regenerated on **11 Aug 2026**. Regenerate them rather than
+trusting this table — the ledger moves daily, and this file goes stale between
+commits by design.
 
 | Tier | Record | Hit rate | 95% confidence interval |
 |---|---|---|---|
-| HIGH | 16/24 | **67%** | 47–82% |
-| MEDIUM | 24/40 | **60%** | 45–74% |
-| LOW | 61/109 | 56% | 47–65% |
-| **Overall** | **101/173** | **58%** | 51–65% |
+| HIGH | 28/37 | **76%** | 60–87% |
+| MEDIUM | 39/63 | **62%** | 50–73% |
+| LOW | 83/158 | **53%** | 45–60% |
+| **All tiers** | **150/258** | **58%** | 52–64% |
 
 | | |
 |---|---|
-| Graded picks | **173** |
-| Grading coverage | **173 of 270** predicted matches (64%) |
-| Ready for testers? | **No** — need ~30+ in the HIGH tier; it has 24 |
+| Graded picks | **258** |
+| Served picks (HIGH+MEDIUM, the ones published as bets) | 67/100 = **67%** |
+| Ready for testers? | **Not yet** — see "what would change that" below |
 
-The tiers now rank in the right order — HIGH above MEDIUM above LOW — but the
-intervals overlap heavily, so treat that ordering as *not yet contradicted*
-rather than *demonstrated*. Twenty-four HIGH samples cannot establish a 67% hit
-rate; the honest reading of that row is "somewhere between 47% and 82%".
+**Read the ceiling before judging any of these numbers.** The model has never
+once rated a draw as the most likely result — 0 of ~360 predictions — while
+**58 of 258 graded matches (22.5%) ended level**. Every draw is a loss it
+cannot avoid, so the maximum achievable hit rate on this ledger is **77.5%**,
+not 100%. HIGH at 76% is therefore running at ~98% of what is reachable, which
+is a very different sentence from "76 out of 100".
 
-**How this number has moved, because the history is the point:**
+**How the headline has moved, because the history is the point:**
 
 | When | HIGH | What changed |
 |---|---|---|
 | July (training eval) | ~75% | never real — measured on training data |
 | Late July | 57% | first honest grading |
 | 6 Aug | 38% | fixed a results-coverage gap (bug #8) |
-| 8 Aug | 67% | fixed a second coverage gap — see below |
+| 8 Aug | 67% | fixed a second coverage gap |
+| 11 Aug | 76% | fixed a grading MATCHER, not the model (see below) |
 
-Twice now the headline number has moved sharply, and **both times the model was
-unchanged**. What moved was which matches we could grade. On 8 Aug the results
-scraper turned out to be querying 35 ESPN leagues while the kickoff enrichment
-queried 66 — `eng.league_cup` was missing, so 184 finished EFL Cup ties were
-never scored. Backfilling them recovered 85 results and took coverage from 43%
-to 64%.
+**Four times the headline moved sharply and the model was unchanged every
+time.** What moved was which matches could be graded. The most recent: the
+grading matcher compared raw strings, so "Cardiff" never matched "Cardiff
+City" and 11 of 14 EFL Cup ties sat ungraded while ESPN had every score. That
+omission was not random — it was "clubs whose short name differs from the
+feed's", overwhelmingly English — so the tier percentages were computed on a
+biased sample.
 
-So the "HIGH is broken, it's below MEDIUM" worry that dominated late July was
-largely an artefact of a non-random omission, not a modelling failure.
+**The lesson, stated once and enforced in code:** a tier percentage is
+meaningless if the picks it omits are not random. Run
+`python db/track_record_health.py` — it reports **coverage**, not just cadence
+— before quoting any accuracy figure anywhere.
 
-**The lesson, stated once here and enforced in code:** a tier percentage is
-meaningless if the picks it omits aren't random. Run
-`python db/track_record_health.py` — it reports **coverage**, not just cadence —
-before quoting any accuracy figure anywhere.
+**What would make this ready for testers:** HIGH has passed the 30-sample gate
+(37 graded). The remaining blocker is not the number, it is that consensus is
+currently blind — see Known limitations. Two independent opinions are what the
+"cross-checked" story rests on.
 
 The old claim of "HIGH ≈ 75%" came from training-set evaluation, not graded
 results. Don't repeat it.
@@ -105,9 +112,10 @@ before touching it — it's binary and cannot be merged.
 | PredictZ | fixtures + odds (primary) | Playwright **Firefox** — Chromium gets challenged |
 | ESPN API | kickoff times, live state, results | keyless, no quota, the most reliable dependency |
 | football-data.org | results (big leagues) | free key; free tier has **no odds** |
-| API-Football | fixtures + odds (secondary) | free tier, easily rate-limited; optional |
+| API-Football | fixtures + odds (secondary) | **account suspended — twice.** Step is OPTIONAL; see limitations |
 | Forebet | fixtures + Over 2.5 % | **laptop only** — Cloudflare 403s all cloud IPs |
 | Gemini 3.5 Flash Lite | the written analysis | free tier; Ollama/Gemma is the offline fallback |
+| SportyBet / MSport / Bet9ja | booking codes (read AND write) | unofficial APIs; Bet9ja uses its own ids, not Betradar |
 
 Analysis is **explanation only, never the predictor**. Swapping the LLM cannot
 affect calibration.
@@ -193,42 +201,153 @@ plausible-looking numbers rather than errors.
   targets, and text overflow on ≤380px screens.
 - LIVE badge on in-play matches; kickoff times shown in the viewer's timezone.
 
+### 9–11 August: silent failures, and one loud one
+
+Almost everything here was a system reporting success while doing nothing. The
+pattern is the point — none of it threw an error.
+
+- **Consensus returned 0 covered fixtures.** Not a data drought: the query took
+  `MAX(id)` per source, and PredictZ writes rows with NULL percentages when it
+  has no odds, so a newer empty row silently deleted an older real one.
+  0/19 → 19/19 after filtering inside the subquery.
+- **The deduper had crashed on every run for six consecutive runs.** It read a
+  column the query never selected. The step was non-fatal, so every run
+  reported success while duplicate fixtures accumulated — one real match was
+  counted twice in the track record.
+- **The grading matcher never matched short club names.** "Cardiff" vs "Cardiff
+  City" scored 0.65 on raw string similarity. Eleven of fourteen EFL Cup ties
+  sat ungraded with ESPN holding every score. Fixing it recorded 57 results in
+  one run. This was the **third** private copy of a team matcher found in the
+  codebase; all now delegate to the one in `models/consensus.py`.
+- **A pulsing "LIVE" badge on matches that finished 12 hours earlier.**
+  `live_state` is a snapshot, not a feed, and never expired. It does now.
+- **The Builder's goals markets were fiction** — the predicted *scoreline*
+  (an integer) was being used as an expected-goals *rate*, pricing "Under 2.5"
+  at 91% while bookmakers had it near even money. Caught by Boss from the
+  betting side, not by the code.
+- **The whole product went dark for a day** — and the pipeline was working. See
+  bug #14 in CLAUDE.md; two of the three faults were introduced by the previous
+  day's reliability "improvement".
+
+Added in the same window: booking-code generation for **Bet9ja** (contract
+recovered from their JS bundle, not a devtools capture), slip tools (split /
+trim weak legs / convert / merge), live and final scores on started matches, a
+**market check** showing the bookmaker's price beside our own probability on
+every pick, a league filter, a weekly hit-rate chart, and a five-item mobile
+menu that replaced a hamburger sheet.
+
+The market check earns its place immediately: it caught a bug on its first run
+(ours, in the glue code) and now shows our numbers tracking SportyBet within
+±8 points — quiet, continuous validation that the 1X2 model is calibrated.
+
+---
+
+## Operating it — what a new team member needs to know
+
+**Nothing depends on a laptop.** GitHub Actions runs the pipeline at 11:00 UTC
+(12:00 Lagos), commits the ledger to this repo, pushes to Telegram, and
+publishes the bot feed. Render redeploys the API on every push to `main`. The
+web app is the only manual deploy:
+
+```bash
+npx wrangler pages deploy webapp --project-name potentialpro
+```
+
+**Bump `api.js?v=N` in all five HTML files before deploying**, or browsers
+serve stale JavaScript. This has caused real bugs.
+
+### How it fails, and how to tell
+
+The pipeline grades its own steps. Read `run_daily.py`'s severity block first —
+it is the single most useful thing to understand about operations.
+
+| Level | Meaning | Examples |
+|---|---|---|
+| `CRITICAL` | aborts the run; downstream would build on bad data | Generate predictions; "every fixture source failed" |
+| `DEGRADED` | run continues but ends **red** and alerts | PredictZ, results scrapers, dedupe, kickoff times |
+| `OPTIONAL` | logged, never red — needs a written justification | Forebet (IP-blocked by design), API-Football, analysis backfill |
+
+**Do not mark a step OPTIONAL to silence an alert.** The bar is "there is a
+real fallback", not "it fails a lot". That distinction is the difference
+between an alert that means something and one everybody ignores.
+
+**Two traps that have already bitten, both recorded as bug #14:**
+
+1. **A red run SKIPS steps.** GitHub's default is "run only if everything
+   before succeeded". When failures started turning runs red, the Telegram
+   push and bot feed were silently skipped — the picks existed, nobody was
+   told. Anything that must happen regardless needs `if: always()`.
+2. **The ledger push can fail while everything else works.** `data/historical/*.csv`
+   are tracked and get rewritten by the CSV refresh step, which once blocked
+   `git pull --rebase` and threw away a whole day of predictions — under an
+   error message that wrongly blamed a second writer.
+
+### First things to check when something looks wrong
+
+```bash
+gh run list --workflow=daily.yml -L 5        # did it run, and was it green?
+python db/track_record_health.py             # coverage + freshness, not cadence
+curl -s .../api/picks | head                 # is the API serving today's data?
+```
+
+The health check answers "did fresh rows land?", which is the right question.
+"Did the last run succeed?" is not — a run can succeed and write nothing.
+
 ---
 
 ## Known limitations
 
+- **Consensus is currently blind.** It needs two sources with usable H/D/A
+  percentages; right now only ESPN qualifies, because PredictZ leaves those
+  columns NULL whenever it has no odds and API-Football's account is suspended
+  (twice — the second within hours of being wired in, well under quota). The
+  Consensus page says so itself rather than rendering an empty screen.
+  **The deeper point:** ESPN and PredictZ both price off the same bookmaker
+  markets, so even when both are present, "2 sources agree" is two views of one
+  market — not two independent opinions. Forebet was the genuinely independent
+  model and it cannot run in the cloud.
 - **Forebet cannot run in the cloud.** Cloudflare 403s GitHub Actions (plain
-  HTTP, Chromium *and* Firefox) and blocks Cloudflare Workers with error 1042.
-  Verified exhaustively — don't re-test it without a budget for a residential
-  proxy. It still runs locally, where it works.
-- **~5 of 18 displayed picks show "time tbc"** — leagues ESPN doesn't carry.
-- **Grading coverage is 64%** (173 of 270), up from 43% after the ESPN league
-  lists were unified. The remaining 34 ungraded matches are leagues with no
-  working results source (Veikkausliiga, Superettan, Copa Sudamericana).
-  Aligning predicted leagues with scoreable ones is the fix, not re-keying —
-  and `scrapers/espn_leagues.py` is now the single list both the results
-  scraper and the kickoff enrichment read, so they can't drift apart again.
-- Telegram bot: `/picks`, `/slip` (with a SportyBet booking code attached),
-  `/stats`, `/help`. Inline buttons and Telegram's command menu mean a new user
-  needs no prior knowledge. `/slip` calls the real API rather than rebuilding
-  build_slip in JavaScript, so it cannot drift from the engine.
-- Booking-code generation is **verified working** from both the laptop and
-  Render (codes UFDQE5 and ZW74P1 loaded in SportyBet). SportyBet does not
-  geo-block Render's European IPs.
+  HTTP, Chromium *and* Firefox) and blocks Workers with error 1042. Verified
+  exhaustively — don't re-test without a budget for a residential proxy. It
+  still runs locally, where it works.
+- **The goals markets are approximate.** Over/Under, BTTS and Handicap come
+  from a Poisson matrix whose TOTAL is a league-average prior, not a modelled
+  number. They are accurate in aggregate (within a point of real football at
+  every line) but carry no per-match edge. Handicap is derived from the model's
+  own win probabilities and does move per fixture; Over/Under barely does.
+  Fixing it properly needs team attack/defence rates or the bookmaker's own
+  line — not the predicted scoreline, which is an integer and was once fed in
+  as a rate, producing "Under 2.5 at 91%, LOW RISK" against a bookmaker price
+  near even money.
+- **Bet9ja has no Draw No Bet and no Handicap** (surveyed across 24 live
+  events). Since slips lean on exactly those, a typical slip only partially
+  maps; unmappable legs are reported, never bent onto a neighbouring market.
+- **1xbet is unreachable**: Cloudflare on `.com`, HTTP 406 on `.ng`.
+- Booking codes: read **and** write on SportyBet, MSport and Bet9ja; read-only
+  on football.com and Betano. Slip tools (split, trim weak legs, convert,
+  merge) live on the Checker page.
 
 ---
 
 ## What's next (priority order)
 
-1. **Let `rf_v1e` accumulate two weeks.** Zero work, highest value. The pipeline
-   runs itself now.
-2. **Investigate the HIGH-tier inversion** once the sample supports it. Candidate
-   fixes: raise the HIGH threshold from ≥65% to ~72%, and/or league-aware
-   confidence. Do not hard-change calibration on 13 samples.
+1. **Get a second independent source back.** This is now the top item — it
+   blocks the consensus story and the tester invite. Options: resolve the
+   API-Football account, pay for a residential proxy so Forebet works in the
+   cloud, or find a new source that publishes its own probabilities.
+2. **Let the ledger keep accumulating.** Zero work, high value.
 3. **Close the grading-coverage gap** — align predicted leagues with scoreable
-   ones.
-4. Model-vs-source tracker on real results — validates the core premise.
-5. Web push notifications (designed, deferred — Telegram already pushes daily).
+   ones. `scrapers/espn_leagues.py` is the single list both the results scraper
+   and the kickoff enrichment read, so they cannot drift apart again.
+4. **A real goals signal** (team attack/defence rates), which would make the
+   Over/Under markets carry actual information.
+5. Model-vs-source tracker on real results — validates the core premise.
+6. Web push notifications (designed, deferred — Telegram already pushes daily).
+
+**Settled, so nobody reopens it:** the "raise the HIGH threshold to ~72%" plan
+is withdrawn. It came from the 65–70% band looking weak on 7 samples; with 37
+graded HIGH picks that band sits at 73% and the tier ranks correctly. Leave the
+threshold at ≥65%.
 
 **Do not invite testers until the track record is real.** Credibility is
 one-shot, and the ledger builds itself for free while you wait.

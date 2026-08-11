@@ -337,6 +337,49 @@ unknown until the honest ledger matures.
       Now "Recently kicked off", with a per-row day label ("Yesterday 23:15").
       **When a query deliberately spans two days, the LABEL has to say so.**
 
+14. **The whole product went dark for a day — and the pipeline was working
+    (11 Aug 2026).** Boss: "the pipeline did not run this morning, telegram not
+    working, website no work." All three symptoms, one silent cause, and two of
+    the three faults were introduced by the previous day's "improvement".
+
+    The 10 Aug run did its job: PredictZ scraped 63 matches, kickoff times
+    landed, predictions were generated, the ledger was committed locally. Then:
+
+        error: cannot pull with rebase: You have unstaged changes.
+        ##[error]Ledger conflict — another writer touched the DB.
+
+    **That error message was a lie and cost diagnosis time.** There was no
+    second writer. `data/historical/*.csv` are TRACKED (92 files) and the
+    "Refresh training CSVs" step rewrites them, so the worktree had unstaged
+    changes and `git pull --rebase` refused. The push never happened, so a full
+    day of fixtures and predictions was computed and thrown away. The site then
+    had 0 upcoming matches and honestly showed nothing.
+    FIX: stage the refreshed CSVs (they are part of what the job produces) and
+    `git pull --rebase --autostash`.
+    **Never write an error message that asserts a cause you have not checked.**
+
+    SECOND FAULT (mine, from bug-13's severity work): "Send picks to Telegram"
+    and "Publish bot feed" carried no `if:`, so they inherit GitHub's default
+    "run only if every previous step succeeded". The moment DEGRADED steps
+    started exiting non-zero, a tolerable data-source outage silently became a
+    total user-facing one — the picks existed, nobody was told. Both are now
+    `if: always()`.
+    **Making a run RED is only safe once you have checked what a red run
+    SKIPS. I verified exit codes and never looked at the skip list.**
+
+    THIRD: API-Football was DEGRADED, so it failed the run every single day —
+    and that daily red is what skipped Telegram. Now OPTIONAL, and dropped from
+    source_health's expected set. Its coverage is already replaced (fixtures ->
+    PredictZ, odds -> ESPN via kickoff_times). What is genuinely lost is
+    INDEPENDENCE: ESPN and PredictZ both price off the same bookmaker markets,
+    so consensus between them is two views of one market, not two opinions.
+    **A step that is red every day is not a signal, it is noise — and noise is
+    not harmless, it hid a real outage here.**
+
+    Related: the "consensus is blind" health check now grades by COUNT —
+    0 sources fails the run, 1 warns, 2+ is healthy — instead of failing daily
+    for a condition we already know about.
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
