@@ -573,6 +573,21 @@ unknown until the honest ledger matures.
   anytime. Emoji in console output crashes cp1252 Windows terminals — .bat files set
   PYTHONUTF8; keep it. webapp html loads js/api.js?v=N — bump N when api.js changes
   or browsers serve stale JS ("Couldn't book" bug).
+- **Combo markets (Home & Over, Draw & GG…): DERIVED, NOT BOOKABLE, NOT
+  GRADED — add them LATER, and grade before booking (probed 11 Aug 2026).**
+  markets.py already builds "Result & Goals" combos, and SportyBet does offer
+  them — probed live: **35** = 1X2 & GG/NG ("Home & yes"), **36** = O/U &
+  GG/NG, **37** = 1X2 & Over/Under ("Home & Over 2.5"), **547** = Double
+  Chance & O/U, plus **19** = team totals and **26** = Odd/Even. None are in
+  `GEN_MARKET_IDS` (1,10,11,16,18,29), so a combo leg comes back "unmapped".
+  Adding the ids is an hour's work — and that is the trap. The ledger has only
+  ever stored `best_bet` values 'Home Win' and 'Away Win': **1X2 is the only
+  thing we have ever graded**, never even a Draw. So every non-1X2 market in
+  the app is already a claim with no track record, and adding four more
+  families multiplies the claims without adding a single unit of evidence.
+  **Grade what we already show BEFORE making more of it bookable.** The order
+  is: scoring logic per market type -> weeks of ledger -> then the booking ids.
+  Reversed, a month of ungraded combo picks accumulates and proves nothing.
 - **Slip-checker = user picks from existing fixtures** (reliable, no parsing). Free-text
   parsing is a later enhancement. Bookie-code GENERATION is still Phase 4, but code
   READING is built (July 2026): scrapers/booking_codes.py decodes SportyBet share
