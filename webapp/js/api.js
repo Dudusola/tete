@@ -583,9 +583,30 @@ const PotentialProAPI = {
       html, body { overflow-x: hidden; max-width: 100%; }
       main, main * { min-width: 0; }
 
-      /* 4. Touch targets. The nav links are min-w-[64px] but only ~40px tall;
-            44px is the accessibility floor on both iOS and Android. */
-      nav a, nav button, .theme-toggle { min-height: 44px; }
+      /* 4. Touch targets — on TOUCH devices. 44px is the accessibility floor
+            on iOS and Android, and the mobile bottom-nav items are only ~40px
+            tall without it.
+
+            Applying it to every pointer made the DESKTOP nav look wrong: each
+            link became a 44px box with the label at the top and the active
+            underline stranded near the bottom, so the row read as
+            top-aligned even though every box was perfectly centred (measured:
+            nav, logo, links and toggle all had mid = 32px). A mouse does not
+            need a 44px target, so the floor now applies where it is actually
+            for, and desktop links hug their text with the underline directly
+            beneath it. */
+      /* Scoped by BREAKPOINT, not by pointer type. "pointer: coarse" looked
+         like the right test — the floor exists for fingers — but it reports
+         TRUE on any touchscreen laptop, so the desktop nav kept the 44px boxes
+         on exactly the machines being complained about. The mobile bottom nav
+         only exists below md and the desktop top nav only above it, so the
+         breakpoint says precisely what is meant and is testable. */
+      @media (max-width: 767px) {
+        nav a, nav button, .theme-toggle { min-height: 44px; }
+      }
+      /* Keep the toggle circular at every pointer type — its size is a visual
+         decision, not a touch one. */
+      .theme-toggle { min-height: 36px; }
 
       /* 4b. ...but the nav was the only thing covered, and the nav is not what
              people actually tap. The Checker's market chips (.add-leg) are the
