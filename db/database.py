@@ -122,6 +122,23 @@ def init_db():
     except sqlite3.OperationalError:
         pass  # already exists
 
+    # The bookmaker's price for OUR pick, captured when the pick was made.
+    #
+    # This is the only way the project's central question can ever be answered:
+    # "when we disagree with the market, are we right?" A model that merely
+    # agrees with the odds adds nothing over reading the odds — the value, if
+    # any, lives entirely in the disagreements.
+    #
+    # It MUST be snapshotted at prediction time. Odds move as money arrives, so
+    # looking them up later measures a different market than the one we
+    # disagreed with, and no amount of backfilling can reconstruct it. Every
+    # day this is missing is a day of evidence that cannot be recovered.
+    for col in ("book_odds REAL", "book_prob REAL"):
+        try:
+            cursor.execute(f"ALTER TABLE model_predictions ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # already exists
+
     # Kickoff as a full UTC timestamp ('YYYY-MM-DD HH:MM').
     #
     # kickoff_time alone can't be filtered on: it is a bare 'HH:MM' with no

@@ -367,7 +367,15 @@ The health check answers "did fresh rows land?", which is the right question.
    and the kickoff enrichment read, so they cannot drift apart again.
 4. **A real goals signal** (team attack/defence rates), which would make the
    Over/Under markets carry actual information.
-5. Model-vs-source tracker on real results — validates the core premise.
+5. **Answer "do our disagreements win?"** — now measurable rather than
+   aspirational. `scrapers/market_snapshot.py` records the bookmaker's price
+   for every pick at pick time; `python db/edge_report.py` groups graded picks
+   by how far we sat from the market and reports who was right.
+   **This is the question the product rests on.** Today's baseline: mean gap
+   **-1.0 points**, zero disagreements of 15+ points — we currently agree with
+   the market almost exactly, which means no edge has been demonstrated in
+   either direction. Note it cannot be backfilled: odds move, so only picks
+   made from 11 Aug onward carry a snapshot.
 6. Web push notifications (designed, deferred — Telegram already pushes daily).
 
 **Settled, so nobody reopens it:** the "raise the HIGH threshold to ~72%" plan

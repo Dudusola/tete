@@ -388,6 +388,15 @@ def run_pipeline() -> list:
     # Any pick still missing its written analysis — a --no-gemma run, an LLM
     # outage, or a fixture that can no longer be re-predicted because its odds
     # vanished — gets the text filled in. Never changes a prediction.
+    # DEGRADED: snapshot the bookmaker's price for each new pick, immediately
+    # after predicting. This is how the project's central question gets
+    # answered — "when we disagree with the market, are we right?" — and it can
+    # ONLY be captured now: odds move, so a later lookup measures a different
+    # market. Every skipped day is evidence that cannot be reconstructed, which
+    # is why a total failure returns non-zero rather than shrugging.
+    run_step("Market snapshot (bookmaker price per pick)",
+             ["scrapers/market_snapshot.py"], DEGRADED)
+
     # OPTIONAL: Gemma/Gemini prose is explanation, never the prediction. A
     # pick with no write-up is complete; the next run fills it in.
     run_step("Backfill missing analysis", ["analysis/backfill_analysis.py"],

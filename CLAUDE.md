@@ -82,6 +82,19 @@ generate predictions on demand.
 - scrapers/predictz.py    Playwright scrape of PredictZ; odds→implied probs. Flaky; pipeline tolerates failure.
 - scrapers/results.py     REAL final scores from Forebet. Hardened vs Cloudflare (retries, stealth, --headed).
 - scrapers/results_api.py Final scores from football-data.org API (free tier). Cloudflare-immune. Covers big leagues only.
+- scrapers/market_snapshot.py  Stores the bookmaker's price for OUR pick, AT PICK TIME
+                          (model_predictions.book_odds / book_prob). This is the only way to
+                          answer the project's central question — "when we disagree with the
+                          market, are we right?" — which is NOT the same as "is the model
+                          accurate". A model that agrees with the odds adds nothing over reading
+                          the odds; any edge lives in the disagreements.
+                          MUST run at prediction time: odds move, so a later lookup measures a
+                          different market and no backfill can recover it. Every skipped day is
+                          evidence lost forever, which is why pricing ZERO picks returns non-zero
+                          instead of shrugging. Read it with db/edge_report.py.
+                          Baseline on 11 Aug: mean gap -1.0 pts, 0 disagreements of 15+ pts — i.e.
+                          we currently agree with the market almost exactly, so no edge is
+                          demonstrated yet either way.
 - scrapers/clubelo.py     THE independent opinion. Elo ratings from api.clubelo.com (free, no key,
                           not behind Cloudflare). GET /Fixtures returns a goal-difference distribution
                           per fixture; summing it gives real H/D/A. Every OTHER source here is derived
