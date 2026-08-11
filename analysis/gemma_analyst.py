@@ -95,16 +95,43 @@ def active_provider() -> str:
 # =========================================================================
 
 def check_ollama_running() -> bool:
-    """Is the analysis layer usable?
+    """Is the analysis layer usable — by ANY provider in the chain?
 
-    Name kept for backwards compatibility — predict.py and main.py call it as
-    their 'can we write analysis?' gate. It now checks whichever provider is
-    active, not just Ollama.
+    Name kept for backwards compatibility: predict.py, backfill_analysis.py
+    and main.py call it as their 'can we write analysis?' gate.
+
+    THE BUG THIS FIXES (11 Aug 2026). The gate used to check only the PRIMARY
+    provider. analyze_match() fails over Gemini -> Groq -> Ollama at call
+    time, but nothing ever reached that code when Gemini was unhealthy,
+    because the gate had already returned False and the caller skipped
+    analysis entirely. So a Gemini outage produced ZERO analysis while a
+    perfectly working Groq sat unused — the fallback was real, unreachable,
+    and would only have been discovered by noticing blank explanations.
+
+    Verified before the fix: with a broken GEMINI_API_KEY the gate returned
+    False, while analyze_match() on the same key produced text via Groq.
+
+    A gate in front of a failover chain must ask the same question the chain
+    answers: "can ANYONE serve this?", not "is my first choice healthy?".
     """
     provider = active_provider()
-    if provider == "gemini":
-        return _check_gemini()
-    return _check_ollama()
+
+    # Try the active provider first, then everything it would fall back to,
+    # in the same order analyze_match() uses.
+    if provider == "gemini" and _check_gemini():
+        return True
+    if provider in ("gemini", "groq") and GROQ_API_KEY:
+        # Groq has no cheap health endpoint worth a round trip; a key present
+        # is the signal, and a dead call still falls through to Ollama.
+        logger.info("Analysis provider: Groq (fallback)"
+                    if provider == "gemini" else "Analysis provider: Groq")
+        return True
+    if _check_ollama():
+        return True
+
+    logger.error("No analysis provider is reachable (Gemini, Groq, Ollama all "
+                 "unavailable) - predictions will be saved without analysis")
+    return False
 
 
 def _check_ollama() -> bool:
