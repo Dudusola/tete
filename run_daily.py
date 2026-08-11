@@ -198,13 +198,31 @@ def source_health(conn) -> list[str]:
         GROUP BY p.source
     """, [today]).fetchall()
     opinionated = [s for s, n in usable if n > 0]
-    if len(opinionated) < 2:
+
+    # Severity by COUNT, not by a flat "fewer than 2 is bad".
+    #
+    #   0 sources -> the app cannot show a probability at all. Broken. Fail.
+    #   1 source  -> consensus is unavailable but every other feature works.
+    #                This is the KNOWN state since API-Football's account was
+    #                suspended: PredictZ leaves H/D/A NULL whenever it has no
+    #                odds, so ESPN is usually the only source with usable
+    #                percentages. Failing the run daily for a condition we
+    #                already know about is the noise that made a red build
+    #                meaningless — and on 10 Aug that red build is what
+    #                skipped the Telegram push. Log it; do not fail.
+    #   2+        -> healthy.
+    #
+    # Make this a failure again the day a second opinionated source is back;
+    # the Consensus page already tells USERS why it is empty via `diagnosis`.
+    if not opinionated:
         problems.append(
-            "consensus is blind: "
-            + (f"only {', '.join(opinionated)} has" if opinionated
-               else "NO source has")
-            + " usable H/D/A percentages on upcoming matches "
-              "(need 2+ to cross-check)")
+            "NO source has usable H/D/A percentages on upcoming matches - "
+            "the app cannot price anything")
+    elif len(opinionated) < 2:
+        logger.warning(
+            f"consensus unavailable: only {', '.join(opinionated)} has usable "
+            f"H/D/A percentages (need 2+ to cross-check). Known state while "
+            f"API-Football is suspended - not failing the run for it.")
     return problems
 
 
