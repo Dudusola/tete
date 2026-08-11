@@ -92,16 +92,55 @@ def run(days: int = 2) -> int:
         conn.close()
         return 0
 
-    legs = [{"home_team": r["home_team"], "away_team": r["away_team"],
-             "market": "Match Result", "selection": _selection_for(r)}
-            for r in rows]
-    try:
-        odds = attach_sporty_odds(legs)["odds"]
-    except Exception as e:
-        # Never fatal: a missing snapshot costs evidence, not correctness.
-        logger.error(f"Could not read SportyBet odds: {e}")
-        conn.close()
-        return 0
+    # ── Where the price comes from ──────────────────────────────────────────
+    #
+    # STORED odds first, live SportyBet only as a top-up.
+    #
+    # SportyBet's events feed is IP-blocked from GitHub Actions — every page
+    # returns HTML instead of JSON, the same shape as the Forebet block. Asking
+    # it first meant this step priced 14/15 picks on a laptop and 0/15 in the
+    # cloud, which is where it actually has to run. The odds we already store
+    # (ESPN, written by kickoff_times.py, which DOES work from Actions) are a
+    # real bookmaker line and cost no extra request.
+    #
+    # The live call is kept as a top-up because it is worth having where it
+    # works, but nothing depends on it.
+    stored = {}
+    for row in conn.execute("""
+        SELECT sp.match_id, sp.odds_home, sp.odds_draw, sp.odds_away
+        FROM scraped_predictions sp
+        WHERE sp.odds_home IS NOT NULL
+          AND sp.id = (SELECT MAX(sp2.id) FROM scraped_predictions sp2
+                       WHERE sp2.match_id = sp.match_id
+                         AND sp2.odds_home IS NOT NULL)
+    """):
+        stored[row["match_id"]] = (row["odds_home"], row["odds_draw"],
+                                   row["odds_away"])
+
+    def stored_odds_for(r):
+        trio = stored.get(r["match_id"])
+        if not trio:
+            return None
+        home, draw, away = trio
+        return {"Home Win": home, "Draw": draw, "Away Win": away}.get(r["best_bet"])
+
+    odds = [stored_odds_for(r) for r in rows]
+
+    missing = [i for i, o in enumerate(odds) if not o]
+    if missing:
+        try:
+            legs = [{"home_team": rows[i]["home_team"],
+                     "away_team": rows[i]["away_team"],
+                     "market": "Match Result",
+                     "selection": _selection_for(rows[i])} for i in missing]
+            live = attach_sporty_odds(legs)["odds"]
+            for i, o in zip(missing, live):
+                if o:
+                    odds[i] = o
+        except Exception as e:
+            # Never fatal: the stored odds already carry the measurement.
+            logger.warning(f"SportyBet top-up unavailable ({e}) - "
+                           f"using stored odds only")
 
     stamped = 0
     for r, o in zip(rows, odds):
@@ -135,7 +174,8 @@ def run(days: int = 2) -> int:
         # snapshot that quietly stops is indistinguishable from one that runs,
         # and the evidence it loses cannot be recovered afterwards.
         logger.error(f"Market snapshot priced 0 of {len(rows)} picks - "
-                     f"feed unreachable or selection mapping broken")
+                     f"no stored odds and no live feed. Evidence for those "
+                     f"picks is lost permanently, so this is not tolerated.")
         return 1
     return 0
 
