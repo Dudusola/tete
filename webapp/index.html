@@ -489,7 +489,14 @@ function scheduleLivePolling() {
    left alone: re-rendering it would reset the tier chips, the league filter
    and the scroll position under someone who is reading it. */
 async function refreshStarted() {
-    LIVE_TIMER = null;
+    // stopLivePolling(), not a bare `LIVE_TIMER = null`. This is called
+    // MANUALLY too — on visibilitychange and on opening the list — while the
+    // previous timer is still pending. Nulling the handle without cancelling
+    // orphaned that timer: it still fired, and started a second polling chain
+    // beside the one this call installs. Every tab-flip added another, so the
+    // poll rate doubled and kept doubling, which is the exact opposite of the
+    // "an open tab costs nothing" property the polling was built to have.
+    stopLivePolling();
     if (document.hidden) { scheduleLivePolling(); return; }
     try {
         const data = await PotentialProAPI.picks();

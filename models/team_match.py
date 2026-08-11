@@ -7,8 +7,25 @@ ESPN feed:
   * scrapers/kickoff_times.py had this one, which understands how feeds
     actually differ — "Wolves"/"Wolverhampton Wanderers",
     "Union Saint Gilloise"/"Union St.-Gilloise".
-  * models/live_scores.py used models.consensus.team_sim, which is plain
-    string similarity.
+  * models/live_scores.py used models.consensus.team_sim.
+
+The two differ in BOTH directions, and getting that backwards is how this
+module shipped with a hole in it. consensus.team_sim is not "plain string
+similarity" — it is stricter, having gained two safeguards in c22a506 that
+this one lacked:
+
+  * containment requires the FIRST WORD to agree, or "AC Milan" (noise word
+    stripped -> "milan") is contained in "Inter Milan" and scores 0.92;
+  * multi-word names that share a token but differ on the rest are clamped to
+    0.65, or "Manchester United"/"Manchester City" rides the shared
+    "manchester" to 0.81 — and 0.91 as a PAIR against a shared opponent,
+    which is what actually gets tested.
+
+Both are now here. So this module is the union: kickoff_times' abbreviation
+handling AND consensus' anti-false-match guards. Checking the per-team score
+against the 0.86 bar is NOT sufficient and was the mistake that let this
+through review the first time — a fixture is matched as a PAIR, and an
+identical opponent drags a 0.81 team score over the line.
 
 That mismatch meant live_scores could not find a fixture that kickoff_times
 had ALREADY matched — the espn_league column it keys off is written by
@@ -20,6 +37,20 @@ A weaker matcher downstream of a stronger one can only ever lose rows.
 
 Bug #12's rule, applied to matching instead of to booking providers: one
 implementation, read by everyone who needs it.
+
+THE PRICE OF THE FIRST-WORD GUARD, measured rather than guessed: on 76
+upcoming fixtures it costs 2 real matches — "Recoleta"/"Deportivo Recoleta"
+and "Torque"/"Montevideo City Torque", where a genuine club name is contained
+in the other but the LEADING word differs. Structurally that is the same shape
+as "Milan" inside "Inter Milan", so no lexical rule separates them; the guard
+cannot keep one without the other. 28 -> 26 matched.
+
+Paying it is right, and the reason is worth stating: a bad match here does not
+just show a wrong score. kickoff_times.py writes ESPN ODDS off this matcher,
+and odds are model FEATURES — so a crossed fixture silently poisons a
+prediction. A missed match degrades to kickoff_utc = NULL, which downstream
+already treats as "unknown" and keeps visible. Losing a timing is recoverable;
+predicting off another match's odds is not.
 
 NOT (yet) used by consensus.py, dedupe_fixtures.py, results_api.py or
 clubelo.py. Those group and GRADE — a looser matcher there risks merging two
@@ -79,9 +110,13 @@ def team_sim(a: str, b: str) -> float:
 
     best = _sim(na, nb)
 
-    # One name fully contained in the other, on a token boundary.
     ta, tb = set(na.split()), set(nb.split())
-    if ta and tb and (ta <= tb or tb <= ta):
+    # Containment, but ONLY when the first word agrees. Without that clause
+    # "AC Milan" (noise word stripped -> "milan") is contained in "Inter Milan"
+    # and the two score 0.92 — different clubs entirely. "Santos" / "Santos
+    # Laguna" and "Club Tijuana" / "Club Tijuana de Caliente" both keep their
+    # leading word, which is what makes them safe.
+    if ta and tb and (ta <= tb or tb <= ta) and na.split()[0] == nb.split()[0]:
         best = max(best, 0.92)
 
     # Shared leading stem: wolves / wolverhampton. Restricted to cases where
@@ -97,6 +132,18 @@ def team_sim(a: str, b: str) -> float:
             stem += 1
         if stem >= 5 and stem >= min(len(fa), len(fb)) * 0.6:
             best = max(best, 0.88)
+        return best
+
+    # Multi-word names that SHARE a word but differ on the rest are the
+    # dangerous case: "Manchester United" vs "Manchester City" scores 0.81 on
+    # raw similarity purely from the shared "manchester", and paired with an
+    # identical opponent that is 0.91 as a PAIR — comfortably over the bar.
+    # The distinguishing words have to agree too.
+    only_a, only_b = ta - tb, tb - ta
+    if only_a and only_b:
+        best_distinct = max(_sim(x, y) for x in only_a for y in only_b)
+        if best_distinct < 0.6:
+            best = min(best, 0.65)
 
     return best
 
