@@ -403,6 +403,7 @@ def get_draw_picks():
                m.kickoff_time, m.kickoff_utc, m.live_state,
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
                mp.confidence, mp.best_bet, mp.best_bet_prob,
+               mp.draw_analysis,
                od.odds_home, od.odds_draw, od.odds_away
         FROM matches m
         JOIN model_predictions mp ON mp.id = (
@@ -415,7 +416,14 @@ def get_draw_picks():
     """).fetchall()
     conn.close()
 
+    # `gemma_analysis` carries the DRAW-framed text here, not the 1X2 text.
+    # The stored gemma_analysis argues for the model's best bet — a home or
+    # away win — so rendering it under a draw suggestion would contradict the
+    # screen in our own voice. Deliberately mapped onto the same key so every
+    # card renderer shows the right explanation without special-casing, and
+    # left empty rather than filled with the wrong one when absent.
     picks = [dict(r, live_state=effective_live_state(dict(r)),
+                  gemma_analysis=dict(r).get("draw_analysis"),
                   league_display=pretty_league(dict(r).get("league")))
              for r in rows]
     # Not yet kicked off — a draw you can no longer back is not a pick.

@@ -324,6 +324,30 @@ def build_prompt(ctx: dict) -> str:
     ml_draw = ctx.get("draw_prob", 0)
     ml_away = ctx.get("away_win_prob", 0)
 
+    # An alternate framing for views that ask a DIFFERENT question of the same
+    # numbers. The Draws tab is the case: the default prompt ends "give one
+    # clear betting recommendation" and the model duly recommends the
+    # favourite, which is the opposite of what that screen is for.
+    #
+    # Only the instruction changes — the data block below is identical, so the
+    # rule that the LLM explains OUR numbers and never sources its own still
+    # holds, and every caller keeps the same failover chain.
+    if ctx.get("custom_instruction"):
+        return f"""You are a sports betting analyst. Analyse this upcoming match.
+
+MATCH: {home} vs {away}
+LEAGUE: {league}
+
+MODEL PROBABILITIES:
+- {home} Win: {ml_home:.1f}%
+- Draw: {ml_draw:.1f}%
+- {away} Win: {ml_away:.1f}%
+
+{ctx["custom_instruction"]}
+
+Write for someone who understands football but not statistics. Do NOT mention
+model names or quote the percentages directly."""
+
     fb_home = ctx.get("home_win_pct", "N/A")
     fb_draw = ctx.get("draw_pct", "N/A")
     fb_away = ctx.get("away_win_pct", "N/A")

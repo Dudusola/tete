@@ -520,6 +520,15 @@ def run_pipeline() -> list:
     run_step("Backfill missing analysis", ["analysis/backfill_analysis.py"],
              OPTIONAL)
 
+    # OPTIONAL for the same reason, and one more: the Draws view already
+    # carries a structural explanation (models/draws.py's `why`), so a
+    # provider outage degrades the prose but never leaves the screen blank.
+    # Separate from the step above because the text answers a DIFFERENT
+    # question — "why might this end level" rather than "who wins" — and the
+    # stored 1X2 analysis argues for a home or away win, which would
+    # contradict the draw it is printed under.
+    run_step("Draw analysis", ["analysis/draw_analysis.py"], OPTIONAL)
+
     # OPTIONAL: this step only PRINTS a report — the consensus the API serves
     # is computed live by build_consensus(). Nothing downstream reads it.
     run_step("Cross-source consensus", ["models/consensus.py"], OPTIONAL)
