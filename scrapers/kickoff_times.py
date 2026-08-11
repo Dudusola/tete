@@ -32,7 +32,10 @@ from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
-from models.consensus import _sim
+# The matcher moved to models/team_match.py so live_scores.py can use the SAME
+# one. It could not before, and silently failed to find fixtures this file had
+# already matched — see that module's header.
+from models.team_match import SIM_FLOOR, SIM_MEAN, team_sim  # noqa: F401
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
 
@@ -45,73 +48,6 @@ BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard
 # enrichment MUST query the same competitions: when they diverged, matches were
 # timed but never graded.
 from scrapers.espn_leagues import ALL_LEAGUES as LEAGUES
-
-# Matching thresholds. A pure min(sim) >= 0.80 rule rejected real matches:
-# ESPN writes "Wolverhampton Wanderers" where PredictZ writes "Wolves", and
-# "Santos" where we hold "Santos Laguna". Both are unambiguous to a human.
-# So: BOTH sides must be plausible, and the PAIR must be strong on average —
-# one exact name plus one abbreviation now matches, but two vague names don't.
-SIM_FLOOR = 0.55        # neither side may be worse than this
-SIM_MEAN = 0.86         # ...and the two together must average this
-# 0.86 not 0.82: "Manchester United" vs "Manchester City" scores 0.81 on
-# raw string similarity, which is unavoidable. Requiring a high PAIR mean
-# means a wrong fixture would need the OTHER team to match strongly too.
-
-# Noise words that carry no identity ("FC Thun" vs "Thun").
-# NOTE: "united" and "city" are NOT here. Dropping them made
-# "Manchester United" and "Manchester City" both normalise to "manchester"
-# and score 1.00 — they carry identity, they are not noise.
-_NOISE = {"fc", "cf", "sc", "afc", "ac", "club", "de", "the",
-          "sv", "bk", "if", "fk", "cd", "ca", "us", "ss"}
-
-
-def _norm(name: str) -> str:
-    """Lowercase, strip accents and punctuation, drop noise words."""
-    import re
-    import unicodedata
-    s = unicodedata.normalize("NFKD", name or "")
-    s = "".join(c for c in s if not unicodedata.combining(c)).lower()
-    s = re.sub(r"[^a-z0-9 ]+", " ", s)
-    tokens = [t for t in s.split() if t and t not in _NOISE]
-    return " ".join(tokens) or s.strip()
-
-
-def team_sim(a: str, b: str) -> float:
-    """Similarity that understands abbreviations.
-
-    Beyond raw string similarity, treat a shared leading stem of >=4 chars as
-    strong evidence ("wolves" / "wolverhampton"), and full containment as near
-    certain ("santos" inside "santos laguna"). Both are how these feeds
-    actually differ; neither matches two genuinely different clubs.
-    """
-    na, nb = _norm(a), _norm(b)
-    if not na or not nb:
-        return 0.0
-    if na == nb:
-        return 1.0
-
-    best = _sim(na, nb)
-
-    # One name fully contained in the other, on a token boundary.
-    ta, tb = set(na.split()), set(nb.split())
-    if ta and tb and (ta <= tb or tb <= ta):
-        best = max(best, 0.92)
-
-    # Shared leading stem: wolves / wolverhampton. Restricted to cases where
-    # one side is a SINGLE word, otherwise shared first words fire wrongly —
-    # "Real Madrid" vs "Real Sociedad" and "Inter Turku" vs "Inter Milan" both
-    # scored 0.88 on the stem "real" / "inter" alone.
-    if len(ta) == 1 or len(tb) == 1:
-        fa, fb = na.split()[0], nb.split()[0]
-        stem = 0
-        for ca, cb in zip(fa, fb):
-            if ca != cb:
-                break
-            stem += 1
-        if stem >= 5 and stem >= min(len(fa), len(fb)) * 0.6:
-            best = max(best, 0.88)
-
-    return best
 
 # ESPN marks a fixture 'pre' (not started), 'in' (live) or 'post' (finished).
 NOT_STARTED = "pre"

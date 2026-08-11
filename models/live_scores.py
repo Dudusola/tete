@@ -28,16 +28,20 @@ before full time, never read a non-final number as a result).
 
 import time
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta
 
 import requests
 from loguru import logger
 
-from models.consensus import team_sim
+# THE SAME matcher kickoff_times.py used to write espn_league. It was
+# models.consensus.team_sim here — plain string similarity — so this module
+# could not find fixtures the stronger matcher had already matched, and every
+# such row showed no score at all while ESPN had one. "Union Saint Gilloise"
+# vs ESPN's "Union St.-Gilloise": 0.65 there against a 0.80 floor, 1.00 here.
+from models.team_match import pair_score
 
 SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
 CACHE_SECONDS = 60
-SIM_FLOOR = 0.80          # per side; the pair must average higher still
-SIM_MEAN = 0.86           # same bar the rest of the codebase uses
 
 _cache: dict = {}         # (league, yyyymmdd) -> (fetched_at, events)
 
@@ -97,8 +101,19 @@ def attach(matches: list) -> None:
         if m.get("result_outcome") is not None:
             continue
         league, date = m.get("espn_league"), m.get("match_date")
-        if league and date:
-            jobs.add((league, date.replace("-", "")))
+        if not (league and date):
+            continue
+        # +/-1 day, bug #2's rule: our match_date and ESPN's scoreboard date
+        # disagree either side of midnight UTC, and a late kickoff asked for on
+        # the wrong day comes back empty — which looked exactly like "no score
+        # source" rather than "asked on the wrong date". The extra requests are
+        # bounded (only ungraded, already-started rows reach here) and memoised.
+        try:
+            d0 = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            continue
+        for delta in (-1, 0, 1):
+            jobs.add((league, (d0 + timedelta(days=delta)).strftime("%Y%m%d")))
     if not jobs:
         return
 
@@ -113,14 +128,11 @@ def attach(matches: list) -> None:
             continue
         best, best_score = None, 0.0
         for e in events:
-            sh = team_sim(m["home_team"], e["home"])
-            sa = team_sim(m["away_team"], e["away"])
-            if sh < SIM_FLOOR or sa < SIM_FLOOR:
-                continue
-            avg = (sh + sa) / 2
-            if avg > best_score:
-                best, best_score = e, avg
-        if best and best_score >= SIM_MEAN:
+            score = pair_score(m["home_team"], m["away_team"],
+                               e["home"], e["away"])
+            if score is not None and score > best_score:
+                best, best_score = e, score
+        if best:
             m["live_score"] = f"{best['home_score']}-{best['away_score']}"
             m["live_detail"] = best["detail"]
             m["live_final"] = best["completed"]

@@ -128,7 +128,9 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
            kickoffs (a 23:30 UTC match is 00:30 in Lagos) don't vanish. On
            9 Aug, 19 of the 20 listed here had kicked off YESTERDAY while the
            heading said "today". Each row now carries its own day too. -->
-      Recently kicked off · <span id="started-count">0</span>
+      Recently kicked off · <span id="started-count">0</span><!--
+      -->&nbsp;<span id="started-live" class="hidden normal-case text-error font-bold"
+                     title="Scores on this list refresh every minute while matches are in play"><span class="pp-live-dot"></span> <span id="started-live-count">0</span> live</span>
     </span>
     <span id="started-chevron" class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span>
   </button>
@@ -455,6 +457,51 @@ async function loadPicks() {
     }
 }
 
+/* The running score has to actually RUN.
+   /api/picks fetches a live score per started match, but the page only ever
+   called it once — at load. So a match in play showed the score as it stood
+   the moment the tab was opened and then froze there, which reads as a broken
+   feed rather than a stale one: the red dot keeps pulsing next to a number
+   that never changes. Nothing server-side was wrong; the client just never
+   asked again.
+   LIVE_POLL_MS matches live_scores.CACHE_SECONDS — polling faster only burns
+   requests to be handed the same memoised payload. Polling stops entirely
+   when nothing is in play and while the tab is hidden, so an open tab left
+   overnight costs nothing. */
+const LIVE_POLL_MS = 60000;
+let LIVE_TIMER = null;
+
+function anyLegLive(started) {
+    return started.some(s => s.result_outcome == null &&
+        ((s.live_score && !s.live_final) || s.live_state === "in"));
+}
+
+function stopLivePolling() {
+    if (LIVE_TIMER) { clearTimeout(LIVE_TIMER); LIVE_TIMER = null; }
+}
+
+function scheduleLivePolling() {
+    stopLivePolling();
+    LIVE_TIMER = setTimeout(refreshStarted, LIVE_POLL_MS);
+}
+
+/* Re-fetch and re-render the started list ONLY. The main feed is deliberately
+   left alone: re-rendering it would reset the tier chips, the league filter
+   and the scroll position under someone who is reading it. */
+async function refreshStarted() {
+    LIVE_TIMER = null;
+    if (document.hidden) { scheduleLivePolling(); return; }
+    try {
+        const data = await PotentialProAPI.picks();
+        renderStarted(data.started || []);   // reschedules itself if still live
+    } catch (err) {
+        // A failed poll is not a failed page — keep the last good score on
+        // screen and try again next tick.
+        console.error(err);
+        scheduleLivePolling();
+    }
+}
+
 /* Matches that already kicked off: one compact line each, muted, with the
    result once it exists. Never styled like a recommendation — the point is
    "here's what the model said about today's football", not "bet this". */
@@ -462,10 +509,20 @@ function renderStarted(started) {
     const section = document.getElementById("started-section");
     const list = document.getElementById("started-list");
     if (!section || !list) return;
-    if (!started.length) { section.classList.add("hidden"); return; }
+    if (!started.length) { section.classList.add("hidden"); stopLivePolling(); return; }
 
     section.classList.remove("hidden");
     document.getElementById("started-count").textContent = started.length;
+
+    // Say so in the header, because the list is collapsed by default: without
+    // this the one genuinely live thing on the page is hidden behind a chevron.
+    const liveCount = started.filter(s => s.result_outcome == null &&
+        ((s.live_score && !s.live_final) || s.live_state === "in")).length;
+    const liveBadge = document.getElementById("started-live");
+    if (liveBadge) {
+        liveBadge.classList.toggle("hidden", liveCount === 0);
+        document.getElementById("started-live-count").textContent = liveCount;
+    }
 
     list.innerHTML = started.map(s => {
         const graded = s.result_outcome != null;
@@ -516,6 +573,10 @@ function renderStarted(started) {
           ${outcome}
         </div>`;
     }).join("");
+
+    // Keep polling only while there is something to poll FOR. A finished slate
+    // stops the timer dead, so an abandoned tab is not a standing request.
+    if (anyLegLive(started)) scheduleLivePolling(); else stopLivePolling();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -526,8 +587,17 @@ document.addEventListener("DOMContentLoaded", () => {
             const chev = document.getElementById("started-chevron");
             const open = list.classList.toggle("hidden") === false;
             chev.textContent = open ? "expand_less" : "expand_more";
+            // Opening the list is the moment the score actually matters — take
+            // it fresh rather than showing whatever the last tick left there.
+            if (open && LIVE_TIMER) refreshStarted();
         });
     }
+
+    // A backgrounded tab does not poll (see refreshStarted). Coming back to it
+    // must not mean waiting out the remainder of a minute on a stale number.
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden && LIVE_TIMER) refreshStarted();
+    });
 
     document.querySelectorAll(".tier-chip").forEach(c =>
         c.addEventListener("click", async () => {

@@ -139,6 +139,13 @@ generate predictions on demand.
                           The model's draw_prob EXCLUDES (<20% → real rate 7.4%) but never
                           ranks — it has never once rated a draw most likely (0 of 360).
                           DISCLOSURE travels in the API payload so no UI can drop the caveat.
+- models/team_match.py    THE abbreviation-aware team matcher (Wolves/Wolverhampton,
+                          Union Saint Gilloise/Union St.-Gilloise), shared by kickoff_times.py
+                          and live_scores.py. Two matchers against one feed is how bug #17
+                          hid live scores. consensus/dedupe/results_api still use the looser
+                          models.consensus.team_sim ON PURPOSE — they grade, see bug #17.
+- models/live_scores.py   On-demand ESPN score for started, ungraded matches (decoration only,
+                          never written to results). Memoised 60s; the Picks page polls it.
 - analysis/gemma_analyst.py  Gemma via Ollama /api/chat (reasoning layer, NOT the predictor)
 - api/server.py           FastAPI. Endpoints below.
 - tools/check_docker_copies.py  Asserts every module api/server.py imports is COPYed into the
@@ -474,6 +481,57 @@ unknown until the honest ledger matures.
     daily — the noise trap of bug #14. **A number that only reports its
     successes at being checked is the same shape as reporting only the picks
     that won. Publish the denominator.**
+
+17. **The live score was neither live nor scoring (11 Aug 2026).** Boss: "the
+    live score part is not live scoring." Two independent faults, one on each
+    side of the API, and each alone was enough to produce the symptom.
+
+    **Client: the page asked ONCE.** `/api/picks` attaches a live score per
+    started match (`models/live_scores.py`, memoised 60s), but index.html
+    fetched at load and never again. So the score was a still frame from
+    whenever the tab was opened, under a pulsing red dot insisting it was
+    current — the bug-#13 shape exactly, one layer up: not a stale snapshot in
+    the DB this time, but a stale snapshot in the browser. FIX: poll every 60s
+    (= `CACHE_SECONDS`; faster only re-fetches the same memoised payload)
+    while any leg is actually in play, refreshing ONLY the started list — the
+    main feed is left alone so a re-render can't reset the tier chips, the
+    league filter or the scroll position under someone reading it. The timer
+    stops dead when nothing is live and while the tab is hidden, and fires
+    immediately on returning to the tab or expanding the list. A live count
+    now shows in the section header, because the list is collapsed by default
+    and the one genuinely live thing on the page was hidden behind a chevron.
+
+    **Server: a weak matcher downstream of a strong one.** live_scores.py
+    matched teams with `models.consensus.team_sim` (plain string similarity)
+    while `scrapers/kickoff_times.py` had a much better one. This matters
+    because live_scores keys off `espn_league`, a column kickoff_times WRITES —
+    so every row it looks up is by definition one the strong matcher already
+    succeeded on, and the weak one could only lose them again. Measured live:
+    "Union Saint Gilloise" vs ESPN's "Union St.-Gilloise" scored 0.65 against
+    a 0.80 floor, so Bodo/Glimt v Union SG sat at "no score source" while ESPN
+    had it at 2-2, 90'+3. FIX: the matcher moved to `models/team_match.py` and
+    both callers read it (bug #12's rule about one dict per capability, applied
+    to matching). Also added the ±1 day window to the scoreboard fetch — asking
+    ESPN for the wrong side of midnight returns nothing, which reads as "no
+    source" rather than "wrong date" (bug #2's rule, missed here).
+    Left alone deliberately: consensus.py, dedupe_fixtures.py, results_api.py
+    and clubelo.py still use the looser matcher. They GROUP and GRADE, where a
+    looser match risks merging two fixtures or scoring a pick against the wrong
+    match — bug #1 territory. That switch wants its own before/after count.
+
+    Verified end to end in a real browser against the local API: the row went
+    "no score source" -> "2-2 94'", the minute advancing between polls.
+    `models/team_match.py` was of course missing from the Dockerfile —
+    `tools/check_docker_copies.py` caught it before it shipped, which is the
+    fourth time that allowlist would have failed silently (bug #15).
+
+    **A number that cannot change is not live. If a UI claims something is
+    happening now, something has to ask again — and when two components match
+    the same feed, the weaker one silently caps what the whole chain can find.**
+
+    Still open (honest limitation, not a regression): only ~110 of 263 upcoming
+    matches have an `espn_league` at all, so the rest genuinely have no live
+    source and correctly say so. That is coverage, not a bug.
 
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
