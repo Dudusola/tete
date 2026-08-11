@@ -48,6 +48,22 @@ GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta"
 # a thinking model. Verified against the live API, Aug 2026.
 GEMINI_MAX_TOKENS = int(os.getenv("GEMINI_MAX_TOKENS", "800"))
 
+# ─── Groq: the CLOUD fallback ────────────────────────────────────────────────
+# Ollama was the only fallback, and it runs on a laptop — useless to a pipeline
+# that executes in GitHub Actions. So a Gemini outage meant no analysis at all,
+# with nothing to take over.
+#
+# Groq serves OPEN-WEIGHT models (Llama and friends) on a free tier with an
+# OpenAI-compatible API, which is why it was chosen over another proprietary
+# endpoint: if it disappears the same code points at any OpenAI-compatible
+# host by changing one base URL.
+#
+# Safe to swap freely because the analysis is EXPLANATION ONLY and never the
+# predictor — no model choice here can move a probability or a pick.
+GROQ_API_KEY = os.getenv("GROQ_API_KEY", "").strip()
+GROQ_MODEL = os.getenv("GROQ_MODEL", "llama-3.3-70b-versatile").strip()
+GROQ_BASE = os.getenv("GROQ_BASE", "https://api.groq.com/openai/v1").strip()
+
 AI_PROVIDER = os.getenv("AI_PROVIDER", "auto").strip().lower()
 
 # Free tiers are rate-limited per minute. The pipeline analyses ~45 matches in a
@@ -62,9 +78,16 @@ def active_provider() -> str:
     """Which provider this process will actually use."""
     if AI_PROVIDER == "gemini":
         return "gemini"
+    if AI_PROVIDER == "groq":
+        return "groq"
     if AI_PROVIDER == "ollama":
         return "ollama"
-    return "gemini" if GEMINI_API_KEY else "ollama"
+    # auto: prefer Gemini, then the cloud fallback, then local.
+    if GEMINI_API_KEY:
+        return "gemini"
+    if GROQ_API_KEY:
+        return "groq"
+    return "ollama"
 
 
 # =========================================================================
@@ -153,9 +176,47 @@ def list_gemini_models() -> list:
 def analyze_match(match_context: dict) -> str:
     """Turn model output + context into 3 sentences of plain-English reasoning."""
     prompt = build_prompt(match_context)
-    if active_provider() == "gemini":
-        return _analyze_gemini(prompt)
+    provider = active_provider()
+
+    if provider == "gemini":
+        text = _analyze_gemini(prompt)
+        # Actually FAIL OVER rather than just having a fallback configured.
+        # A provider that is only consulted when the key is missing is no use
+        # during an outage, which is the case that matters.
+        if text == UNAVAILABLE and GROQ_API_KEY:
+            logger.warning("Gemini returned nothing - falling back to Groq")
+            return _analyze_groq(prompt)
+        return text
+
+    if provider == "groq":
+        text = _analyze_groq(prompt)
+        if text == UNAVAILABLE and check_ollama_running():
+            logger.warning("Groq returned nothing - falling back to Ollama")
+            return _analyze_ollama(prompt)
+        return text
+
     return _analyze_ollama(prompt)
+
+
+def _analyze_groq(prompt: str) -> str:
+    """One analysis via Groq's OpenAI-compatible endpoint."""
+    if not GROQ_API_KEY:
+        return UNAVAILABLE
+    try:
+        r = requests.post(
+            f"{GROQ_BASE}/chat/completions",
+            headers={"Authorization": f"Bearer {GROQ_API_KEY}",
+                     "Content-Type": "application/json"},
+            json={"model": GROQ_MODEL,
+                  "messages": [{"role": "user", "content": prompt}],
+                  "temperature": 0.3, "max_tokens": 300},
+            timeout=60)
+        r.raise_for_status()
+        content = (r.json().get("choices") or [{}])[0].get("message", {}).get("content")
+        return (content or UNAVAILABLE).strip()
+    except (requests.RequestException, ValueError, KeyError, IndexError) as e:
+        logger.error(f"Groq request failed: {e}")
+        return UNAVAILABLE
 
 
 def _analyze_ollama(prompt: str) -> str:
