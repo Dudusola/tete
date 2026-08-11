@@ -93,7 +93,13 @@ jobs:
       # telegram_bot.py still serves the interactive commands; this only
       # replaces the 08:00 push that used to depend on that process being up
       # on a laptop that was often off.
+      # if: always() — a DEGRADED run still has picks worth sending. Without
+      # this these steps inherit the default "only if everything succeeded",
+      # so when API-Football's suspension turned the pipeline red the daily
+      # Telegram push and the bot feed were SKIPPED: a tolerable data-source
+      # outage silently became a total user-facing one.
       - name: Send picks to Telegram
+        if: always()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -106,6 +112,7 @@ jobs:
       # serves is computed here, so /picks and /stats can never disagree with
       # the ledger.
       - name: Publish bot feed
+        if: always()
         env:
           DB_PATH: ./db/sports_predictor.db
           PYTHONUTF8: '1'
@@ -127,7 +134,15 @@ jobs:
           git config user.email "actions@github.com"
           # db/*.db is gitignored on purpose (it's per-developer locally);
           # -f is deliberate — in the cloud this file IS the ledger.
+          # data/historical/*.csv are TRACKED and the "Refresh training CSVs"
+          # step rewrites them, so they sit in the worktree as unstaged
+          # changes. git pull --rebase refuses to run with those present —
+          # "cannot pull with rebase: You have unstaged changes" — which is
+          # exactly how 10 Aug's fixtures and predictions were computed,
+          # committed locally, and then never pushed. Stage them too: a
+          # refreshed CSV is part of the state this job produces.
           git add -f db/sports_predictor.db feed/bot_feed.json
+          git add -A data/historical || true
           if git diff --cached --quiet; then
             echo "No ledger changes to commit."
           else
@@ -135,7 +150,9 @@ jobs:
             # Rebase in case a human pushed while we ran; the DB is binary, so
             # a conflict here means someone else wrote the ledger too — fail
             # loudly rather than silently picking a side.
-            git pull --rebase --no-edit || {
+            # --autostash so any remaining stray worktree change (a log, a
+            # scratch file) cannot block the pull the way it did on 10 Aug.
+            git pull --rebase --autostash --no-edit || {
               echo "::error::Ledger conflict — another writer touched the DB."
               exit 1
             }

@@ -170,7 +170,10 @@ def source_health(conn) -> list[str]:
          landed" does NOT imply "consensus has anything to compare".
     """
     problems = []
-    expected = {"predictz", "apifootball", "espn"}
+    # apifootball is deliberately absent: the account is suspended, the step is
+    # OPTIONAL, and expecting rows from it would fire a "source has gone
+    # silent" alert every single day. Add it back the day the account works.
+    expected = {"predictz", "espn"}
     if os.getenv("PP_SKIP_FOREBET", "").strip() != "1":
         expected.add("forebet")
 
@@ -197,9 +200,11 @@ def source_health(conn) -> list[str]:
     opinionated = [s for s, n in usable if n > 0]
     if len(opinionated) < 2:
         problems.append(
-            "consensus is blind: only "
-            f"{', '.join(opinionated) or 'no source'} has usable H/D/A "
-            "percentages on upcoming matches (need 2+ to cross-check)")
+            "consensus is blind: "
+            + (f"only {', '.join(opinionated)} has" if opinionated
+               else "NO source has")
+            + " usable H/D/A percentages on upcoming matches "
+              "(need 2+ to cross-check)")
     return problems
 
 
@@ -250,10 +255,24 @@ def run_pipeline() -> list:
     fixture_sources["predictz"] = run_step(
         "Scrape PredictZ fixtures", ["scrapers/predictz.py"], DEGRADED)
 
-    # DEGRADED: the third opinion consensus depends on, and the one that went
-    # silently missing for three days when the account was suspended.
+    # OPTIONAL (demoted 11 Aug 2026, Boss's call, and the evidence supports it).
+    #
+    # It was DEGRADED as the third independent opinion. Two accounts have now
+    # been suspended — the second within hours of being wired in, well under
+    # quota and with the rate-limiter in place — so it fails EVERY day. A step
+    # that is red every day is not a signal, it is noise, and here it did real
+    # damage: the red run made GitHub skip the Telegram push and the bot feed,
+    # so a dead optional source took the whole user-facing output down with it.
+    #
+    # What it actually provided is already covered:
+    #   fixtures -> PredictZ (305 rows in the last 3 days)
+    #   odds     -> ESPN via kickoff_times.py (132 rows carrying odds)
+    # What is genuinely lost is INDEPENDENCE: ESPN and PredictZ both price off
+    # the same bookmaker markets, so consensus between them is two views of one
+    # market rather than two opinions. That is a real cost and it is recorded
+    # in CLAUDE.md — but it is not worth a daily false alarm.
     fixture_sources["apifootball"] = run_step(
-        "Fixtures + odds (API-Football)", ["scrapers/fixtures_api.py"], DEGRADED)
+        "Fixtures + odds (API-Football)", ["scrapers/fixtures_api.py"], OPTIONAL)
 
     # THE GROUP GATE. Per-step severity cannot express "any one of these is
     # fine, none of them is fatal" — and that combination is precisely the
