@@ -123,8 +123,27 @@ generate predictions on demand.
 - models/markets.py       Derive ~22 markets from H/D/A + Poisson score matrix (1X2, DC, DNB,
                           O/U 1.5/2.5/3.5, BTTS, Asian Handicap ±1.5, Result&Goals). build_slip dedupes by teams + ±1 day.
 - models/consensus.py     Cross-source agreement (Forebet vs PredictZ), fuzzy teams + ±1 day window.
+- models/gradeability.py  Grading COVERAGE, derived from the ledger — the error bar on every
+                          accuracy figure we publish (see bug #16). `untracked_leagues()` is
+                          evidence-based and self-updating: 4+ gradeable picks and never one
+                          scored. Run `python models/gradeability.py` for the per-league table.
+- models/draws.py         Draw-leaning fixtures. A FILTER, NOT A TIP, and the module says why:
+                          measured on 90,381 matches, evenly-matched sides draw 30.1% (33.8%
+                          if also low-scoring) against a 26.2% baseline — a real pattern, and
+                          one the bookmaker prices to within ~1 point in every band. Backing
+                          every draw returns -7.2%; the best segment -1.2% (CI -6.5 to +4.2).
+                          Ranks on MARKET BALANCE alone: the league-scoring signal is real but
+                          needs a league→history mapping we cannot verify (our CSVs are keyed
+                          per season, "SerieB-2024-2025", fixtures say "Serie B"), and a wrong
+                          mapping would apply Argentina's draw rate to a Danish match.
+                          The model's draw_prob EXCLUDES (<20% → real rate 7.4%) but never
+                          ranks — it has never once rated a draw most likely (0 of 360).
+                          DISCLOSURE travels in the API payload so no UI can drop the caveat.
 - analysis/gemma_analyst.py  Gemma via Ollama /api/chat (reasoning layer, NOT the predictor)
 - api/server.py           FastAPI. Endpoints below.
+- tools/check_docker_copies.py  Asserts every module api/server.py imports is COPYed into the
+                          Render image. Guards bug #15, which shipped three times because a
+                          missing COPY fails invisibly (Render keeps serving the old image).
 - bot/telegram_bot.py     /start /picks /slip /stats + daily 08:00 send. drop_pending_updates=True.
 - bot/slip_handlers.py    /slip interactive flow
 - db/database.py          schema/helpers
@@ -161,7 +180,7 @@ generate predictions on demand.
                           bg-…/90 opacity variant, themed separately in the dark CSS.
 
 ## API endpoints (port 8080)
-GET / ; GET /api/picks ; GET /api/picks/all ; GET /api/slip?risk=&games= ;
+GET / ; GET /api/picks ; GET /api/picks/all ; GET /api/picks/draws ; GET /api/slip?risk=&games= ;
 GET /api/consensus ; GET /api/stats ; GET /api/stats/tiers ;
 GET /api/stats/picks?tier= (drill-down) ; GET /api/stats/trend (weekly hit
 rate, for the Record chart) ; GET /api/fixtures (for slip-checker) ;
@@ -414,6 +433,47 @@ unknown until the honest ledger matures.
     Related: the "consensus is blind" health check now grades by COUNT —
     0 sources fails the run, 1 warns, 2+ is healthy — instead of failing daily
     for a condition we already know about.
+
+15. **The Dockerfile allowlist, THREE times — now checked automatically
+    (11 Aug 2026).** `deploy/render/Dockerfile` copies source file-by-file
+    (`COPY models/__init__.py models/markets.py ... ./models/`). Add a module
+    the API imports without adding it there and the container dies on import —
+    at which point **Render keeps serving the PREVIOUS image**. The site stays
+    up, the API answers every existing endpoint, and the new field is simply
+    absent. A green deploy and a feature that silently did not ship.
+      - `models/leagues.py`      → `league_display` missing in production
+      - `webapp/`                → the static mount silently did nothing; the
+                                   Render root 404'd for months
+      - `models/gradeability.py` → `/api/stats` returned no `coverage` block
+    The rule "remember to update the Dockerfile" has been written in this file
+    since the FIRST occurrence and did not prevent the second or the third.
+    FIX: `tools/check_docker_copies.py` walks the first-party imports reachable
+    from api/server.py and asserts each is copied. Static — no Docker, no
+    build, one second. Wired into run_daily.py as DEGRADED. It caught
+    `models/draws.py` within an hour of being written.
+    **Three occurrences of one mistake is a missing check, not carelessness.
+    An allowlist maintained by hand will eventually be wrong, and this one
+    fails INVISIBLY because the old image keeps answering. Prefer copying a
+    directory wholesale; where you cannot, check the list mechanically.**
+
+16. **Grading COVERAGE is now published, not just monitored (11 Aug 2026).**
+    Bug #8 established that a tier percentage is a claim about the picks we
+    could VERIFY, and that the unverifiable ones are not a random sample —
+    when the backfill finally landed, HIGH fell 57% → 38% because what was
+    missing was mostly losses. That was fixed operationally but never made
+    visible, so the same drift could recur unnoticed.
+    `models/gradeability.py` now derives coverage from the ledger:
+    `/api/stats` carries a `coverage` block, record.html states it in words
+    (including what it could NOT check), and run_daily.py alerts below 75%.
+    The "untracked league" list is EVIDENCE-BASED and self-updating — 4+
+    gradeable picks and not one ever scored. A hardcoded list of leagues ESPN
+    won't score was the tempting version and would have been wrong: 16 leagues
+    had never been scored but covered only 24 picks between them, mostly n=1.
+    The 75% floor is measured, not chosen: a full ESPN backfill reached 83.7%
+    and could go no further, so ~84% IS normal and a floor at 85% would fire
+    daily — the noise trap of bug #14. **A number that only reports its
+    successes at being checked is the same shape as reporting only the picks
+    that won. Publish the denominator.**
 
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
