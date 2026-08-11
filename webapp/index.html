@@ -97,8 +97,16 @@ body { background-color: theme('colors.background'); color: theme('colors.on-bac
     <button data-tier="ALL"    class="tier-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">All</button>
     <button data-tier="HIGH"   class="tier-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">High</button>
     <button data-tier="MEDIUM" class="tier-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">Medium</button>
+    <!-- Draws is not a confidence tier, it is a different QUESTION: not "how
+         sure are we" but "where is a draw plausible". It sits with the tier
+         chips because that is where a user looks to change the list, but it
+         swaps in its own feed and always shows its disclosure. -->
+    <button data-tier="DRAWS"  class="tier-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">Draws</button>
   </div>
   <div id="status" class="text-label-sm text-on-surface-variant"></div>
+  <!-- Shown only in the Draws view. The text comes from the API so the
+       caveat cannot drift from the measurement that justifies it. -->
+  <p id="draw-disclosure" class="hidden mt-md p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
 </div>
 
 <!-- League filter. The Builder has had one for weeks; Picks did not, so on a
@@ -315,6 +323,9 @@ function skeletonCard() {
 }
 
 let ALL_PICKS = [];
+let DRAW_PICKS = [];
+let DRAW_CONSIDERED = 0;
+let DRAW_DISCLOSURE = "";
 let CURRENT_TIER = "ALL";
 let CURRENT_LEAGUE = "ALL";
 let UPDATED_AT = null;
@@ -365,6 +376,35 @@ function paintLeagueChips() {
 function renderFeed() {
     const feed = document.getElementById("picks-feed");
     const status = document.getElementById("status");
+    const note = document.getElementById("draw-disclosure");
+
+    // Draws is its own feed, fetched separately, and it never renders without
+    // the disclosure. The measurement behind it (90,381 matches) says the
+    // pattern is real and already priced in — presenting these as tips would
+    // misrepresent our own evidence.
+    if (CURRENT_TIER === "DRAWS") {
+        if (note) {
+            note.textContent = DRAW_DISCLOSURE || "";
+            note.classList.toggle("hidden", !DRAW_DISCLOSURE);
+        }
+        let d = DRAW_PICKS;
+        if (CURRENT_LEAGUE !== "ALL") {
+            d = d.filter(p =>
+                (p.league_display || prettyLeague(p.league)) === CURRENT_LEAGUE);
+        }
+        feed.innerHTML = d.length
+            ? d.map(renderCard).join("")
+            : `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                 No evenly-matched fixtures right now. This list is deliberately
+                 short — only about 3% of matches qualify.</div>`;
+        const agoD = timeAgo(UPDATED_AT);
+        status.textContent =
+            `${d.length} draw-leaning of ${DRAW_CONSIDERED} priced fixtures` +
+            (agoD ? ` • updated ${agoD}` : "");
+        return;
+    }
+    if (note) note.classList.add("hidden");
+
     let shown = CURRENT_TIER === "ALL"
         ? ALL_PICKS : ALL_PICKS.filter(p => p.confidence === CURRENT_TIER);
     if (CURRENT_LEAGUE !== "ALL") {
@@ -490,8 +530,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     document.querySelectorAll(".tier-chip").forEach(c =>
-        c.addEventListener("click", () => {
-            CURRENT_TIER = c.dataset.tier; paintTierChips(); renderFeed();
+        c.addEventListener("click", async () => {
+            CURRENT_TIER = c.dataset.tier; paintTierChips();
+            // Fetched on first use, not on page load: most visits never open
+            // this tab, and the picks feed must not wait on it.
+            if (CURRENT_TIER === "DRAWS" && !DRAW_DISCLOSURE) {
+                try {
+                    const d = await PotentialProAPI.drawPicks();
+                    DRAW_PICKS = d.picks || [];
+                    DRAW_CONSIDERED = d.considered || 0;
+                    DRAW_DISCLOSURE = d.disclosure || "";
+                } catch (e) {
+                    document.getElementById("status").textContent =
+                        "Couldn't load draw picks.";
+                    return;
+                }
+            }
+            renderFeed();
         }));
     paintTierChips();
     loadPicks();

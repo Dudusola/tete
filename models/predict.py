@@ -62,6 +62,16 @@ TEAM_ALIASES = {
     "AZ": "AZ Alkmaar",
     "Accrington Stanley": "Accrington",
     "Atlanta United": "Atlanta Utd",
+    # Copa Libertadores, 11 Aug 2026. Scores 0.92 against "Talleres Cordoba";
+    # confirmed the same club (Talleres de Cordoba, Argentina — the only
+    # Talleres in the Argentine CSVs).
+    "Talleres": "Talleres Cordoba",
+    # DO NOT add "Independiente del Valle" -> "Independiente". It scores 0.92,
+    # which is exactly the trap this band exists for: Independiente del Valle
+    # is Ecuadorian, Independiente is Argentine. Different clubs, and the
+    # alias would silently predict one team's match from the other's form.
+    # Same for "Slovan Bratislava" -> "Slovakia" (0.88): a club against a
+    # NATIONAL TEAM. The threshold correctly refuses both.
 }
 
 

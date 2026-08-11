@@ -34,6 +34,7 @@ from models.markets import (derive_markets, build_slip, accumulator_probability,
 from scrapers.booking_codes import attach_sporty_odds
 from models.leagues import pretty_league
 from models.gradeability import overall_coverage
+from models.draws import rank_draws, DISCLOSURE as DRAW_DISCLOSURE
 from models.live_scores import attach as attach_live_scores
 from models.consensus import (build_consensus, _same_match, _sim,
                               _dates_close, same_teams)
@@ -382,6 +383,54 @@ def get_all_picks():
     """All predictions including LOW confidence."""
     picks = _attach_consensus(_model_predictions(only_strong=False))
     return {"count": len(picks), "generated_at": _last_generated_at(), "picks": picks}
+
+
+@app.get("/api/picks/draws")
+def get_draw_picks():
+    """Fixtures where a draw is most plausible — a filter, not a tip.
+
+    Needs the bookmaker's HOME and AWAY prices, which the normal picks payload
+    does not carry, so it reads them here. Only rows that actually have odds
+    can be judged: a draw list that quietly included unpriced fixtures would
+    be reporting a hit rate it never measured.
+
+    See models/draws.py for the 90k-match measurement behind the thresholds,
+    and for why this ships with a disclosure rather than a confidence tier.
+    """
+    conn = get_connection()
+    rows = conn.execute("""
+        SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
+               m.kickoff_time, m.kickoff_utc, m.live_state,
+               mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
+               mp.confidence, mp.best_bet, mp.best_bet_prob,
+               od.odds_home, od.odds_draw, od.odds_away
+        FROM matches m
+        JOIN model_predictions mp ON mp.id = (
+            SELECT MAX(mp2.id) FROM model_predictions mp2
+            WHERE mp2.match_id = m.match_id)
+        JOIN scraped_predictions od ON od.id = (
+            SELECT MAX(sp2.id) FROM scraped_predictions sp2
+            WHERE sp2.match_id = m.match_id AND sp2.odds_home IS NOT NULL)
+        WHERE m.match_date >= date('now')
+    """).fetchall()
+    conn.close()
+
+    picks = [dict(r, live_state=effective_live_state(dict(r)),
+                  league_display=pretty_league(dict(r).get("league")))
+             for r in rows]
+    # Not yet kicked off — a draw you can no longer back is not a pick.
+    picks = [p for p in picks if p.get("live_state") != "post"]
+    ranked = rank_draws(picks)
+
+    return {
+        "count": len(ranked),
+        "generated_at": _last_generated_at(),
+        "considered": len(picks),
+        # Travels with the payload so no consumer can render the list without
+        # the caveat. The honest framing is part of the feature.
+        "disclosure": DRAW_DISCLOSURE,
+        "picks": ranked,
+    }
 
 
 @app.get("/api/slip")

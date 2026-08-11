@@ -496,6 +496,9 @@ async function apiPost(path, body) {
 const PotentialProAPI = {
     picks:       ()          => apiGet("/api/picks"),
     allPicks:    ()          => apiGet("/api/picks/all"),
+    // Draw-leaning fixtures. The response carries its own `disclosure` string
+    // — render it with the list, never the list alone (see models/draws.py).
+    drawPicks:   ()          => apiGet("/api/picks/draws"),
     slip:        (risk, n, leagues, excludePairs, pinnedLegs) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
                      (leagues && leagues.length ? `&leagues=${encodeURIComponent(leagues.join(","))}` : "") +
                      (excludePairs && excludePairs.length
