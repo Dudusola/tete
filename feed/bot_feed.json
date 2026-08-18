@@ -1,91 +1,51 @@
 {
- "generated_at": "2026-08-17T11:28:58+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Monday, 17 August 2026*\n\n🟢 *Almeria vs Eldense*\n   Segunda Division | 2026-08-17 00:00\n   H 85% | D 10% | A 5%\n   👉 *Home Win* (85%) — HIGH\n   💬 _Almeria enters this Segunda Division clash as overwhelming favorites to secure all three points against struggling Eldense. The stark gulf in quality across the pitch heavily favors the hosts, who pos_\n\n🟢 *Casa Pia Atletico vs Benfica*\n   Primeira Liga | 2026-08-17 00:00\n   H 10% | D 14% | A 75%\n   👉 *Away Win* (75%) — HIGH\n   💬 _Benfica enters this Primeira Liga clash as the overwhelming favorite to secure all three points against Casa Pia Atletico. The visiting side's superior overall quality, stronger squad depth, and domin_\n\n🟢 *BK Hacken vs Halmstads*\n   Allsvenskan | 2026-08-17 00:00\n   H 72% | D 21% | A 7%\n   👉 *Home Win* (72%) — HIGH\n   💬 _BK Häcken enters this Allsvenskan clash as massive favorites to secure all three points against Halmstads. The overwhelming statistical consensus heavily points toward a dominant home performance, ref_\n\n🟡 *Pachuca vs Puebla*\n   La Division | 2026-08-18 00:00\n   H 63% | D 22% | A 15%\n   👉 *Home Win* (63%) — MEDIUM\n   💬 _Pachuca enters this matchup as the overwhelming favorites to secure all three points against Puebla. This strong advantage is driven by Pachuca's superior overall form and significant historical edge _\n\n🟡 *Internacional vs Remo*\n   Serie A | 2026-08-18 00:00\n   H 62% | D 25% | A 13%\n   👉 *Home Win* (62%) — MEDIUM\n   💬 _Internacional enters this matchup as the clear favorite to secure all three points playing on their home turf. Their overwhelming statistical advantage in both win probability and overall match contro_\n\n🟡 *Palestino vs Huachipato*\n   Primera | 2026-08-18 00:00\n   H 57% | D 24% | A 18%\n   👉 *Home Win* (57%) — MEDIUM\n   💬 _Palestino enters this fixture as the clear favorite to secure all three points on home soil. Both statistical projections heavily favor the hosts, reflecting their superior current form and overall sq_\n\n🟡 *Dynamo Zagreb vs Viking FK*\n   Champions League | 2026-08-18 00:00\n   H 57% | D 25% | A 18%\n   👉 *Home Win* (57%) — MEDIUM\n   💬 _Dynamo Zagreb enters this match as clear favorites to secure a victory on home turf. Their superior overall quality and consistent European experience give them a distinct edge over Viking FK. Therefo_\n\n🟡 *Sassuolo vs Cesena*\n   Coppa Italia | 2026-08-17 00:00\n   H 56% | D 25% | A 19%\n   👉 *Home Win* (56%) — MEDIUM\n   💬 _Sassuolo enters this Coppa Italia clash as the clear favorite to advance, backed by superior squad depth and higher overall quality. Their attacking talent should comfortably break down Cesena's defen_\n\n_Bet responsibly. Confidence ≠ certainty._",
- "picks_count": 8,
+ "generated_at": "2026-08-18T11:27:24+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Tuesday, 18 August 2026*\n\n🟢 *Shanghai Port vs Dalian Yingbo*\n   Super League | 2026-08-19 00:00\n   H 65% | D 22% | A 13%\n   👉 *Home Win* (65%) — HIGH\n   💬 _Shanghai Port enters this clash as overwhelming favorites to secure all three points on home turf. The staggering gulf in overall quality and squad depth between the two sides makes a shock upset high_\n\n🟡 *Celtic vs LASK Linz*\n   Champions League | 2026-08-19 00:00\n   H 64% | D 21% | A 15%\n   👉 *Home Win* (64%) — MEDIUM\n   💬 _Celtic enters this match as strong favorites to secure a crucial victory on their home turf. The key factor driving this prediction is Celtic's formidable home advantage and superior overall squad qua_\n\n🟡 *Sao Paulo vs Bolivar*\n   Copa Sudamerica | 2026-08-19 00:00\n   H 64% | D 25% | A 11%\n   👉 *Home Win* (64%) — MEDIUM\n   💬 _Sao Paulo enters this Copa Sudamericana match as heavy favorites to secure a straightforward victory on home turf. The Brazilian side holds a massive statistical advantage across the board, making the_\n\n🟡 *Slovan Bratislava vs NK Celje*\n   Champions League | 2026-08-19 00:00\n   H 60% | D 25% | A 16%\n   👉 *Home Win* (60%) — MEDIUM\n   💬 _Slovan Bratislava enters this Champions League match as the clear favorites to secure a victory on home turf. Both leading statistical forecasts strongly agree on this outcome, heavily favoring the Sl_\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "picks_count": 4,
  "stats": {
-  "total": 188,
-  "correct": 122,
-  "accuracy": 64.9
+  "total": 196,
+  "correct": 126,
+  "accuracy": 64.3
  },
  "picks": [
   {
-   "home": "Almeria",
-   "away": "Eldense",
-   "league": "Segunda Division",
-   "date": "2026-08-17",
+   "home": "Shanghai Port",
+   "away": "Dalian Yingbo",
+   "league": "Super League",
+   "date": "2026-08-19",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 85.0,
+   "prob": 65.3,
    "confidence": "HIGH"
   },
   {
-   "home": "Casa Pia Atletico",
-   "away": "Benfica",
-   "league": "Primeira Liga",
-   "date": "2026-08-17",
-   "kickoff": "00:00",
-   "bet": "Away Win",
-   "prob": 75.2,
-   "confidence": "HIGH"
-  },
-  {
-   "home": "BK Hacken",
-   "away": "Halmstads",
-   "league": "Allsvenskan",
-   "date": "2026-08-17",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 72.1,
-   "confidence": "HIGH"
-  },
-  {
-   "home": "Pachuca",
-   "away": "Puebla",
-   "league": "La Division",
-   "date": "2026-08-18",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 62.8,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Internacional",
-   "away": "Remo",
-   "league": "Serie A",
-   "date": "2026-08-18",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 61.7,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Palestino",
-   "away": "Huachipato",
-   "league": "Primera",
-   "date": "2026-08-18",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 57.4,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Dynamo Zagreb",
-   "away": "Viking FK",
+   "home": "Celtic",
+   "away": "LASK Linz",
    "league": "Champions League",
-   "date": "2026-08-18",
+   "date": "2026-08-19",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 56.9,
+   "prob": 64.1,
    "confidence": "MEDIUM"
   },
   {
-   "home": "Sassuolo",
-   "away": "Cesena",
-   "league": "Coppa Italia",
-   "date": "2026-08-17",
+   "home": "Sao Paulo",
+   "away": "Bolivar",
+   "league": "Copa Sudamerica",
+   "date": "2026-08-19",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 55.8,
+   "prob": 63.9,
+   "confidence": "MEDIUM"
+  },
+  {
+   "home": "Slovan Bratislava",
+   "away": "NK Celje",
+   "league": "Champions League",
+   "date": "2026-08-19",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 59.6,
    "confidence": "MEDIUM"
   }
  ]
