@@ -17,8 +17,6 @@ Run:
 import sys
 import os
 import sqlite3
-from datetime import datetime
-from difflib import SequenceMatcher
 
 DB_PATH = os.getenv("DB_PATH", "./db/sports_predictor.db")
 
@@ -43,21 +41,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.consensus import same_teams, _dates_close
 
 
-def sim(a, b):
-    return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio()
-
-
-def dates_close(d1, d2, days=1):
-    try:
-        a = datetime.strptime(d1, "%Y-%m-%d")
-        b = datetime.strptime(d2, "%Y-%m-%d")
-        return abs((a - b).days) <= days
-    except (ValueError, TypeError):
-        return d1 == d2
-
-
 def same_fixture(m1, m2):
-    return (dates_close(m1["match_date"], m2["match_date"]) and
+    return (_dates_close(m1["match_date"], m2["match_date"]) and
             same_teams(m1["home_team"], m1["away_team"],
                        m2["home_team"], m2["away_team"]))
 
@@ -165,11 +150,28 @@ def run(apply=False):
                             (better, canonical))
 
     if apply:
-        # Collapse now-identical child rows
+        # Collapse now-identical child rows.
+        #
+        # KEEP MAX(id), NOT MIN(id). These rows are not interchangeable even
+        # when the grouped columns match: the newer row is the one carrying the
+        # payload columns added later in the pipeline. model_predictions rows
+        # gain book_odds and draw_analysis after they are first inserted, and
+        # scraped_predictions rows gain odds as a source's odds scrape lands. A
+        # row grouped as "identical" on (match_id, best_bet, confidence) can
+        # still be the only row holding today's price.
+        #
+        # This ran with MIN(id) daily (run_daily.py, before predict and
+        # market_snapshot). The damage was not yet visible when this was
+        # changed — only 20 rows had book_odds at all and 19 of them were
+        # already MAX(id) — but that is a property of the feature being new,
+        # not of the query being safe. Every serving and stats query in the
+        # codebase reads MAX(id) per group (CLAUDE.md bug #3); a cleanup step
+        # that keeps MIN is deleting precisely the row the rest of the system
+        # is about to read.
         cur.execute("""DELETE FROM model_predictions WHERE id NOT IN (
-            SELECT MIN(id) FROM model_predictions GROUP BY match_id, best_bet, confidence)""")
+            SELECT MAX(id) FROM model_predictions GROUP BY match_id, best_bet, confidence)""")
         cur.execute("""DELETE FROM scraped_predictions WHERE id NOT IN (
-            SELECT MIN(id) FROM scraped_predictions GROUP BY match_id, source)""")
+            SELECT MAX(id) FROM scraped_predictions GROUP BY match_id, source)""")
         conn.commit()
         # no emoji - Windows cp1252 console crashes on it AFTER the commit,
         # which makes a successful merge look like a failure
