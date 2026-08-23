@@ -27,12 +27,23 @@ MODEL_PATH = "./models/random_forest_v1.joblib"
 # form includes our own recorded results. Bumped so the ledger separates eras.
 # rf_v1c = same model, but the confidence TIER is now consensus-adjusted
 # (see apply_consensus_modifier). Probabilities are untouched.
-MODEL_VERSION = "rf_v1e"  # rf_v1e = consensus BOOST disabled (was 0/3, harmed
+MODEL_VERSION = "rf_v2"   # rf_v2 = odds features fixed (closing-odds columns now
+                          # read, coverage 39.5% -> 94.1% of training rows) and
+                          # new odds_is_market flag distinguishing a real price
+                          # from a model's percentages. FEATURE SET CHANGED, so
+                          # the ledger must separate this era from rf_v1*: the
+                          # tier calibration below was measured on the old model.
+                          # rf_v1e = consensus BOOST disabled (was 0/3, harmed
                           # HIGH tier); demote kept. rf_v1d = July data refresh.
 
-# Confidence tiers calibrated from training evaluation (12 June 2026):
+# Confidence tiers calibrated from training evaluation.
 #   >=65% model prob -> ~75% historical accuracy -> HIGH
 #   >=55%            -> ~66%                     -> MEDIUM
+# Re-measured on rf_v2 (23 Aug 2026) and both still hold, which is the reason
+# they are unchanged: 65% -> 74.6% (was 74.2%), 55% -> 65.0% (was 65.1%). The
+# fix did not move the accuracy at a given threshold; it moved the VOLUME that
+# clears it (65% tier: 8.4% -> 12.5% of matches). Do not re-tune these from a
+# single run — the served-picks record in the ledger is the real test.
 TIER_HIGH = 0.65
 TIER_MEDIUM = 0.55
 
@@ -207,11 +218,26 @@ def build_live_features(home_hist: list, away_hist: list,
     Odds features MUST come from real bookmaker odds when available - the
     model was trained on odds-implied probabilities. Source percentages are
     only a fallback (for PredictZ rows they are odds-derived anyway).
+
+    odds_is_market records WHICH of those two happened, because they are not
+    the same thing and the model used to be unable to tell:
+
+      1.0  a real bookmaker price
+      0.0  another model's percentages, normalised to look like one
+
+    The fallback is not rare. On August's ledger roughly half of the latest
+    rows per match had no real price, and PredictZ's own odds coverage fell
+    from 62% in July to 24% in August without anything going red — because
+    substituting percentages never raises an error, it just silently changes
+    what the most important feature in the model means. Flagging it lets the
+    forest discount those rows instead of trusting them equally, and makes the
+    regression visible in the logs.
     """
     oh, od, oa = (forebet.get("odds_home"), forebet.get("odds_draw"),
                   forebet.get("odds_away"))
     if oh and od and oa:
         h, d, a = 1 / oh, 1 / od, 1 / oa
+        is_market = 1.0
     else:
         hp, dp, ap = (forebet.get("home_win_pct"), forebet.get("draw_pct"),
                       forebet.get("away_win_pct"))
@@ -225,6 +251,7 @@ def build_live_features(home_hist: list, away_hist: list,
             # tier — would otherwise poison the ledger silently. See bug #7.)
             return None
         h, d, a = hp / 100, dp / 100, ap / 100
+        is_market = 0.0
     total = h + d + a
 
     return {
@@ -240,6 +267,7 @@ def build_live_features(home_hist: list, away_hist: list,
         "odds_home_prob": h / total,
         "odds_draw_prob": d / total,
         "odds_away_prob": a / total,
+        "odds_is_market": is_market,
     }
 
 
@@ -332,6 +360,7 @@ def run(use_gemma: bool = True):
     predictions = []
     skipped = 0
     no_odds = 0
+    pct_fallback = 0
     boosted = demoted = 0
 
     for match in scraped:
@@ -354,6 +383,12 @@ def run(use_gemma: bool = True):
             # inventing a uniform prior. Better no pick than a fake one.
             no_odds += 1
             continue
+        if feats["odds_is_market"] == 0.0:
+            # Served on another model's percentages rather than a real price.
+            # Counted so the run REPORTS it: PredictZ's odds coverage fell from
+            # 62% to 24% between July and August and nothing noticed, because
+            # this path succeeds silently.
+            pct_fallback += 1
 
         X = pd.DataFrame([feats])[columns]
         probs_arr = model.predict_proba(X)[0]
@@ -432,6 +467,23 @@ def run(use_gemma: bool = True):
                    f"({skipped} skipped - teams not in historical data; "
                    f"{no_odds} skipped - no odds/percentages; "
                    f"consensus: {boosted} boosted, {demoted} demoted)")
+
+    # Market-price coverage. This is a health metric, not trivia: the odds
+    # features carry two thirds of the model's importance, so the share of picks
+    # built on a real price rather than another model's percentages is the single
+    # best indicator of whether today's predictions mean what the track record
+    # says they mean. Every match that survived build_live_features is predicted
+    # (no further `continue`), so these two counts partition len(predictions).
+    if predictions:
+        total = len(predictions)
+        on_market = total - pct_fallback
+        logger.info(f"Market-price coverage: {on_market}/{total} "
+                    f"({on_market / total:.0%}) picks built on a real bookmaker "
+                    f"price; {pct_fallback} on source percentages")
+        if pct_fallback > total * 0.4:
+            logger.warning(f"{pct_fallback}/{total} picks are running on another "
+                           f"model's percentages rather than market odds - check "
+                           f"whether PredictZ/ESPN odds scraping has degraded")
 
     # Display, best picks first
     predictions.sort(key=lambda x: x["best_prob"], reverse=True)
