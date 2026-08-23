@@ -73,6 +73,16 @@ _last_gemini_call = 0.0
 
 UNAVAILABLE = "Analysis unavailable at this time."
 
+# Consecutive failures per provider, this process only. A hosted provider that
+# is genuinely down is down for every remaining match, and retrying it is not
+# free: Gemini alone costs GEMINI_MIN_INTERVAL (4.5s) of pacing plus a 90s
+# timeout per attempt, so a dead key turns a ~45-match run into a very long one
+# that lands on the fallback anyway. Two strikes, not one — a single 500 or a
+# safety-filtered response is a blip, not an outage.
+_provider_failures: dict = {}
+_DEAD_AFTER = 2
+
+
 
 def active_provider() -> str:
     """Which provider this process will actually use."""
@@ -113,21 +123,42 @@ def check_ollama_running() -> bool:
 
     A gate in front of a failover chain must ask the same question the chain
     answers: "can ANYONE serve this?", not "is my first choice healthy?".
-    """
-    provider = active_provider()
 
-    # Try the active provider first, then everything it would fall back to,
-    # in the same order analyze_match() uses.
-    if provider == "gemini" and _check_gemini():
-        return True
-    if provider in ("gemini", "groq") and GROQ_API_KEY:
-        # Groq has no cheap health endpoint worth a round trip; a key present
-        # is the signal, and a dead call still falls through to Ollama.
-        logger.info("Analysis provider: Groq (fallback)"
-                    if provider == "gemini" else "Analysis provider: Groq")
-        return True
-    if _check_ollama():
-        return True
+    It now walks _provider_chain() rather than re-deriving the order inline, so
+    the gate and the chain cannot disagree about who is in the list. That
+    disagreement was itself the second half of this bug: the docstring above
+    promised Gemini -> Groq -> Ollama, the gate implemented it, and
+    analyze_match() stopped at Groq. See _provider_chain().
+    """
+    # AI_PROVIDER=gemini with no key is a configuration mistake, not a
+    # fallback situation - _provider_chain() drops Gemini silently, so say it
+    # here or the run degrades to Ollama with no explanation.
+    if AI_PROVIDER == "gemini" and not GEMINI_API_KEY:
+        logger.error(
+            "AI_PROVIDER=gemini but GEMINI_API_KEY is empty. "
+            "Get a free key at https://aistudio.google.com/apikey"
+        )
+
+    for provider in _provider_chain():
+        if provider == "gemini":
+            if _check_gemini():
+                return True
+            # A failed health check is real evidence, so it counts as ONE
+            # strike against Gemini rather than being forgotten. With
+            # _DEAD_AFTER=2 a transient blip still gets a second chance at
+            # analysis time, while a genuinely wrong key or model name is out
+            # after the first match instead of pacing 45 of them.
+            _provider_failures["gemini"] = _provider_failures.get("gemini", 0) + 1
+            continue
+        if provider == "groq":
+            # Groq has no cheap health endpoint worth a round trip; a key
+            # present is the signal, and a dead call still falls through to
+            # Ollama at analysis time.
+            logger.info(f"Analysis provider: Groq"
+                        f"{' (fallback)' if provider != active_provider() else ''}")
+            return True
+        if provider == "ollama" and _check_ollama():
+            return True
 
     logger.error("No analysis provider is reachable (Gemini, Groq, Ollama all "
                  "unavailable) - predictions will be saved without analysis")
@@ -200,29 +231,76 @@ def list_gemini_models() -> list:
 #  Analysis
 # =========================================================================
 
+def _provider_chain() -> list:
+    """The providers to try for one analysis, in order.
+
+    THE BUG THIS FIXES (23 Aug 2026). check_ollama_running() was corrected to
+    ask "can ANY provider serve?", and its docstring states the chain is
+    Gemini -> Groq -> Ollama. analyze_match did not implement that chain: the
+    Gemini branch fell over to Groq and then STOPPED, so a run where both
+    hosted providers were down produced no analysis even with Ollama healthy —
+    and the gate had already said yes on Ollama's behalf. Worse, with no
+    GROQ_API_KEY set the Gemini branch returned UNAVAILABLE without trying
+    anything else at all.
+
+    A gate and a chain have to agree on the list. Building the list in one
+    place is what makes that checkable.
+
+    AI_PROVIDER=gemini/groq means "start here", not "only here" — a forced
+    primary still degrades rather than serving blank prose. AI_PROVIDER=ollama
+    stays exclusive: it is the deliberate offline/local mode, and silently
+    reaching out to a hosted API would defeat the point of choosing it.
+    """
+    if AI_PROVIDER == "ollama":
+        chain = ["ollama"]
+    elif AI_PROVIDER == "groq":
+        chain = ["groq", "ollama"]
+    else:                                   # "gemini" or "auto"
+        chain = ["gemini", "groq", "ollama"]
+
+    # Skip providers that cannot possibly answer. Without this a missing key
+    # costs a round trip and an ERROR line per match, ~45 times a run.
+    usable = []
+    for p in chain:
+        if p == "gemini" and not GEMINI_API_KEY:
+            continue
+        if p == "groq" and not GROQ_API_KEY:
+            continue
+        if _provider_failures.get(p, 0) >= _DEAD_AFTER:
+            continue
+        usable.append(p)
+    return usable
+
+
 def analyze_match(match_context: dict) -> str:
-    """Turn model output + context into 3 sentences of plain-English reasoning."""
+    """Turn model output + context into 3 sentences of plain-English reasoning.
+
+    Walks the whole provider chain, so the analysis survives losing any two of
+    the three. Returns UNAVAILABLE only when every provider has failed —
+    predictions are still saved in that case; the pick does not depend on this
+    layer, which is why it fails soft.
+    """
     prompt = build_prompt(match_context)
-    provider = active_provider()
+    chain = _provider_chain()
 
-    if provider == "gemini":
-        text = _analyze_gemini(prompt)
-        # Actually FAIL OVER rather than just having a fallback configured.
-        # A provider that is only consulted when the key is missing is no use
-        # during an outage, which is the case that matters.
-        if text == UNAVAILABLE and GROQ_API_KEY:
-            logger.warning("Gemini returned nothing - falling back to Groq")
-            return _analyze_groq(prompt)
-        return text
+    for i, provider in enumerate(chain):
+        text = _ANALYSERS[provider](prompt)
+        if text and text != UNAVAILABLE:
+            _provider_failures[provider] = 0
+            if i:
+                logger.info(f"Analysis served by fallback provider: {provider}")
+            return text
 
-    if provider == "groq":
-        text = _analyze_groq(prompt)
-        if text == UNAVAILABLE and check_ollama_running():
-            logger.warning("Groq returned nothing - falling back to Ollama")
-            return _analyze_ollama(prompt)
-        return text
+        _provider_failures[provider] = _provider_failures.get(provider, 0) + 1
+        nxt = chain[i + 1] if i + 1 < len(chain) else None
+        if nxt:
+            logger.warning(f"{provider} returned nothing - falling back to {nxt}")
+        if _provider_failures[provider] >= _DEAD_AFTER:
+            logger.warning(f"{provider} has failed {_DEAD_AFTER}x - dropping it "
+                           f"for the rest of this run")
 
-    return _analyze_ollama(prompt)
+    logger.error("Every analysis provider failed - saving prediction without analysis")
+    return UNAVAILABLE
 
 
 def _analyze_groq(prompt: str) -> str:
@@ -340,6 +418,16 @@ def _analyze_gemini(prompt: str, _attempt: int = 0) -> str:
         return UNAVAILABLE
 
 
+# Name -> implementation, so _provider_chain() can hand back plain strings and
+# analyze_match() needs no if/elif ladder. Every entry takes a prompt and
+# returns prose or UNAVAILABLE; none of them raise.
+_ANALYSERS = {
+    "gemini": _analyze_gemini,
+    "groq": _analyze_groq,
+    "ollama": _analyze_ollama,
+}
+
+
 def build_prompt(ctx: dict) -> str:
     """Build a structured prompt. We give the model the DATA, never ask it to
     recall facts — it explains our numbers, it does not source its own."""
@@ -380,7 +468,18 @@ model names or quote the percentages directly."""
     fb_away = ctx.get("away_win_pct", "N/A")
 
     predicted_score = ctx.get("predicted_score", "N/A")
-    over_2_5 = ctx.get("over_2_5_pct", "N/A")
+    # scraped_predictions.over_2_5_pct holds AVERAGE TOTAL GOALS, not a
+    # probability — scrapers/forebet.py:214 writes Forebet's avg_goals into it,
+    # and models/markets.py:171 reads it back as `avg_goals` to scale its Poisson
+    # means. Measured on the ledger: 1602 values, min 0.0, max 8.67, mean 2.76.
+    # The column name is a leftover and is load-bearing across the schema, so
+    # it is not renamed here; what IS fixed is the label. The prompt used to say
+    # "Over 2.5 Goals Probability: 2.76%", which is a false statement of fact
+    # handed to the LLM and then printed as prose under our name — a 2.76%
+    # chance of over 2.5 goals implies a near-certain 0-0, so the model was
+    # being invited to argue for a goalless draw on a fixture expected to
+    # produce nearly three goals.
+    avg_goals = ctx.get("over_2_5_pct", "N/A")
     confidence = ctx.get("confidence", "MEDIUM")
     best_bet = ctx.get("best_bet", "Home Win")
     best_bet_prob = ctx.get("best_bet_prob", 0)
@@ -400,7 +499,7 @@ FOREBET STATISTICAL PREDICTION:
 - Draw: {fb_draw}%
 - {away} Win: {fb_away}%
 - Predicted Score: {predicted_score}
-- Over 2.5 Goals Probability: {over_2_5}%
+- Expected Total Goals: {avg_goals}
 
 BEST BET: {best_bet} ({best_bet_prob:.1f}% probability)
 CONFIDENCE: {confidence}
@@ -459,7 +558,10 @@ if __name__ == "__main__":
         "draw_pct": 22.0,
         "away_win_pct": 23.0,
         "predicted_score": "2 - 1",
-        "over_2_5_pct": 61.0,
+        "over_2_5_pct": 2.9,   # average TOTAL GOALS despite the name; see
+                               # build_prompt. Was 61.0 here, which looked like
+                               # a percentage and made the mislabelled prompt
+                               # read plausibly in the self-test.
         "confidence": "MEDIUM",
         "best_bet": "Home Win",
         "best_bet_prob": 52.3,
