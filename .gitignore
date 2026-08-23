@@ -12,6 +12,16 @@ __pycache__/
 # model's training input, so a fresh clone can run models/train.py unaided.
 data/raw/
 data/*.log
+# Scratch SQLite files ANYWHERE, not just db/. CONTRIBUTING.md §2 said "db/*.db
+# is still gitignored in general, so a scratch database of your own is never
+# committed by accident" — which was only true INSIDE db/. A test run with
+# DB_PATH=./fresh_test.db (23 Aug 2026) left an untracked .db at the repo root
+# that `git add -A` would have committed. The one .db we DO track is
+# force-added, so a broad pattern costs nothing.
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
 db/*.db
 db/*.db-journal
 db/*.db-wal
