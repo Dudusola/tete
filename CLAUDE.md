@@ -23,7 +23,7 @@ generate predictions on demand.
 ## Where it runs (LIVE since 6 Aug 2026 — nothing depends on Boss's laptop)
 | Piece | Host | URL / entry point |
 |---|---|---|
-| Daily pipeline | GitHub Actions | `.github/workflows/daily.yml`, 11:00 UTC = 12:00 Lagos |
+| Daily pipeline | GitHub Actions | `.github/workflows/daily.yml`, 08:50 UTC ≈ 10:00 Lagos |
 | API (the real FastAPI) | Render free tier | https://potentialpro-api.onrender.com (`/docs`, `/healthz`) |
 | Web app (PWA) | Cloudflare Pages | https://potentialpro.pages.dev |
 | Telegram bot (interactive) | Cloudflare Worker | https://potentialpro-bot.potentialpro.workers.dev |
@@ -64,7 +64,7 @@ generate predictions on demand.
 
 ## Run commands
 - **Pipeline now runs in the CLOUD** (GitHub Actions, .github/workflows/daily.yml,
-  11:00 UTC = 12:00 Lagos). The local Task Scheduler jobs are DISABLED — do not
+  08:50 UTC ≈ 10:00 Lagos). The local Task Scheduler jobs are DISABLED — do not
   re-enable them without disabling the cron, or two pipelines write two diverging
   ledgers. db/sports_predictor.db is COMMITTED and the workflow updates it daily.
   Forebet is excluded in the cloud (IP-blocked); PredictZ + API-Football cover it.
@@ -697,6 +697,61 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     **A gate in front of a chain and the chain itself must derive their list
     from one place — a docstring is not an implementation.**
 
+24. **The Checker could price a hand-built slip but not book it** (24 Aug 2026,
+    `webapp/checker.html`). The left panel let you search fixtures and pick a
+    market off its percentage; the right panel priced the accumulator. There was
+    no way to turn that into a booking code — you had to go to the Builder and
+    reassemble the same selections by hand. The API needed nothing: the legs the
+    Checker already stored (`{home_team, away_team, market, selection}`) are
+    exactly `/api/booking/generate`'s input. FIX: SportyBet / MSport / Bet9ja
+    buttons on the slip panel, same call the Builder makes. Verified end to end
+    against the live endpoint (3-leg payload → code `QFQ1R0`, 2 mapped, 1
+    unmapped and reported).
+
+    Two real bugs surfaced while doing it:
+
+    - `addLeg` never toggled off. The comment said "toggle off if same fixture"
+      and the code removed the fixture's leg — then unconditionally re-pushed,
+      so clicking the same chip twice was a no-op. Now: same chip removes,
+      different market on the same fixture swaps.
+    - **Only 6 of ~12 markets per fixture were reachable.** The card rendered
+      `fx.markets.slice(0,6)` with no "more" control, and `/api/fixtures` sorts
+      by probability descending — so the visible six were always the near-certain
+      Double Chance and Handicap lines, and Match Result was often off the end.
+      "Pick the market you want" was not actually possible. FIX: `+N more`
+      expander per fixture plus a market dropdown built from the loaded
+      fixtures (no hardcoded list to go stale). **A cap with no affordance to
+      lift it is indistinguishable from the data not existing.**
+
+25. **Over/Under and BTTS have silently vanished from the product** (found
+    24 Aug 2026 — NOT yet fixed, and not a regression to revert). `/api/fixtures`
+    now returns only 4 market families: Match Result, Double Chance, Draw No Bet,
+    Handicap. Over/Under, BTTS and Result & Goals are gated on
+    `predicted_home_goals`, which reaches `derive_markets` through the plain
+    `MAX(id)` join at `api/server.py:199` — deliberately left plain on 9 Aug
+    (Boss's call) so goals markets stay RARE, because the scoreline-as-xG
+    derivation prices "Under 2.5" at 91-99% against near-even bookmaker money.
+
+    What changed since is that PredictZ carries a scoreline on **100%** of its
+    rows (2387/2387) while ESPN carries one on **0%** (0/582) — and ESPN now wins
+    the `MAX(id)` race often enough that "rare" has become "never". So a
+    deliberate throttle has quietly become a full switch-off. The 9 Aug reasoning
+    still holds: do NOT widen the join to bring them back, because that restores
+    the mispricing. The real fix is still a genuine goals signal (team
+    attack/defence rates, or the bookmaker's own O/U line). **A knob set to
+    "rare" is not stable — it depends on the mix of sources, and the mix moved.**
+
+26. **Forebet is not "failing to push" — it is switched off in the cloud**
+    (clarified 24 Aug 2026). 17 consecutive days of zero Forebet rows (6→23 Aug)
+    with every daily run reporting success. Cause is `PP_SKIP_FOREBET: '1'` in
+    `daily.yml:90`, set on purpose because Forebet Cloudflare-403s GitHub's IP
+    ranges. Consequences that are easy to miss because nothing goes red:
+    Forebet is the ONLY source of `over_2_5_pct` (1602/1602 rows; every other
+    source: 0) and supplies 198 of our 298 leagues. So cross-source consensus is
+    largely blind in production, and the analyst prompt's Forebet block is all
+    "N/A". **No schedule change fixes an IP block** — the options are a proxy, a
+    different host, a scheduled local run, or accepting the loss.
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
@@ -838,7 +893,7 @@ unknown until the honest ledger matures (`db/edge_report.py`).
 - **Everything is now hands-off — what runs itself, and when.**
   | What | Trigger |
   |---|---|
-  | Pipeline (fixtures -> predictions -> Telegram -> bot feed -> ledger commit) | `daily.yml`, cron 11:00 UTC |
+  | Pipeline (fixtures -> predictions -> Telegram -> bot feed -> ledger commit) | `daily.yml`, cron 08:50 UTC |
   | Evening results sweep | `results.yml`, cron 22:00 UTC |
   | API redeploy | Render, on every push to main |
   | Web app deploy + cache-bust | `deploy-webapp.yml`, on any push touching `webapp/` |
@@ -846,6 +901,44 @@ unknown until the honest ledger matures (`db/edge_report.py`).
   exist the deploy workflow skips with a notice rather than failing.
 
 ## What's next (priority order)
+
+0. **Saudi Pro League (and any new league): what it actually takes** — asked
+   24 Aug 2026, investigated, NOT built. Do not treat this as "download a CSV
+   and retrain"; that is one third of it, and the cheapest third.
+
+   Measured facts:
+   - **Zero Saudi rows, ever.** No `league` in `matches` has ever matched
+     `%saud%`/`%arab%`/`%roshn%`. 298 leagues, none Saudi. "Pro League" in the
+     ledger is Iran/UAE.
+   - **Forebet covers it** (`predictions-for-saudi-arabia/professional-league`
+     is in the raw page dump) — and Forebet is IP-blocked in the cloud, so that
+     route is dead in production. See bug #26.
+   - **PredictZ does not** (142 leagues, no Saudi).
+   - **ESPN is the viable route.** ESPN supplies odds AND win% on 582/582 rows,
+     which is all `build_live_features` needs, and `scrapers/espn_leagues.py` is
+     the single shared list for fixtures, kickoff times AND grading. Adding
+     `"ksa.1"` to `EXTRA` is a one-line change. That file's whole premise —
+     "a league we predict must be a league we can GRADE" — makes this the right
+     place, not a second list.
+   - **football-data.co.uk publishes no Saudi CSV.** The 102 files in
+     `data/historical/` cover ~36 European/American/Asian leagues. So a Saudi
+     fixture has NO history.
+
+   Why the missing history is the real blocker, not a nice-to-have: 9 of the 13
+   model features come from `home_hist`/`away_hist`, and on an empty list
+   `form_ppg`, `goals_avg` and `venue_ppg` all return **0.0**
+   (`models/train.py:197-218`). 0.0 is not "unknown" — in training it means
+   "lost every match, scored nothing". So Saudi picks would be built on nine
+   features asserting both teams are the worst in football, would look normal,
+   would get graded, and would move the tier stats. **This is bug #7 and bug #18
+   again**: a silent fallback that changes what a feature MEANS without erroring.
+
+   So the order of work is: (a) a `has_form_history` flag so the forest can tell
+   "no data" from "dreadful", the same fix shape as `odds_is_market`; (b) a
+   Saudi history source WITH bookmaker odds — adding a league with no odds
+   re-creates the exact gap rf_v2 just closed; (c) `"ksa.1"` in
+   `espn_leagues.py`; (d) retrain. Doing (c) alone ships confidently wrong picks.
+
 1. **Let the honest ledger accumulate 2–3 weeks.** Highest value, zero work. Scheduler
    runs daily. Watch: do the tiers hold calibration on REAL scores? Do the model's
    disagreements with Forebet win or lose?
