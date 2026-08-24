@@ -53,7 +53,7 @@ a fresh clone with no downloads.
 ### The ledger lives in the repo (changed 6 Aug 2026)
 
 `db/sports_predictor.db` **is committed**, and the GitHub Actions pipeline
-(`.github/workflows/daily.yml`) writes it every day at 11:00 UTC / 12:00 Lagos.
+(`.github/workflows/daily.yml`) writes it every day at 08:50 UTC / ~10:00 Lagos.
 That file is the authoritative track record — the thing the product's
 credibility rests on.
 

@@ -14,16 +14,22 @@ name: Daily pipeline
 
 on:
   workflow_dispatch:
-  # LIVE since 6 Aug 2026. 11:00 UTC = 12:00 Africa/Lagos (UTC+1, no DST),
-  # matching the local midday slot chosen because 07:30 runs were
-  # Cloudflare-blocked. GitHub cron is best-effort and can lag 10+ minutes;
-  # every insert is INSERT OR IGNORE, so a late or repeated run is harmless.
+  # LIVE since 6 Aug 2026. Moved to a 10:00 Africa/Lagos slot on 23 Aug 2026
+  # (was '0 11 * * *' = 12:00 Lagos, itself chosen because 07:30 runs were
+  # Cloudflare-blocked — that reason is now moot, see PP_SKIP_FOREBET below).
+  #
+  # Lagos is UTC+1 with no DST, so 10:00 local is 09:00 UTC. This is set to
+  # 08:50 UTC on purpose: GitHub cron is best-effort and routinely lags 10+
+  # minutes, and it lags WORST on the :00 mark because that is when everyone
+  # else schedules. Nominal 09:50 Lagos + typical lag ≈ 10:00 Lagos, which is
+  # the target. Every insert is INSERT OR IGNORE, so an early, late or repeated
+  # run is harmless — arriving before the hour is strictly better than after.
   #
   # The local Task Scheduler job was disabled when this went live — if you
   # ever re-enable it, disable this, or two pipelines will write two diverging
   # copies of the ledger.
   schedule:
-    - cron: '0 11 * * *'
+    - cron: '50 8 * * *'
 
 # Never let two runs write the ledger at once.
 concurrency:

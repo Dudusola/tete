@@ -15,7 +15,7 @@ Nothing is on the laptop. Three free tiers, each doing one job:
 
 | Piece | Where | Trigger |
 |---|---|---|
-| Daily pipeline (scrape → predict → publish) | GitHub Actions | cron `0 11 * * *` UTC = 12:00 Lagos |
+| Daily pipeline (scrape → predict → publish) | GitHub Actions | cron `50 8 * * *` UTC ≈ 10:00 Lagos |
 | Results grading | GitHub Actions | cron `0 22 * * *` UTC = 23:00 Lagos |
 | The ledger (`db/sports_predictor.db`) | committed back to this repo by the pipeline | every run |
 | API (FastAPI) | Render, `https://potentialpro-api.onrender.com` | auto-redeploys on push to `main` |
@@ -50,7 +50,10 @@ record**. The cloud is its single writer.
   spell takes **~50 seconds** while the container wakes; everything after is
   fast. The PWA is not broken and neither is your connection. `/healthz` is the
   cheapest way to wake it deliberately.
-- **GitHub cron is best-effort** and routinely lags 10+ minutes. Every insert is
+- **GitHub cron is best-effort** and routinely lags 10+ minutes — worst on the
+  `:00` mark, because that is when everyone else schedules. The daily cron is
+  deliberately set 10 minutes *early* (`50 8` UTC = 09:50 Lagos) so that the
+  usual lag lands it near the 10:00 Lagos target. Every insert is
   `INSERT OR IGNORE`, so a late run — or a repeated one — is harmless.
 - **Cloudflare Pages** serves the last successful deploy, so a failed frontend
   deploy leaves the previous version live rather than a blank page.

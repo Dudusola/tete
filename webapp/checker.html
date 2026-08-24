@@ -46,7 +46,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <section>
 <header class="mb-md">
 <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Check a Slip</h1>
-<p class="text-body-md text-on-surface-variant mt-1">Build your slip from today's fixtures. We'll score each leg and the whole accumulator against our model.</p>
+<p class="text-body-md text-on-surface-variant mt-1">Build your slip from today's fixtures, filter to the market you want, and we'll score each leg and the whole accumulator against our model — then turn it into a booking code.</p>
 </header>
 
 <!-- Booking-code decoder (SportyBet) -->
@@ -143,7 +143,18 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
     <div id="merge-result" class="mt-sm"></div>
   </div>
 </div>
-<input id="search" type="text" placeholder="Search team…" class="w-full mb-md rounded-lg border border-outline-variant px-md py-sm text-body-md"/>
+<!-- Search + market filter. The fixture cards below cap at the 6 highest
+     probabilities, which is nearly always Double Chance and the safe Over/Under
+     lines — so without a filter the other ~15 markets derive_markets produces
+     were unreachable, and "pick the market you want" was not actually possible.
+     The dropdown is built from the fixtures actually loaded, so a new market in
+     models/markets.py appears here with no edit. -->
+<div class="flex flex-col sm:flex-row gap-xs mb-md">
+  <input id="search" type="text" placeholder="Search team or league…" class="flex-1 min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md"/>
+  <select id="market-filter" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
+    <option value="">All markets</option>
+  </select>
+</div>
 <div id="fixture-list" class="space-y-sm max-h-[70vh] overflow-y-auto pr-1">
 <div class="text-on-surface-variant">Loading fixtures…</div>
 </div>
@@ -165,6 +176,30 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <span class="text-label-sm text-inverse-primary" id="acc-note"></span>
 </div>
 <span class="text-display-lg font-display-lg text-secondary" id="acc-pct">—</span>
+</div>
+
+<!-- Book the hand-picked slip. This panel could already price a slip you
+     assembled by hand but had no way to turn it into anything you could bet —
+     you had to rebuild the same selections in the Builder. Same
+     /api/booking/generate call the Builder makes; the legs here already carry
+     the market + selection it needs. -->
+<div class="bg-surface-container-low px-md py-sm border-t border-outline-variant">
+  <div class="flex flex-wrap gap-sm">
+    <button data-provider="sportybet" class="ck-book-btn flex-1 min-w-[9rem] bg-secondary text-on-secondary px-md py-sm rounded-lg font-semibold text-body-md shadow-sm hover:bg-secondary-fixed-dim transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined">confirmation_number</span>
+      SportyBet code
+    </button>
+    <button data-provider="msport" class="ck-book-btn flex-1 min-w-[9rem] bg-primary-container text-inverse-primary px-md py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined">confirmation_number</span>
+      MSport code
+    </button>
+    <button data-provider="bet9ja" class="ck-book-btn flex-1 min-w-[9rem] bg-primary-container text-inverse-primary px-md py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+      <span class="material-symbols-outlined">confirmation_number</span>
+      Bet9ja code
+    </button>
+  </div>
+  <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes — paste those above.</div>
+  <div id="ck-book-result" class="mt-sm text-body-md text-on-surface"></div>
 </div>
 </div>
 <button id="clear-btn" class="mt-sm text-label-sm text-on-surface-variant hover:text-error flex items-center gap-1">
@@ -197,63 +232,143 @@ function riskColor(r){
         : "text-on-error-container bg-error-container";
 }
 
+/* Which markets are collapsed away, per fixture. A fixture card shows the 6
+   highest-probability selections; the rest are one click away rather than
+   unreachable. Keyed by match_id so re-rendering (search, filter, adding a leg)
+   doesn't collapse what the user just opened. */
+const EXPANDED = new Set();
+let MARKET_FILTER = "";
+const CHIPS_COLLAPSED = 6;
+
+function marketChip(fx, m, picked) {
+    // Selected chips must look selected. Without this the only feedback that a
+    // click landed was the panel on the right, which is off-screen on a phone.
+    const cls = picked
+        ? "bg-secondary-container text-on-secondary-container border-secondary font-bold"
+        : "border-outline-variant hover:bg-surface-container-high";
+    return `<button class="add-leg text-label-sm px-2 py-1 rounded-md border transition ${cls}"
+        data-mid="${esc(fx.match_id)}" data-sel="${esc(m.selection)}"
+        title="${esc(m.market)} • ${m.risk || ""}">
+        ${esc(m.selection)} <span class="${picked ? "" : "text-on-surface-variant"}">${Math.round(m.probability*100)}%</span>
+      </button>`;
+}
+
 function renderFixtures(filter="") {
     const list = document.getElementById("fixture-list");
-    const f = filter.toLowerCase();
-    const shown = FIXTURES.filter(fx =>
-        !f || fx.home_team.toLowerCase().includes(f) || fx.away_team.toLowerCase().includes(f));
-    if (!shown.length) { list.innerHTML = `<div class="text-on-surface-variant">No fixtures match.</div>`; return; }
-    list.innerHTML = shown.map((fx, i) => `
-<div class="bg-surface-container-lowest border border-outline-variant rounded-lg p-sm">
-  <div class="flex justify-between items-start mb-xs">
+    const f = (filter || "").toLowerCase().trim();
+    const shown = FIXTURES.filter(fx => {
+        if (f && !(fx.home_team.toLowerCase().includes(f) ||
+                   fx.away_team.toLowerCase().includes(f) ||
+                   prettyLeague(fx.league).toLowerCase().includes(f))) return false;
+        // With a market filter on, hide fixtures that don't offer it at all
+        // rather than showing an empty card.
+        if (MARKET_FILTER && !fx.markets.some(m => m.market === MARKET_FILTER)) return false;
+        return true;
+    });
+    if (!shown.length) {
+        list.innerHTML = `<div class="text-on-surface-variant">No fixtures match${MARKET_FILTER ? " that market" : ""}.</div>`;
+        return;
+    }
+    list.innerHTML = shown.map(fx => {
+        const mkts = MARKET_FILTER
+            ? fx.markets.filter(m => m.market === MARKET_FILTER)
+            : fx.markets;
+        // A filtered list is already short (2-4 selections), so show it whole —
+        // collapsing it would hide the very thing that was filtered for.
+        const open = MARKET_FILTER || EXPANDED.has(fx.match_id);
+        const visible = open ? mkts : mkts.slice(0, CHIPS_COLLAPSED);
+        const hidden = mkts.length - visible.length;
+        const picked = SLIP.find(l => l.match_id === fx.match_id);
+        const started = hasKickedOff(fx);
+        return `
+<div class="bg-surface-container-lowest border ${picked ? "border-secondary" : "border-outline-variant"} rounded-lg p-sm">
+  <div class="flex justify-between items-start mb-xs gap-sm">
     <div>
       <div class="text-label-sm text-on-surface-variant uppercase">${cleanLeague(fx.league)} • ${esc(kickoffLabel(fx.match_date, fx.kickoff_time, fx.kickoff_utc))}</div>
       <div class="text-body-md font-semibold text-primary">${esc(fx.home_team)} vs ${esc(fx.away_team)}</div>
     </div>
+    ${started ? `<span class="text-label-sm bg-surface-container-high text-on-surface-variant px-sm py-[2px] rounded-full whitespace-nowrap" title="Already under way or finished — bookmakers won't accept it">started</span>` : ""}
   </div>
-  <div class="flex flex-wrap gap-xs">
-    ${fx.markets.slice(0,6).map(m => `
-      <button class="add-leg text-label-sm px-2 py-1 rounded-md border border-outline-variant hover:bg-surface-container-high"
-        data-mid="${esc(fx.match_id)}" data-sel="${esc(m.selection)}">
-        ${esc(m.selection)} <span class="text-on-surface-variant">${Math.round(m.probability*100)}%</span>
-      </button>`).join("")}
+  <div class="flex flex-wrap gap-xs items-center">
+    ${visible.map(m => marketChip(fx, m, !!picked && picked.selection === m.selection)).join("")}
+    ${hidden > 0
+        ? `<button class="more-mkts text-label-sm px-2 py-1 rounded-md text-secondary font-bold hover:bg-surface-container-high" data-mid="${esc(fx.match_id)}">+${hidden} more</button>`
+        : (open && !MARKET_FILTER && mkts.length > CHIPS_COLLAPSED
+            ? `<button class="more-mkts text-label-sm px-2 py-1 rounded-md text-on-surface-variant hover:bg-surface-container-high" data-mid="${esc(fx.match_id)}">show less</button>`
+            : "")}
   </div>
-</div>`).join("");
+</div>`;
+    }).join("");
 
     list.querySelectorAll(".add-leg").forEach(btn =>
         btn.addEventListener("click", () => addLeg(btn.dataset.mid, btn.dataset.sel)));
+    list.querySelectorAll(".more-mkts").forEach(btn =>
+        btn.addEventListener("click", () => {
+            const mid = btn.dataset.mid;
+            if (EXPANDED.has(mid)) EXPANDED.delete(mid); else EXPANDED.add(mid);
+            renderFixtures(document.getElementById("search").value);
+        }));
+}
+
+/* Build the market dropdown from what the fixtures actually carry, in the order
+   models/markets.py emits them, so nothing is hardcoded and nothing goes stale.
+   Over/Under keeps its line ("Over/Under 2.5") because picking a LINE is the
+   point — collapsing them into one "Over/Under" entry would defeat it. */
+function fillMarketFilter() {
+    const sel = document.getElementById("market-filter");
+    const seen = [];
+    FIXTURES.forEach(fx => (fx.markets || []).forEach(m => {
+        if (m.market && !seen.includes(m.market)) seen.push(m.market);
+    }));
+    seen.sort();
+    sel.innerHTML = `<option value="">All markets</option>` +
+        seen.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
 }
 
 function addLeg(mid, selection) {
     const fx = FIXTURES.find(f => f.match_id === mid);
     if (!fx) return;
-    // one leg per fixture
-    if (SLIP.some(l => l.match_id === mid)) {
-        SLIP = SLIP.filter(l => l.match_id !== mid);  // toggle off if same fixture
-    }
     const m = fx.markets.find(mm => mm.selection === selection);
-    SLIP.push({match_id: mid, home_team: fx.home_team, away_team: fx.away_team,
-               league: fx.league, market: m.market, selection: m.selection,
-               probability: m.probability});
+    if (!m) return;
+    const existing = SLIP.find(l => l.match_id === mid);
+    // One leg per fixture: bookmakers won't put two selections on the same match
+    // in one accumulator. Clicking the SAME chip again removes it (this used to
+    // remove-then-unconditionally-re-add, so nothing ever toggled off); clicking
+    // a different market on the same fixture swaps it.
+    SLIP = SLIP.filter(l => l.match_id !== mid);
+    if (!(existing && existing.selection === selection)) {
+        SLIP.push({match_id: mid, home_team: fx.home_team, away_team: fx.away_team,
+                   league: fx.league, market: m.market, selection: m.selection,
+                   probability: m.probability});
+    }
     renderSlip();
+    renderFixtures(document.getElementById("search").value);
 }
 
-function removeLeg(mid) { SLIP = SLIP.filter(l => l.match_id !== mid); renderSlip(); }
+function removeLeg(mid) {
+    SLIP = SLIP.filter(l => l.match_id !== mid);
+    renderSlip();
+    renderFixtures(document.getElementById("search").value);
+}
 
 function renderSlip() {
     const box = document.getElementById("slip-legs");
     document.getElementById("leg-count").textContent = `${SLIP.length} leg${SLIP.length===1?"":"s"}`;
+    // Nothing to book with an empty slip, and a live button that errors is worse
+    // than a greyed-out one that explains itself.
+    document.querySelectorAll(".ck-book-btn").forEach(b => b.disabled = !SLIP.length);
     if (!SLIP.length) {
         box.innerHTML = `<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Pick a market from a fixture on the left.</div>`;
         document.getElementById("acc-pct").textContent = "—";
         document.getElementById("acc-note").textContent = "";
+        document.getElementById("ck-book-result").innerHTML = "";
         return;
     }
     box.innerHTML = SLIP.map(l => `
 <div class="p-sm flex justify-between items-center gap-sm">
   <div class="flex-1">
     <div class="text-body-md text-primary font-semibold">${esc(l.home_team)} vs ${esc(l.away_team)}</div>
-    <div class="text-label-sm text-on-surface-variant">${esc(l.selection)}</div>
+    <div class="text-label-sm text-on-surface-variant">${esc(l.market)}: ${esc(l.selection)}</div>
   </div>
   <span class="text-body-md font-semibold text-primary">${Math.round(l.probability*100)}%</span>
   <button class="rm material-symbols-outlined text-on-surface-variant hover:text-error text-[18px]" data-mid="${esc(l.match_id)}">close</button>
@@ -265,6 +380,52 @@ function renderSlip() {
     document.getElementById("acc-pct").textContent = (acc*100).toFixed(1) + "%";
     document.getElementById("acc-note").textContent =
         SLIP.length + " legs — all must win";
+    // A code minted for an older set of legs is a trap: it looks current and
+    // isn't. Clear it whenever the slip changes.
+    document.getElementById("ck-book-result").innerHTML = "";
+}
+
+/* ── Book the hand-picked slip ────────────────────────────────────────────
+   The same /api/booking/generate the Builder uses. Kept as its own function
+   rather than shared with slip.html because the two pages hold their legs in
+   different shapes and api.js is already the file most likely to conflict. */
+const CK_PROVIDER_NAME = {sportybet: "SportyBet", msport: "MSport", bet9ja: "Bet9ja"};
+
+async function bookCheckerSlip(provider) {
+    const btns = document.querySelectorAll(".ck-book-btn");
+    const out = document.getElementById("ck-book-result");
+    if (!SLIP.length) return;
+    const name = CK_PROVIDER_NAME[provider] || provider;
+    btns.forEach(b => b.disabled = true);
+    out.innerHTML = `<span class="text-on-surface-variant">Booking on ${esc(name)}…</span>`;
+    try {
+        const d = await PotentialProAPI.generateCode(SLIP.map(l => ({
+            home_team: l.home_team, away_team: l.away_team,
+            market: l.market, selection: l.selection,
+        })), provider);
+        if (!d.ok) {
+            out.innerHTML = `<span class="text-error">⚠️ ${esc(d.error)}</span>`;
+            return;
+        }
+        // Say which legs the bookmaker didn't list. A code that silently drops
+        // half your slip is the single most expensive way to be unhelpful here.
+        const skipped = (d.unmapped && d.unmapped.length)
+            ? `<div class="text-label-sm text-on-surface-variant mt-1">⚠️ ${d.unmapped.length} leg(s) not listed on ${esc(name)} (skipped): ${d.unmapped.map(u => esc((u.home_team || "?") + " vs " + (u.away_team || "?"))).join(", ")}</div>`
+            : "";
+        out.innerHTML =
+            codeChip(d.code, `${name} booking code (${d.mapped ? d.mapped.length : 0} legs)`) +
+            skipped +
+            `<div class="text-label-sm text-on-surface-variant mt-1">Paste it in the ${esc(name)} app under “Load Booking Code”. Odds may shift before kickoff.</div>`;
+    } catch (err) {
+        const network = (err instanceof TypeError) || /fetch|network/i.test(err.message || "");
+        out.innerHTML = `<span class="text-error">⚠️ ${
+            network ? "Couldn't reach the engine — is the API running?"
+                    : "Something went wrong: " + esc(err.message || String(err))
+        }</span>`;
+        console.error(err);
+    } finally {
+        btns.forEach(b => b.disabled = !SLIP.length);
+    }
 }
 
 async function load() {
@@ -273,6 +434,7 @@ async function load() {
     try {
         const data = await PotentialProAPI.fixtures();
         FIXTURES = data.fixtures || [];
+        fillMarketFilter();
         renderFixtures();
     } catch (err) {
         document.getElementById("fixture-list").innerHTML =
@@ -457,8 +619,19 @@ async function decodeBookingCode() {
 
 document.addEventListener("DOMContentLoaded", () => {
     load();
+    renderSlip();          // disables the booking buttons on an empty slip
     document.getElementById("search").addEventListener("input", e => renderFixtures(e.target.value));
-    document.getElementById("clear-btn").addEventListener("click", () => { SLIP = []; renderSlip(); });
+    document.getElementById("market-filter").addEventListener("change", e => {
+        MARKET_FILTER = e.target.value;
+        renderFixtures(document.getElementById("search").value);
+    });
+    document.getElementById("clear-btn").addEventListener("click", () => {
+        SLIP = [];
+        renderSlip();
+        renderFixtures(document.getElementById("search").value);
+    });
+    document.querySelectorAll(".ck-book-btn").forEach(b =>
+        b.addEventListener("click", () => bookCheckerSlip(b.dataset.provider)));
     document.getElementById("bc-btn").addEventListener("click", decodeBookingCode);
     wireSlipTools();
     document.getElementById("bc-code").addEventListener("keydown", e => { if (e.key === "Enter") decodeBookingCode(); });

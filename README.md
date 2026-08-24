@@ -22,7 +22,7 @@ computed against verified final scores.
 | Web app (installable PWA) | Cloudflare Pages | https://potentialpro.pages.dev |
 | API (FastAPI) | Render free tier | https://potentialpro-api.onrender.com/docs |
 | Telegram bot | Cloudflare Worker | message the bot: `/picks` `/stats` `/help` |
-| Daily pipeline | GitHub Actions | 11:00 UTC = 12:00 Lagos, `.github/workflows/daily.yml` |
+| Daily pipeline | GitHub Actions | 08:50 UTC ≈ 10:00 Lagos, `.github/workflows/daily.yml` |
 
 **Render's free tier sleeps after ~15 minutes idle**, so the first page load
 after a quiet spell takes ~50 seconds. Not a bug.
@@ -337,7 +337,7 @@ The market check earns its place immediately: it caught a bug on its first run
 
 | What happens | When |
 |---|---|
-| Pipeline: fixtures → predictions → Telegram → bot feed → ledger commit | `daily.yml`, cron **11:00 UTC** (12:00 Lagos) |
+| Pipeline: fixtures → predictions → Telegram → bot feed → ledger commit | `daily.yml`, cron **08:50 UTC** (≈10:00 Lagos) |
 | Evening results sweep | `results.yml`, cron **22:00 UTC** |
 | API redeploy | Render, on every push to `main` |
 | Web app deploy **and** cache-bust | `deploy-webapp.yml`, on any push touching `webapp/` |
