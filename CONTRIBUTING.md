@@ -164,3 +164,16 @@ python db/track_record_health.py    # grading COVERAGE, not just cadence
 
 A tier's hit-rate is meaningless if the ungraded picks are the ones that lost —
 this has already happened once. Run it before trusting any accuracy number.
+
+```bash
+python db/form_depth_health.py      # does a tier still mean what it claims?
+```
+
+Slower (minutes — it replays every historical CSV and fuzzy-matches both teams
+of every graded pick), so it is a separate script rather than another section of
+the one above. It splits the same picks by how much form history the model
+actually had for the weaker-known team. Worth running whenever the ledger has
+grown meaningfully: 33% of teams in form history are there because of ≤5 of our
+own recorded results, and a single game currently produces a full-strength form
+feature. See CLAUDE.md bug #27 — including which conclusions that data does
+**not** support.
