@@ -15,6 +15,8 @@ Usage:
 
 import sys
 import os
+import re
+import unicodedata
 from datetime import datetime
 from difflib import SequenceMatcher
 from loguru import logger
@@ -42,13 +44,51 @@ def _sim(a: str, b: str) -> float:
 # "Manchester United" and "Manchester City" both normalise to "manchester"
 # and score a perfect 1.00.
 _NOISE_WORDS = {"fc", "cf", "sc", "afc", "ac", "club", "de", "the",
-                "sv", "bk", "if", "fk", "cd", "ca", "us", "ss"}
+                "sv", "bk", "if", "fk", "cd", "ca", "us", "ss",
+                # Honorifics one feed spells out and another abbreviates:
+                # "Union St.-Gilloise" vs "Union Saint Gilloise". Punctuation is
+                # already stripped in _norm_team, so "st" and "saint" both land
+                # here and the two names normalise identically. models/
+                # team_match.py has carried these since it was written; this set
+                # did not, which is why GRADING (scrapers/results_api.py, via
+                # team_sim) could fail to score a fixture that kickoff_times.py
+                # had already matched.
+                "st", "saint", "sainte", "santo"}
+
+# Squad qualifiers: tokens that make an otherwise-identical name a DIFFERENT
+# team. These are not noise and must never be stripped — they are the only thing
+# distinguishing the senior side from the academy or the women's side.
+#
+# Every containment rule below says yes to these pairs, because the shorter name
+# sits inside the longer one and the first word agrees:
+#
+#   "Barcelona"  vs "Barcelona U20"      -> 0.92
+#   "Bayern"     vs "Bayern II"          -> 0.92
+#   "Chelsea"    vs "Chelsea Women"      -> 0.92
+#
+# SportyBet's events feed lists senior, youth and women's fixtures side by side,
+# so a bet built on that 0.92 lands on the wrong match with the user's money on
+# it. Compared as SETS and required to be equal, so women-vs-women and
+# U20-vs-U20 still match each other — only mismatches are rejected.
+#
+# "jr" is deliberately absent: too short to be safely distinguished from an
+# initial. "junior" is kept, and clubs actually named Junior (Junior
+# Barranquilla) are unaffected because both sides carry the token equally.
+_SQUAD_MARKERS = re.compile(
+    r"\b(u\s?\d{2}|under\s?\d{2}|youth|junior|academy"
+    r"|women|womens|ladies|fem(?:inino|enino|inina|enina)?"
+    r"|reserves?|ii|iii|b)\b"
+)
+
+
+def _squad_qualifiers(name: str) -> frozenset:
+    """The squad markers present in a name, as a set for exact comparison."""
+    s = (name or "").lower()
+    return frozenset(m.group(1).replace(" ", "") for m in _SQUAD_MARKERS.finditer(s))
 
 
 def _norm_team(name: str) -> str:
     """Lowercase, strip accents and punctuation, drop noise words."""
-    import re
-    import unicodedata
     s = unicodedata.normalize("NFKD", name or "")
     s = "".join(c for c in s if not unicodedata.combining(c)).lower()
     s = re.sub(r"[^a-z0-9 ]+", " ", s)
@@ -67,7 +107,16 @@ def team_sim(a: str, b: str) -> float:
     The stem rule is restricted to single-word names on purpose: applied
     generally it matched "Real Madrid" to "Real Sociedad" and "Inter Turku"
     to "Inter Milan" on the shared first word.
+
+    Returns a hard 0.0 when the two names carry different squad qualifiers
+    (U20 / Women / II / reserves), because those are different teams however
+    similar the strings are. See _SQUAD_MARKERS.
     """
+    # Before any similarity work: senior vs academy vs women's are not the same
+    # club, and every rule below would happily score them 0.92.
+    if _squad_qualifiers(a) != _squad_qualifiers(b):
+        return 0.0
+
     na, nb = _norm_team(a), _norm_team(b)
     if not na or not nb:
         return 0.0
@@ -138,11 +187,27 @@ def _dates_close(d1: str, d2: str) -> bool:
 
 
 def _same_match(m1: dict, m2: dict) -> bool:
-    """Are these two scraped rows the same real fixture?"""
+    """Are these two scraped rows the same real fixture?
+
+    Uses same_teams, not raw _sim. This function had its own inline test —
+    `_sim(home) > 0.8 and _sim(away) > 0.8` on UNNORMALISED names — which is
+    the blunt comparison the whole block above exists to replace. It misses
+    every difference these sources actually have:
+
+        "Cardiff"     vs "Cardiff City"     -> 0.65   (same club, rejected)
+        "Club Puebla" vs "Puebla"           -> 0.71   (same club, rejected)
+
+    Two callers depend on this: the consensus badge on the web app, and
+    apply_consensus_modifier's protective HIGH -> MEDIUM demote in predict.py.
+    A missed link is not neutral in either — the badge under-reports agreement,
+    and the demote silently fails to fire, leaving a pick in HIGH that two
+    sources contradict. same_teams applies the pair floor and mean, so it is
+    both looser on abbreviations and stricter on the dangerous cases.
+    """
     if not _dates_close(m1["match_date"], m2["match_date"]):
         return False
-    return (_sim(m1["home_team"], m2["home_team"]) > 0.8 and
-            _sim(m1["away_team"], m2["away_team"]) > 0.8)
+    return same_teams(m1["home_team"], m1["away_team"],
+                      m2["home_team"], m2["away_team"])
 
 
 def _best_outcome(pred: dict) -> str | None:

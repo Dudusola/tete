@@ -222,6 +222,14 @@ def show_scoreboard():
                    THEN 1 ELSE 0 END) AS correct
         FROM model_predictions mp
         JOIN results r ON r.match_id = mp.match_id
+        -- Latest prediction row per match, same as /api/stats and the bot.
+        -- Without this a re-predicted match is scored once per row and this
+        -- console printed a third, different track record from the two the
+        -- product publishes. (CLAUDE.md bug #3.)
+        WHERE mp.id = (
+            SELECT MAX(mp2.id) FROM model_predictions mp2
+            WHERE mp2.match_id = mp.match_id
+        )
         GROUP BY mp.confidence
         ORDER BY CASE mp.confidence WHEN 'HIGH' THEN 1 WHEN 'MEDIUM' THEN 2 ELSE 3 END
     """).fetchall()

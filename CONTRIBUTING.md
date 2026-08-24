@@ -116,8 +116,17 @@ genuinely must be rewritten (e.g. a leaked secret), agree on it first, then both
 re-clone.
 
 ### Areas that conflict easily
-- **`db/`** — the DB file isn't tracked, but schema changes in `database.py` are.
-  Flag schema changes loudly; they can invalidate the other person's local data.
+- **`db/sports_predictor.db`** — **is tracked** and is binary, so git cannot
+  merge it; the daily workflow rewrites it whether or not anyone is working.
+  It is the worst conflict in the repo and the easiest to cause: run the
+  pipeline locally, forget, and commit. `git checkout db/sports_predictor.db`
+  before committing anything else. Full rules in §2. (This section used to say
+  "the DB file isn't tracked" — the opposite of §2, dating from before 6 Aug
+  2026. Believing it is exactly how the track record gets clobbered.)
+- **`db/database.py`** — schema changes are tracked and can invalidate the other
+  person's local data. Flag them loudly. Every new column needs its `ALTER
+  TABLE` in `init_db()`, not only in whatever script first writes it, or a
+  fresh clone gets a `no such column` at serve time.
 - **`webapp/js/api.js`** — shared by all five HTML pages. Coordinate before big edits.
 - **`CLAUDE.md`** — both of us append to it. Small, focused edits merge cleanly;
   wholesale reorganizations do not.

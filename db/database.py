@@ -139,6 +139,21 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # already exists
 
+    # Written analysis for the DRAW view.
+    #
+    # This column was created only by analysis/draw_analysis.py, which runs as an
+    # OPTIONAL pipeline step — but api/server.py:406 SELECTs it unconditionally.
+    # On any database where that step has never succeeded (a fresh clone, a
+    # rebuilt DB, a machine where the LLM chain is unavailable) /api/picks/draws
+    # returns 500 with "no such column: draw_analysis" — the API being broken by
+    # a step that is allowed to fail. Schema belongs here, where every other
+    # migration lives and where init_db() guarantees it exists; the analysis
+    # script fills the column, it should not also define it.
+    try:
+        cursor.execute("ALTER TABLE model_predictions ADD COLUMN draw_analysis TEXT")
+    except sqlite3.OperationalError:
+        pass  # already exists
+
     # Kickoff as a full UTC timestamp ('YYYY-MM-DD HH:MM').
     #
     # kickoff_time alone can't be filtered on: it is a bare 'HH:MM' with no

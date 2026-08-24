@@ -62,7 +62,7 @@ before/after count on the ledger, not a drive-by.
 import re
 import unicodedata
 
-from models.consensus import _sim
+from models.consensus import _sim, _squad_qualifiers
 
 # Both sides must be plausible, and the PAIR must be strong on average — so
 # one exact name plus one abbreviation matches, but two vague names don't.
@@ -101,7 +101,17 @@ def team_sim(a: str, b: str) -> float:
     strong evidence ("wolves" / "wolverhampton"), and full containment as near
     certain ("santos" inside "santos laguna"). Both are how these feeds
     actually differ; neither matches two genuinely different clubs.
+
+    Returns 0.0 outright when the squad qualifiers disagree (U20 / Women / II).
+    That guard matters more here than anywhere else in the codebase: this
+    matcher is what kickoff_times.py writes ESPN ODDS off, and odds are model
+    FEATURES — so matching a senior fixture to its academy's fixture doesn't
+    show a wrong kickoff, it feeds the wrong market price into a prediction.
+    Shared with consensus.py rather than copied, per this module's own rule.
     """
+    if _squad_qualifiers(a) != _squad_qualifiers(b):
+        return 0.0
+
     na, nb = normalise(a), normalise(b)
     if not na or not nb:
         return 0.0

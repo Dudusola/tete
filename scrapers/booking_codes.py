@@ -159,6 +159,13 @@ GEN_MARKET_IDS = "1,10,11,16,18,29"   # 1X2, DC, DNB, Asian Handicap, O/U, GG/NG
 
 from difflib import SequenceMatcher
 
+# The shared fixture matcher. Imported under an explicit name so the local
+# _sim (used for MARKET and OUTCOME description matching, where plain string
+# similarity is the right tool) can't be confused for it again.
+from models.team_match import team_sim as _shared_team_sim
+from models.team_match import SIM_MEAN as _SHARED_SIM_MEAN
+from models.team_match import pair_score as _pair_score
+
 
 def _sim(a: str, b: str) -> float:
     return SequenceMatcher(None, (a or "").lower(), (b or "").lower()).ratio()
@@ -280,7 +287,11 @@ def fetch_sportybet_events(pages: int = 0, page_size: int = 100) -> list[dict]:
 
 
 def _team_norm(s: str) -> str:
-    """Strip club furniture (FC/SC/CF/IF/…) so 'Vaalerenga IF' ~ 'Valerenga'."""
+    """Strip club furniture (FC/SC/CF/IF/…) so 'Vaalerenga IF' ~ 'Valerenga'.
+
+    Kept for callers that want the bare normalised string; the MATCHING is done
+    by models.team_match.team_sim (see _teams_match below).
+    """
     import re
     s = (s or "").lower()
     s = re.sub(r"\b(fc|cf|sc|ec|if|fk|afc|cd|ca|club|de|sk)\b", " ", s)
@@ -288,12 +299,32 @@ def _team_norm(s: str) -> str:
 
 
 def _teams_match(a: str, b: str) -> float:
-    na, nb = _team_norm(a), _team_norm(b)
-    if not na or not nb:
-        return 0.0
-    if na in nb or nb in na:
-        return 1.0
-    return _sim(na, nb)
+    """Similarity between our team name and a bookmaker's, 0.0-1.0.
+
+    Delegates to the shared matcher. This used to be four lines of its own:
+
+        if na in nb or nb in na:
+            return 1.0
+        return _sim(na, nb)
+
+    Bare containment, returning a PERFECT score, with no first-word guard and
+    no squad-qualifier check. That is the loosest matcher in the codebase, and
+    it sat on the one code path where a false positive is not a display bug:
+
+        "Milan"     inside "Inter Milan"      -> 1.0   (different club)
+        "Barcelona" inside "Barcelona U20"    -> 1.0   (academy fixture)
+        "Chelsea"   inside "Chelsea Women"    -> 1.0   (different competition)
+
+    _find_outcome pairs two of these and accepts a mean above 0.72, so a single
+    1.0 only needs 0.44 from the other side to clear the bar. The result is a
+    booking code — a real bet, at a real bookmaker, on someone's money, placed
+    on a fixture we never predicted. models.team_match.team_sim requires the
+    first word to agree, clamps multi-word names whose distinguishing tokens
+    disagree, and rejects mismatched squad qualifiers outright.
+
+    Bug #12's rule again: one implementation, read by everyone who needs it.
+    """
+    return _shared_team_sim(a, b)
 
 
 def _wanted_outcome(leg: dict) -> tuple | None:
@@ -369,12 +400,25 @@ def map_leg_to_sportybet(leg: dict, events: list[dict]) -> dict | None:
         return None
     want_market, want_line, want_outcome = want
 
-    # find the event: normalized-team match on both sides
-    best_ev, best_s = None, 0.72
+    # Find the event. pair_score is the shared matcher's own API: it enforces
+    # BOTH the per-side floor (0.55) and the pair mean (0.86), which is the
+    # distinction models/team_match.py exists to make — an exact opponent can
+    # drag a weak team score over a mean-only bar, so a mean alone is not a
+    # sufficient test.
+    #
+    # This was a bare 0.72 mean with no floor. 0.72 is clearable by one side
+    # scoring 1.0 and the other 0.44 — two names with nothing in common — and
+    # the old _teams_match handed out 1.0 for bare containment. Raising it to
+    # the shared bar costs coverage: legs that would previously have been
+    # booked at a 0.72-0.85 confidence now come back unmapped, and the caller
+    # already reports that honestly ("the code has N of M games"). That is the
+    # right trade on this path. A missed leg is a visible shortfall the user
+    # can act on; a wrong leg is their money on a fixture we never predicted.
+    best_ev, best_s = None, 0.0
     for ev in events:
-        s = (_teams_match(leg.get("home_team"), ev.get("homeTeamName")) +
-             _teams_match(leg.get("away_team"), ev.get("awayTeamName"))) / 2
-        if s > best_s:
+        s = _pair_score(leg.get("home_team") or "", leg.get("away_team") or "",
+                        ev.get("homeTeamName") or "", ev.get("awayTeamName") or "")
+        if s is not None and s > best_s:
             best_ev, best_s = ev, s
     if not best_ev:
         return None
@@ -1099,11 +1143,17 @@ def generate_bet9ja(legs: list) -> dict:
             teams = (ev.get("DS") or "").split(" - ")
             if len(teams) != 2:
                 continue
-            score = (_sim(leg.get("home_team") or "", teams[0])
-                     + _sim(leg.get("away_team") or "", teams[1])) / 2
+            # Shared matcher, not raw _sim. This was two raw SequenceMatcher
+            # ratios averaged against a 0.62 bar — looser even than the
+            # SportyBet path, on the same kind of code: a real bet at a real
+            # bookmaker. 0.62 is below the 0.65 that team_sim deliberately
+            # clamps "Manchester United"/"Manchester City" down to, so the old
+            # threshold accepted exactly the pair the guard exists to reject.
+            score = (_shared_team_sim(leg.get("home_team") or "", teams[0])
+                     + _shared_team_sim(leg.get("away_team") or "", teams[1])) / 2
             if score > best_score:
                 best, best_score = ev, score
-        if not best or best_score < 0.62:
+        if not best or best_score < _SHARED_SIM_MEAN:
             unmapped.append(leg)
             continue
 

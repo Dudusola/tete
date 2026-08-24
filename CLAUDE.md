@@ -204,14 +204,29 @@ Payload notes worth knowing before adding a consumer:
   and everything else under `all_tiers`, plus `draws` / `ceiling_pct`.
 
 ## The model
-Random Forest (scikit-learn), 65,174 matches. Features: form ppg, goals for/against
-avg, venue ppg, h2h, odds-implied probs. Time-aware 80/20 split, no leakage.
-Calibration is the core value — accuracy by confidence tier:
-  HIGH (≥65% prob) historically ~75%, MEDIUM (≥55%) ~66%, LOW hidden as bets but tracked.
-Gemma is explanation only, never the predictor.
+Random Forest (scikit-learn), **70,916 matches / 102 CSV files**, feature matrix
+67,481 rows. Features: form ppg, goals for/against avg, venue ppg, h2h,
+odds-implied probs, **`odds_is_market`** (1.0 = a real bookmaker price, 0.0 = the
+flat fallback prior — added with `rf_v2`, see bug #18). Time-aware 80/20 split
+(53,984 train / 13,497 test), no leakage.
+
+Calibration is the core value. Hold-out accuracy by confidence tier, `rf_v2`,
+measured 23 Aug 2026:
+  **HIGH (≥65% prob) 74.6% on 12.5% of matches; MEDIUM (≥55%) 65.0% on 33.3%;
+  LOW never served.** Overall 51.3%.
+
+Two things to keep straight about those numbers:
+- They are **hold-out test-set** figures, not graded live results. Better than
+  the old training-set "~75%", still not the same thing as the ledger.
+- **Overall 51.3% is below the ~53–55% a bookmaker's favourite gets.** The value
+  claim rests entirely on the calibrated top tier, not the top line. Do not
+  quote 51.3% as if it beat the market, and do not "fix" it by re-tuning the
+  tier thresholds off one run.
+
+Gemma/Gemini is explanation only, never the predictor.
 Confirmed the model has an independent voice (disagrees with Forebet often, via
 models/model_vs_source.py) — but whether its disagreements are *profitable* is
-unknown until the honest ledger matures.
+unknown until the honest ledger matures (`db/edge_report.py`).
 
 ## CRITICAL bugs already fixed — DO NOT reintroduce
 1. **Fake scores (the big one).** results.py once included `.ex_sc` in its score
@@ -532,6 +547,155 @@ unknown until the honest ledger matures.
     Still open (honest limitation, not a regression): only ~110 of 263 upcoming
     matches have an `espn_league` at all, so the rest genuinely have no live
     source and correctly say so. That is coverage, not a bug.
+
+18. **The model was trained on odds it mostly didn't have — 60.5% of rows got a
+    constant (23 Aug 2026).** Bug #7 fixed the SERVE side of the train/serve
+    odds mismatch: predict.py stopped feeding Forebet percentages into features
+    meant for real bookmaker odds. The TRAIN side was never checked.
+
+    `train.py` read odds from exactly three columns (`B365H/D/A`) and
+    substituted a flat `0.33/0.33/0.33` when they were absent. Absent was the
+    majority case: **42,886 of 70,916 rows (60.5%)**. Those three columns are
+    the model's three most important features, so on six rows in ten the
+    strongest signal available was a constant asserting all outcomes equally
+    likely — on rows whose actual outcome was known and usually wasn't a draw.
+
+    The odds were mostly THERE, under other names. football-data.co.uk
+    publishes closing prices as `B365CH/CD/CA`, plus Pinnacle (`PSC*`),
+    market-average (`Avg*`) and best-available (`Max*`) families. 85 of 102
+    files carry Bet365 closing, and **101 of 102 carry some closing family**.
+    A one-family loader threw away data already sitting in the repo.
+
+    FIX: seven column families tried in order, **closing before opening** so
+    the feature carries ONE meaning across the whole set rather than mixing
+    price points file by file. Plus a new `odds_is_market` feature — 1.0 for a
+    real price, 0.0 for the fallback prior — because the serve-time fallback
+    (bug #7 kept it deliberately) means the placeholder still reaches the model
+    in production, and a model that cannot distinguish a placeholder from a
+    price is being told the placeholder IS a price. Coverage 39.5% → 94.1%.
+
+    Measured on the same time-aware hold-out, `rf_v1e` → `rf_v2`: **≥65% tier
+    74.2% on 8.4% of matches → 74.6% on 12.5%** — same accuracy, 49% more
+    matches served. Overall 49.7% → 51.3%. Odds share of feature importance
+    41.3% → 66.6%.
+
+    And the pathology fell out: **draws predicted went from ~0 (recall 0.00) to
+    129 at 32% precision** against a 25.7% base rate. "Never predicts a draw"
+    had several plausible causes; a constant 0.33 draw prior on 60% of training
+    rows was demonstrably one of them.
+
+    Overall accuracy is STILL below the ~53–55% a bookmaker's favourite gets.
+    This fix does not change that and must not be described as if it did.
+
+    **A default that fires on the majority of your data is not a fallback, it
+    is your dataset. Count how often the fallback fires before trusting the
+    feature — `train.py` now logs coverage and warns below 85%.** Editing
+    `train.py` invalidates the Actions cache key, so the cloud retrains itself.
+
+19. **`db/cleanup.py` would have deleted the entire track record, unprompted.**
+    It ran `DELETE FROM model_predictions` with no WHERE clause, and separately
+    "deduplicated" `scraped_predictions` by grouping on `match_id` **alone with
+    no `source`** — which is not a dedupe, it is collapsing every source's
+    opinion per fixture into one row and destroying the evidence consensus is
+    built from. A file named cleanup.py, one careless invocation from erasing
+    the thing the product's credibility rests on.
+
+    FIX: dry-run by default, `--apply` required, only touches
+    `match_id LIKE 'test_%'`, honours `DB_PATH`, and refuses when the DB file is
+    absent (sqlite3.connect would otherwise CREATE an empty one and cheerfully
+    report "0 test rows deleted" while the real ledger sat untouched elsewhere).
+
+20. **`dedupe_fixtures.py` kept the OLDEST duplicate row (`MIN(id)`).** It runs
+    with `--apply` daily, BEFORE predict and market_snapshot. Every serving and
+    stats query in the codebase reads the LATEST row per group via `MAX(id)`
+    (rule from bug #3, refined by bug #11), and the newer row is the one
+    carrying `book_odds`, `draw_analysis` and late odds movement. So the daily
+    dedupe was deleting exactly the rows everything downstream wanted.
+    FIX: `MIN(id)` → `MAX(id)`, both collapse queries.
+
+    Same day, same rule, two more places that published an UN-deduped track
+    record: `bot/telegram_bot.py::fetch_stats` and
+    `scrapers/results.py::show_scoreboard`. On the 23 Aug ledger the bot
+    reported **152/243 = 62.6%** while the API reported **136/216 = 63.0%** —
+    two different published accuracies for the same day, because 80 matches
+    held more than one prediction row. **"Latest per group" is not an
+    optimisation, it is the definition of what we predicted.**
+
+21. **`draw_analysis` column existed only if an OPTIONAL step had run.** The
+    column was created by `analysis/draw_analysis.py`, never by
+    `init_db()` — but `api/server.py:406` SELECTs it unconditionally. On a
+    fresh clone `/api/picks/draws` therefore died with `no such column`, and
+    since draw_analysis is an OPTIONAL pipeline step (never red), nothing
+    pointed at the cause. FIX: the `ALTER TABLE` lives in `init_db()` with the
+    other migrations. **Schema belongs to the schema file, not to whichever
+    script happened to write the column first.**
+
+22. **Every team matcher scored "Barcelona" vs "Barcelona U20" at 0.92
+    (23 Aug 2026).** Bug #12's one-implementation rule was applied to booking
+    providers and to live scores, but the matchers themselves still had a shared
+    blind spot: containment plus first-word agreement says YES to senior-vs-youth
+    and senior-vs-women's, because the short name really is inside the long one
+    and the leading word really does agree.
+
+    This is not cosmetic. SportyBet's events feed lists senior, youth and
+    women's fixtures side by side, and `booking_codes.py::_teams_match` was the
+    LOOSEST matcher in the codebase (`if na in nb or nb in na: return 1.0`)
+    sitting on the one code path where a false positive is **real money on the
+    wrong match**. Separately, `team_match.py` is what `kickoff_times.py` writes
+    ESPN **odds** off — and odds are model FEATURES, so a crossed fixture there
+    poisons a prediction rather than merely showing a wrong kickoff.
+
+    FIX: squad qualifiers (`u20`, `under20`, `youth`, `junior`, `academy`,
+    `women`, `ladies`, `fem*`, `reserves`, `ii`, `iii`, `b`) extracted as a SET
+    and required to be **equal**, else a hard 0.0. Compared as sets, so
+    women-vs-women and U20-vs-U20 still match each other — only mismatches are
+    rejected. `jr` deliberately excluded (indistinguishable from an initial);
+    clubs genuinely named Junior are unaffected because both sides carry the
+    token. Verified: all six senior/squad pairs now 0.00, while Chelsea
+    Women/Chelsea FC Women stays 1.00 and Cardiff/Cardiff City stays 0.92.
+
+    Consolidated at the same time: `booking_codes._teams_match` now delegates to
+    the shared matcher; `map_leg_to_sportybet` uses the shared floor-AND-mean
+    `pair_score` instead of a bare 0.72 mean; `generate_bet9ja` raised from a
+    raw 0.62 bar (below the 0.65 the shared matcher CLAMPS Man Utd/Man City to,
+    i.e. it would have accepted a pair the matcher explicitly rejects).
+    `consensus._same_match` switched from raw `_sim > 0.8` on unnormalised names
+    to `same_teams`. `st`/`saint` noise words added to consensus, which GRADING
+    uses — `team_match.py` had them all along, so grading could fail on a
+    fixture kickoff_times had already matched.
+
+    **A containment rule cannot tell a subset from a subsidiary. When the same
+    lexical shape means "same club" and "different club", the qualifier has to
+    be compared explicitly, not similarity-scored.**
+
+23. **The LLM was told a 2.76% chance of over 2.5 goals on a fixture expected to
+    produce 2.76 goals (23 Aug 2026).** `scraped_predictions.over_2_5_pct` does
+    not hold a percentage. `scrapers/forebet.py:214` writes Forebet's average
+    total goals into it, and `models/markets.py:171` correctly reads it back as
+    `avg_goals`. Ledger values confirm: n=1602, min 0.0, **max 8.67**, mean 2.76
+    — no probability has that shape.
+
+    `gemma_analyst.build_prompt` labelled it `Over 2.5 Goals Probability:
+    {value}%`. So the analyst was handed a false statement of fact — a 2.76%
+    chance of over 2.5 goals implies a near-certain 0-0 — and invited to argue
+    for a goalless draw on a high-scoring fixture, in prose published under our
+    name. FIX: the label is now `Expected Total Goals`. The COLUMN NAME is left
+    alone deliberately: it is load-bearing across the schema, and renaming it is
+    a migration, not a doc fix. **A misleading column name is a latent bug that
+    fires the moment someone reads the name instead of the writer.**
+
+    Also fixed in the same file: the failover chain stopped one hop short. The
+    gate `check_ollama_running()` was corrected on 11 Aug to ask "can ANY
+    provider serve?" and its docstring promised Gemini → Groq → Ollama, but
+    `analyze_match` fell over Gemini → Groq and then **stopped** — so a run with
+    both hosted providers down produced no analysis at all while a healthy
+    Ollama sat unused and the gate had already said yes on its behalf. With no
+    `GROQ_API_KEY` it didn't fall back at all. FIX: gate and chain now read the
+    same list from `_provider_chain()`, so they cannot disagree, plus a
+    two-strike breaker that drops a dead provider for the rest of a run
+    (retrying a bad Gemini key costs 4.5s pacing + 90s timeout × ~45 matches).
+    **A gate in front of a chain and the chain itself must derive their list
+    from one place — a docstring is not an implementation.**
 
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**

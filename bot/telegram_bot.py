@@ -65,7 +65,23 @@ def fetch_todays_picks() -> list:
 
 
 def fetch_stats() -> dict:
-    """Accuracy of scored predictions (needs results to be recorded)."""
+    """Accuracy of scored predictions (needs results to be recorded).
+
+    The MAX(id) clause is not optional. model_predictions is append-only, so a
+    match re-predicted during the day carries several rows; without the filter
+    every one of them is scored and the denominator inflates. That is exactly
+    how this function and /api/stats came to publish two different track
+    records for the same ledger:
+
+        without MAX(id)  152/243 = 62.6%   <- Telegram + feed/bot_feed.json
+        with MAX(id)     136/216 = 63.0%   <- website
+                          (80 matches currently hold >1 prediction row)
+
+    Neither number was wrong about its own query; they were answering different
+    questions while both being labelled "our record". Same rule as
+    fetch_todays_picks above, and the same rule /api/stats uses — latest row per
+    match, always. (See CLAUDE.md bug #3.)
+    """
     conn = get_connection()
     row = conn.execute("""
         SELECT
@@ -78,6 +94,10 @@ def fetch_stats() -> dict:
         FROM model_predictions mp
         JOIN results r ON r.match_id = mp.match_id
         WHERE mp.confidence IN ('HIGH', 'MEDIUM')
+          AND mp.id = (
+              SELECT MAX(mp2.id) FROM model_predictions mp2
+              WHERE mp2.match_id = mp.match_id
+          )
     """).fetchone()
     conn.close()
     total = row["total"] or 0

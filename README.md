@@ -78,13 +78,45 @@ meaningless if the picks it omits are not random. Run
 `python db/track_record_health.py` — it reports **coverage**, not just cadence
 — before quoting any accuracy figure anywhere.
 
+**The published number blends model versions, and that is unresolved.** The
+same lesson, one step further: a tier percentage is also meaningless if the
+picks in it came from different models. Graded HIGH picks in the ledger as of
+23 Aug 2026:
+
+| version | graded HIGH | correct | |
+|---|---|---|---|
+| `rf_v1` | 5 | 2 | 40.0% |
+| `rf_v1b` | 3 | 3 | 100.0% |
+| `rf_v1c` | 1 | 0 | 0.0% |
+| `rf_v1d` | 11 | 7 | 63.6% |
+| `rf_v1e` | 61 | 45 | 73.8% |
+
+The headline is computed across **all** of them. `model_predictions.model_version`
+records which model made each pick, but only `db/track_record_health.py` can
+filter on it (optional argument) — the bot, the API and `feed/bot_feed.json`
+do not. So the published figure is dominated by `rf_v1e` and slightly dragged
+by 20 picks from four earlier models, one of which went 2-for-5.
+
+This needs a decision rather than a quiet fix, because both options cost
+something real:
+
+- **Filter to the current model** — honest, but resets the graded count to zero
+  the day a new model ships, losing the 30-sample gate the tiers rest on.
+- **Keep blending** — preserves the sample, but the number describes a mixture
+  no user is actually being served.
+
+Not decided yet. It matters now because `rf_v2` (see below) is a materially
+different model, not a tweak.
+
 **What would make this ready for testers:** HIGH has passed the 30-sample gate
 (37 graded). The remaining blocker is not the number, it is that consensus is
 currently blind — see Known limitations. Two independent opinions are what the
 "cross-checked" story rests on.
 
 The old claim of "HIGH ≈ 75%" came from training-set evaluation, not graded
-results. Don't repeat it.
+results. Don't repeat it — and note the same trap applies to the `rf_v2`
+hold-out figures below. A hold-out test set is a genuinely better measurement
+than a training set, but it is still not a graded live result.
 
 ---
 
@@ -155,6 +187,61 @@ Port 8000 is blocked on the primary dev machine; the project standardises on 808
 A single day of work moved the project off one laptop and fixed several silent
 failures. Listed because most of them are the kind of bug that produces
 plausible-looking numbers rather than errors.
+
+### 23 August: the model was trained on odds it mostly didn't have (`rf_v2`)
+
+`models/train.py` read bookmaker odds from three columns — `B365H/D/A` — and
+substituted a flat `0.33/0.33/0.33` whenever they were missing. Missing was
+the common case: **60.5% of the 70,916 training rows** got the constant.
+
+The odds columns are the model's three most important features. So on most of
+its training data, the strongest signal it had was a constant — and a constant
+that says "all three outcomes are equally likely", on rows where the actual
+outcome was known and usually wasn't a draw. That is not a gap in coverage, it
+is a systematic lie about six matches in ten.
+
+Most of those rows *did* have odds, just under different names. football-data.co.uk
+publishes closing prices as `B365CH/CD/CA` and carries Pinnacle, market-average
+and best-available families too; 85 of 102 files have Bet365 closing prices and
+**101 of 102 have some closing family**. The loader looked for exactly one
+family and gave up.
+
+Fixed by trying seven column families in order (closing before opening, so the
+feature means one thing across the whole set) and adding an explicit
+`odds_is_market` flag — 1.0 for a real price, 0.0 for the fallback — so the
+model can tell a market price from a placeholder instead of being told a
+placeholder *is* a market price. Coverage went **39.5% → 94.1%**.
+
+Measured on the same time-aware hold-out split, before and after:
+
+| | `rf_v1e` | `rf_v2` |
+|---|---|---|
+| odds coverage in training | 39.5% | **94.1%** |
+| overall accuracy | 49.7% | 51.3% |
+| ≥65% tier | 74.2% on 8.4% of matches | **74.6% on 12.5%** |
+| ≥55% tier | 65.1% on 24.3% | 65.0% on 33.3% |
+| draws predicted | ~0 (recall 0.00) | **129**, precision 0.32 |
+| odds share of feature importance | 41.3% | 66.6% |
+
+The result that matters is the second-to-last row: **the HIGH tier holds its
+accuracy while covering 49% more matches.** Same quality, half again as many
+picks — that is more served fixtures per day, not a better-looking number.
+
+The draw row is the diagnosis confirmed. "Never predicts a draw" was a known
+pathology with several plausible causes; a constant 0.33 draw prior on 60% of
+training rows was one of them, and removing it produced draws immediately —
+129 of them at 32% precision against a 25.7% base rate. Not yet a good draw
+model. No longer a blind one.
+
+**Overall accuracy is still 51.3%, below the ~53–55% a bookmaker's favourite
+gets.** Stated plainly because it is the number that matters for the product's
+premise: the calibrated HIGH tier is where the value is, and the flat top-line
+is unchanged by this work. `python db/edge_report.py` remains the honest test.
+
+`MODEL_VERSION` is bumped to `rf_v2` in `models/predict.py`, so live picks are
+attributable — see the version-blending problem in Current status. Editing
+`train.py` also invalidates the GitHub Actions model cache key, so the cloud
+retrains itself on the next daily run; no manual step.
 
 ### Correctness fixes
 
