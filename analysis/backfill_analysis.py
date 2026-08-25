@@ -81,6 +81,14 @@ def main() -> int:
             "over_2_5_pct": r["over_2_5_pct"],
             "confidence": r["confidence"], "best_bet": r["best_bet"],
             "best_bet_prob": (r["best_bet_prob"] or 0) * 100,
+            # No "facts" key on purpose, so build_prompt falls back to the
+            # probabilities-only prompt. The fact-based version needs the form
+            # features, and reconstructing those means
+            # build_current_team_histories() — every historical CSV replayed,
+            # minutes of work — for prose on the handful of picks that reach
+            # here. The text is thinner than a live run's; that is the trade,
+            # and it is why this script exists at all (a blank explanation is
+            # worse than a plain one).
         })
         # Don't store the provider's failure string as if it were analysis.
         if not text or text.startswith("Analysis unavailable"):

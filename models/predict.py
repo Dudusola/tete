@@ -271,6 +271,72 @@ def build_live_features(home_hist: list, away_hist: list,
     }
 
 
+def h2h_record(home_hist: list, away_team: str, n: int = 5) -> tuple:
+    """(wins, draws, losses) from the home team's view in the last n meetings.
+
+    The `h2h_home_wins` FEATURE is a bare count, and a bare count is ambiguous
+    in exactly the way that gets a fabrication published: 0 means "met five
+    times, won none" and also "never met". Handed the first reading, an LLM
+    filled the gap itself — given "won 0 of the last 5" it wrote "Al Fateh has
+    won all of the last 5", which does not follow (they could all be draws) and
+    in the test case was simply untrue.
+
+    So the prompt gets the full split and the number of meetings that actually
+    happened. Same defect and same fix as odds_is_market: make the absence of
+    data distinguishable from a zero.
+    """
+    meetings = [m for m in home_hist if m["opponent"] == away_team][-n:]
+    w = sum(1 for m in meetings if m["result"] == "W")
+    d = sum(1 for m in meetings if m["result"] == "D")
+    return w, d, len(meetings) - w - d
+
+
+def recent_results(hist: list, n: int = FORM_WINDOW) -> str:
+    """Last n results as 'WWDLW', oldest first. '' when there is no history.
+
+    For the analysis prompt only — never a model feature. The forest sees
+    form_ppg (2.00); a reader wants to know that came from W-W-D-L-W rather
+    than from D-D-D-D-D-D, and an LLM cannot infer the shape from the average.
+    """
+    return "".join(m["result"] for m in hist[-n:])
+
+
+def build_analysis_facts(home_hist: list, away_hist: list, feats: dict,
+                         match: dict, away_matched: str) -> dict:
+    """The evidence the analyst gets: the model's own features, plus enough
+    context to describe them honestly.
+
+    `feats` is passed through UNCHANGED and unrecomputed. That is deliberate —
+    the prose is then explaining the exact numbers that produced the pick, so it
+    cannot drift from it. Everything added here is either presentational
+    (recent_results) or a caveat the features themselves cannot express:
+
+      *_games   how many matches those averages actually rest on. Required,
+                because form_ppg divides by len(recent) rather than the window,
+                so one win and five wins are both 3.00 (CLAUDE.md bug #27).
+                Without this the LLM writes "unbeaten in five" about a club we
+                have seen once, which is a fabrication we published.
+      odds_*    the raw prices, so the analysis can quote 1.80 instead of a
+                normalised probability. Absent when odds_is_market is 0.0.
+    """
+    return {
+        **feats,
+        "form_window": FORM_WINDOW,
+        "home_games": len(home_hist),
+        "away_games": len(away_hist),
+        "home_recent": recent_results(home_hist),
+        "away_recent": recent_results(away_hist),
+        # away_matched, NOT match["away_team"]: history records opponents under
+        # the CSV's spelling, so the scraped name would match nothing and every
+        # fixture would silently report "no previous meetings". Same reason
+        # build_live_features gets the matched names for h2h_wins.
+        "h2h_record": h2h_record(home_hist, away_matched),
+        "odds_home": match.get("odds_home"),
+        "odds_draw": match.get("odds_draw"),
+        "odds_away": match.get("odds_away"),
+    }
+
+
 def save_prediction(match_id: str, probs: dict, confidence: str,
                     best_bet: str, best_prob: float, gemma_analysis: str = None,
                     consensus_adj: str = None):
@@ -442,6 +508,12 @@ def run(use_gemma: bool = True):
                 "confidence": confidence,
                 "best_bet": best_bet,
                 "best_bet_prob": best_prob * 100,
+                # The features the forest actually used. Before this, the prompt
+                # got three probabilities and a ban on quoting them, so the only
+                # possible output was generic prose. See _facts_block().
+                "facts": build_analysis_facts(
+                    team_history[home_match], team_history[away_match],
+                    feats, match, away_match),
             })
 
         save_prediction(match["match_id"], probs, confidence,
@@ -504,7 +576,17 @@ def run(use_gemma: bool = True):
             print(f"  Model: H {probs['H']:.0%} | D {probs['D']:.0%} | A {probs['A']:.0%}")
             print(f"  >> {p['best_bet']} ({p['best_prob']:.0%})")
             if p.get("gemma_analysis"):
-                print(f"  💬 {p['gemma_analysis'][:150]}...")
+                # ASCII marker, not an emoji. This line used to be "💬 ..." and
+                # it CRASHED the whole script on Windows: the console is cp1252,
+                # UnicodeEncodeError is raised by print itself, and it fires
+                # after every prediction is already saved — so the run died on
+                # its own summary, and because predict.py is a CRITICAL step,
+                # run_daily.py aborted with it. Never surfaced in the cloud
+                # (Actions is UTF-8) and never surfaced locally either, because
+                # local runs mostly use --no-gemma and this line only executes
+                # when analysis text exists. Same cp1252 class as the webapp
+                # rule and db/form_depth_health.py.
+                print(f"     {p['gemma_analysis'][:150]}...")
 
     low_count = sum(1 for p in predictions if p["confidence"] == "LOW")
     if low_count:

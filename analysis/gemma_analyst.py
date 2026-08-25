@@ -428,6 +428,138 @@ _ANALYSERS = {
 }
 
 
+def _facts_block(ctx: dict) -> str:
+    """The EVIDENCE section: the model's own 13 features, in words.
+
+    Why this exists (24 Aug 2026). The analysis read as generic filler because
+    the prompt made generic filler the only possible answer. It supplied three
+    model probabilities, three source percentages, a scoreline and a tier — and
+    then said "Do NOT mention percentages directly". Every number was banned and
+    nothing else was provided, so the LLM had no material and wrote around it:
+    "the home side look strong and should have enough to see this out."
+
+    None of the 13 features the forest actually uses reached the prompt. Form,
+    goals for and against, the venue record, head-to-head, the bookmaker's price
+    — the model saw all of it, the analyst saw none of it.
+
+    The numbers here are the SAME dict that produced the prediction (predict.py
+    passes `feats` straight through), not a recomputation. So the prose cannot
+    contradict the pick it is explaining.
+
+    Degrades to "" when no facts are supplied — callers that only have stored
+    probabilities (backfill_analysis.py) keep working unchanged.
+    """
+    f = ctx.get("facts")
+    if not f:
+        return ""
+
+    home = ctx.get("home_team", "Home")
+    away = ctx.get("away_team", "Away")
+    w = int(f.get("form_window") or 5)
+    out = []
+
+    # ---- Sample-size warning FIRST, before any figure it qualifies ---------
+    # This is not decoration. `form_ppg` and friends divide by len(recent), not
+    # by the window, so ONE recorded game yields a FULL-MAGNITUDE form signal:
+    # a single win is indistinguishable from five straight wins (3.00 ppg).
+    # 33% of teams in history are in that position (CLAUDE.md bug #27).
+    #
+    # Handing "3.00 points per game" to an LLM without this warning is how
+    # vague-but-harmless prose becomes confident-and-false prose: it will write
+    # "unbeaten in their last five" about a club we have seen once. That is a
+    # fabricated claim published under our name, and strictly worse than the
+    # generic text this change replaces.
+    for team, games in ((home, f.get("home_games")), (away, f.get("away_games"))):
+        if games is not None and games < w:
+            out.append(
+                f"!! SMALL SAMPLE: we hold only {games} completed "
+                f"match{'es' if games != 1 else ''} for {team}. The figures below "
+                f"are that {'single game' if games == 1 else 'short run'}, NOT a "
+                f"{w}-game trend. Do not call it a run, a streak or recent form, "
+                f"and say plainly that little is known about them."
+            )
+
+    def side(team, games, ppg, gf, ga, venue, venue_word):
+        n = min(int(games or 0), w) or w
+        line = [f"{team} — last {n}: "]
+        rec = f.get(f"{venue_word}_recent")
+        line.append(f"{rec} " if rec else "")
+        line.append(f"{ppg:.2f} pts/game, "
+                    f"scoring {gf:.2f} and conceding {ga:.2f} per game. ")
+        line.append(f"{venue_word.capitalize()} matches only: {venue:.2f} pts/game.")
+        return "".join(line)
+
+    # Only claim form when we know how many games it rests on. A caller with
+    # odds but no history (see backfill_analysis.py) would otherwise publish
+    # "0.00 pts/game, scoring 0.00" as fact, which reads as a team that cannot
+    # score rather than as an absence of data.
+    if f.get("home_games") is not None and f.get("away_games") is not None:
+        out.append("FORM (from our own results database, most recent last):")
+        out.append("- " + side(home, f.get("home_games"), f.get("home_form_ppg", 0),
+                               f.get("home_goals_for_avg", 0),
+                               f.get("home_goals_against_avg", 0),
+                               f.get("home_home_ppg", 0), "home"))
+        out.append("- " + side(away, f.get("away_games"), f.get("away_form_ppg", 0),
+                               f.get("away_goals_for_avg", 0),
+                               f.get("away_goals_against_avg", 0),
+                               f.get("away_away_ppg", 0), "away"))
+
+    # ---- Head to head, stated so it cannot be read backwards ---------------
+    # Never emit a bare "won 0 of the last 5". Given exactly that, the LLM
+    # completed the gap itself and wrote "Al Fateh has won all of the last 5" —
+    # which does not follow (they could all have been draws) and was false.
+    # Give the full W-D-L split and how many meetings actually took place, or
+    # say nothing. h2h_home_wins alone is not safe to put in a sentence.
+    rec = f.get("h2h_record")
+    if rec:
+        hw, hd, hl = rec
+        played = hw + hd + hl
+        if played == 0:
+            out.append("HEAD TO HEAD: these two have never met in our records. "
+                       "Say nothing about previous meetings.")
+        else:
+            out.append(
+                f"HEAD TO HEAD: {played} previous meeting"
+                f"{'s' if played != 1 else ''} on record — {home} won {hw}, "
+                f"drew {hd}, lost {hl}.")
+
+    # ---- The market, and whether it IS a market ---------------------------
+    oh, od, oa = f.get("odds_home"), f.get("odds_draw"), f.get("odds_away")
+    is_mkt = f.get("odds_is_market") == 1.0
+    if is_mkt and oh and od and oa:
+        out.append(f"BOOKMAKER PRICE: {home} {oh}, draw {od}, {away} {oa} "
+                   f"(a real market price).")
+    else:
+        # Not a price. Another model's percentages normalised to look like one
+        # (bug: predict.py counts these as pct_fallback). Saying "the bookmakers
+        # rate them at" here would be a straight falsehood.
+        out.append("BOOKMAKER PRICE: none available — the market figures behind "
+                   "this pick are another model's percentages, not real odds. Do "
+                   "NOT refer to bookmakers, prices, or what the market thinks.")
+
+    if is_mkt and oh:
+        # Model vs market is the one genuinely interesting number in the whole
+        # block: it is WHY this is a pick rather than a description of a fixture.
+        implied = {"H": 100 / oh, "D": 100 / od, "A": 100 / oa}
+        tot = sum(implied.values())
+        key = {"Home Win": "H", "Draw": "D", "Away Win": "A"}.get(
+            ctx.get("best_bet", ""))
+        if key:
+            mkt = implied[key] / tot * 100
+            edge = (ctx.get("best_bet_prob", 0)) - mkt
+            out.append(
+                f"OUR EDGE: on {ctx.get('best_bet')}, the market implies "
+                f"{mkt:.0f}% once the bookmaker's margin is removed and we rate "
+                f"it {ctx.get('best_bet_prob', 0):.0f}% — "
+                + (f"a {edge:.0f}-point advantage to us."
+                   if edge > 0 else
+                   f"{abs(edge):.0f} points BELOW the market, so this is a pick "
+                   f"on our reading of form rather than on price.")
+            )
+
+    return "\n".join(out)
+
+
 def build_prompt(ctx: dict) -> str:
     """Build a structured prompt. We give the model the DATA, never ask it to
     recall facts — it explains our numbers, it does not source its own."""
@@ -439,16 +571,45 @@ def build_prompt(ctx: dict) -> str:
     ml_draw = ctx.get("draw_prob", 0)
     ml_away = ctx.get("away_win_prob", 0)
 
+    facts = _facts_block(ctx)
+
+    # The house rules. Shared by both branches below so the Draws tab cannot
+    # drift into a different standard of truthfulness from the main one.
+    #
+    # "Invent nothing" is the important line. The moment a prompt asks for
+    # specifics, an LLM will happily supply injuries, suspensions, a new manager
+    # and a hostile crowd — none of which this project has any data about. We
+    # would be publishing fabrications as analysis. So: the evidence block is
+    # the ONLY permitted source of fact, and it is exhaustive.
+    rules = """RULES — these matter more than style:
+- Use ONLY the figures given above. Quote the ones you rely on.
+- Invent NOTHING. You have no information about injuries, suspensions,
+  transfers, managers, league position, fixture congestion, crowds, weather,
+  motivation or anything a pundit would know. Do not mention any of them.
+- Never name a model, provider, algorithm or data source, and don't say "the
+  data" or "statistically". Write as an analyst who has studied these numbers.
+- Do NOT quote our own probabilities, or the second opinion's, back at the
+  reader — both are already displayed beside your text, so repeating them costs
+  a sentence and adds nothing. Cite the bookmaker's price, the form figures, the
+  goal averages and the head-to-head instead. An abstract version of this rule
+  was ignored, so to be explicit: no percentage that appears under OUR PICK,
+  MODEL PROBABILITIES or SECOND OPINION belongs in your text. The one exception
+  is OUR EDGE, which you may report as a gap in points ("four points better
+  than the market's price") — that is a comparison, not a restatement.
+- If a SMALL SAMPLE warning appears, say so honestly. A confident story about a
+  team we have seen once is worse than admitting the gap.
+- Plain English for someone who follows football but not statistics."""
+
     # An alternate framing for views that ask a DIFFERENT question of the same
     # numbers. The Draws tab is the case: the default prompt ends "give one
     # clear betting recommendation" and the model duly recommends the
     # favourite, which is the opposite of what that screen is for.
     #
-    # Only the instruction changes — the data block below is identical, so the
-    # rule that the LLM explains OUR numbers and never sources its own still
-    # holds, and every caller keeps the same failover chain.
+    # Only the instruction changes — the evidence and the rules below are
+    # identical, so the rule that the LLM explains OUR numbers and never sources
+    # its own still holds, and every caller keeps the same failover chain.
     if ctx.get("custom_instruction"):
-        return f"""You are a sports betting analyst. Analyse this upcoming match.
+        return f"""You are a football analyst. Analyse this upcoming match.
 
 MATCH: {home} vs {away}
 LEAGUE: {league}
@@ -458,10 +619,10 @@ MODEL PROBABILITIES:
 - Draw: {ml_draw:.1f}%
 - {away} Win: {ml_away:.1f}%
 
+{f"EVIDENCE{chr(10)}{facts}{chr(10)}" if facts else ""}
 {ctx["custom_instruction"]}
 
-Write for someone who understands football but not statistics. Do NOT mention
-model names or quote the percentages directly."""
+{rules}"""
 
     fb_home = ctx.get("home_win_pct", "N/A")
     fb_draw = ctx.get("draw_pct", "N/A")
@@ -484,33 +645,38 @@ model names or quote the percentages directly."""
     best_bet = ctx.get("best_bet", "Home Win")
     best_bet_prob = ctx.get("best_bet_prob", 0)
 
-    prompt = f"""You are a sports betting analyst. Analyze this upcoming match and give a brief, clear prediction.
+    prompt = f"""You are a football analyst. Explain this pick in 3 sentences.
 
 MATCH: {home} vs {away}
 LEAGUE: {league}
+
+OUR PICK: {best_bet} — {best_bet_prob:.1f}% ({confidence} confidence)
 
 MODEL PROBABILITIES:
 - {home} Win: {ml_home:.1f}%
 - Draw: {ml_draw:.1f}%
 - {away} Win: {ml_away:.1f}%
 
-FOREBET STATISTICAL PREDICTION:
-- {home} Win: {fb_home}%
-- Draw: {fb_draw}%
-- {away} Win: {fb_away}%
-- Predicted Score: {predicted_score}
-- Expected Total Goals: {avg_goals}
+SECOND OPINION (an independent statistical model):
+- {home} {fb_home}% / draw {fb_draw}% / {away} {fb_away}%
+- Its predicted score: {predicted_score}, expected total goals {avg_goals}
 
-BEST BET: {best_bet} ({best_bet_prob:.1f}% probability)
-CONFIDENCE: {confidence}
+EVIDENCE — every fact you are allowed to use:
+{facts if facts else "(no form data available for this fixture)"}
 
-Write a 3-sentence analysis that:
-1. States the most likely outcome and why
-2. Mentions the key factor that drives this prediction
-3. Gives one clear betting recommendation
+Write exactly 3 sentences:
+1. Why {best_bet} is the likely outcome — name the specific figures from the
+   EVIDENCE that make the case. Figures, not our percentages: form, goals
+   scored and conceded, the venue split, the head-to-head, the price.
+2. A RISK to this pick: something in the evidence that could make {best_bet}
+   LOSE. Not a reason it will win — the opponent being weak is not a risk.
+   Look for the favourite's own flaws (goals conceded, a draw or defeat in the
+   recent run, a poor venue record, a thin sample, a short price). If the
+   evidence genuinely contains no such thing, say which figure would have to be
+   wrong for this to lose.
+3. The recommendation, and how firmly to back it.
 
-Keep it simple - write for someone who understands football but not statistics.
-Do NOT mention model names or percentages directly. Just give clear, confident reasoning."""
+{rules}"""
 
     return prompt
 

@@ -113,7 +113,19 @@ generate predictions on demand.
                           Scandinavia, smaller Europe, China/India/A-League. Only records events ESPN marks
                           completed. Fetches league×day scoreboards in a 10-thread pool (~30s; sequential
                           took 18 min and would hit the 15-min step timeout).
-- models/train.py         Random Forest trainer. 66.8k historical matches (89 CSVs since 2018 + internationals).
+- scrapers/espn_history.py Downloads HISTORICAL results for any ESPN league slug into a
+                          football-data.co.uk-shaped CSV, so a league the model has never seen can
+                          be given form. Exists because every other route for a new league was
+                          blocked: football-data.co.uk publishes no CSV outside its ~36 leagues,
+                          Forebet is IP-blocked in the cloud, and the API-Football account is
+                          suspended. ESPN's scoreboard takes a date RANGE, so a month is one
+                          request and four seasons ~40. Gives NO odds (ESPN prices only upcoming
+                          games) — which is fine and not a silent compromise: extract_odds already
+                          handles odds-less rows with odds_is_market=0.0, and bug #7 stops
+                          predict.py serving a pick that has no odds. Coverage varies per league;
+                          ask for 2018 and Saudi gives you 2022, so read the per-season counts it
+                          prints. First use: data/historical/SaudiProLeague.csv, 1,179 matches.
+- models/train.py         Random Forest trainer. 72.1k historical matches (103 CSVs since 2018 + internationals).
                           July 2026: refreshed all football-data.co.uk extra-league CSVs and added
                           SwedishLeague/FinlandLeague/IrelandLeague (in-season leagues) — doubled July
                           pick volume (6→12/day). Refresh source: football-data.co.uk/new/<CODE>.csv
@@ -843,6 +855,108 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     change. Watch rf_v2 first — that ordering is the whole reason the era
     comparison in item 4 was possible.
 
+28. **The AI analysis was generic because the prompt made generic the only
+    possible answer** (fixed 24 Aug 2026). Boss's words: "is there a way we can
+    make the ai analysis not generic, that it actually gives an analysis based on
+    facts". It was not a model-quality problem and no amount of provider-swapping
+    would have fixed it.
+
+    `build_prompt` supplied three model probabilities, three second-opinion
+    percentages, a predicted score, a tier — and then ended:
+
+        Do NOT mention model names or percentages directly.
+
+    Every number in the prompt was banned from the output and nothing else was
+    provided. **None of the 13 features the forest actually uses reached the
+    prompt**: not form, not goals for or against, not the venue record, not
+    head-to-head, not the bookmaker's price. So the LLM wrote around the void,
+    correctly: *"the home side look strong and should have enough to see this
+    out."* That sentence fits every fixture ever played, which is what made it
+    feel worthless.
+
+    The fix is `_facts_block()` in `analysis/gemma_analyst.py` plus
+    `build_analysis_facts()` in `models/predict.py`. The prompt now carries an
+    EVIDENCE section built from **the same `feats` dict that produced the
+    prediction**, passed through unrecomputed — so the prose cannot drift from
+    the pick it explains. The ban is narrowed to our own win percentages (the UI
+    already shows them next to the text) while form figures, goal averages and
+    the real price are explicitly quotable. Before/after on the same fixture:
+
+        before: "Al Hilal look strong at home and should have enough here."
+        after:  "Al Hilal comes into this match averaging 2.60 points per game
+                 at home and scoring 2.60 goals per match over their last five,
+                 while Al Fateh struggles on the road with just 0.60 points per
+                 game away. A key risk to this short 1.36 bookmaker price is
+                 that Al Hilal still concedes 0.80 goals per game..."
+
+    **Three things this had to get right, each of which failed on the first
+    attempt and would have been worse than the generic text.** Specificity
+    without truthfulness is not an improvement; it is a fabrication with our name
+    on it.
+
+    - **A bare count is invertible.** `h2h_home_wins` is 0 both for "met five
+      times, won none" and for "never met". Given "won 0 of the last 5", Gemini
+      wrote *"Al Fateh has won all of the last 5"* — which does not follow (they
+      could all have been draws) and in that fixture was simply untrue. Fixed
+      with `h2h_record()` returning the full W-D-L split plus the number of
+      meetings that actually happened, and saying "never met in our records" when
+      there are none. Same defect and same fix as `odds_is_market`: make absence
+      of data distinguishable from a zero.
+    - **One game reads as five.** `form_ppg` divides by `len(recent)`, not by the
+      window (bug #27), so a single win is 3.00 ppg — identical to five straight
+      wins. Handed "3.00 points per game" with no caveat, an LLM will write
+      "unbeaten in their last five" about a club we have seen once. The evidence
+      block therefore emits a `!! SMALL SAMPLE` line *before* the figures it
+      qualifies, naming the actual count, and the rules require admitting it.
+      This is the first thing in the codebase that turns bug #27's measured
+      finding into user-visible honesty rather than a silent risk.
+    - **"Argument against" gets read backwards.** Asked for "the strongest
+      argument AGAINST this pick", the model supplied the *opponent's* weakness —
+      an argument FOR it. Reworded to ask for a RISK, with "the opponent being
+      weak is not a risk" stated explicitly and a list of what does count (the
+      favourite's own goals conceded, a dropped result in the run, a poor venue
+      record, a thin sample, a short price).
+
+    Also: when `odds_is_market` is 0.0 the block says so and forbids referring to
+    bookmakers or prices at all, because those figures are another model's
+    percentages — "the bookmakers rate them at" would be a straight falsehood.
+    And `Invent NOTHING` enumerates what the project has no data about (injuries,
+    suspensions, transfers, managers, league position, congestion, crowds,
+    weather, motivation), because the moment a prompt asks for specifics an LLM
+    will happily supply all of them.
+
+    `_facts_block()` returns `""` when no facts are supplied, so
+    `backfill_analysis.py` (which would need a full history replay to build them,
+    for a handful of stragglers) and `draw_analysis.py` keep working on the
+    probabilities-only prompt. The rules block is shared by both branches so the
+    Draws tab cannot drift to a different standard of truthfulness.
+
+29. **An emoji in a `print()` crashed the CRITICAL pipeline step on Windows**
+    (found and fixed 24 Aug 2026, while verifying bug #28). `predict.py` ended
+    its summary with `print(f"  💬 {p['gemma_analysis'][:150]}...")`. The Windows
+    console is cp1252, `print` raises `UnicodeEncodeError` on U+1F4AC rather than
+    substituting, and the exception propagated out of `run()` — so a completely
+    successful run (46 predictions saved, all 46 on real bookmaker prices) died
+    on its own display code. Because "Generate predictions" is the one `CRITICAL`
+    step, `run_daily.py` aborts with it.
+
+    Why it hid for so long, which is the instructive part:
+    - **The cloud never sees it.** GitHub Actions runs UTF-8, so this is
+      Windows-local only — i.e. it breaks exactly the manual run you'd do to
+      check something before pushing.
+    - **`--no-gemma` skips the line.** The guard is `if p.get("gemma_analysis")`,
+      and local runs mostly pass `--no-gemma` to save time. The crash needs a
+      local run WITH analysis, which is rare.
+    - **loguru is not affected.** `logger.info("✅ ...")` escapes unencodable
+      characters instead of raising, so the same emoji in a log line is harmless.
+      That inconsistency is why the codebase is full of emoji log lines that work
+      and made a `print()` look equally safe.
+
+    Swept the rest: 5 more crashing `print()` lines existed (`main.py` ×4,
+    `db/purge_results.py` ×1, all ✅/⚠️), now ASCII. **Rule: emoji are fine in
+    `logger.*`, never in `print()`.** Third instance of the same cp1252 family —
+    see the `webapp/*.html` PowerShell rule and `db/form_depth_health.py`.
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
@@ -993,67 +1107,122 @@ unknown until the honest ledger matures (`db/edge_report.py`).
 
 ## What's next (priority order)
 
-0. **Saudi Pro League (and any new league): what it actually takes** — asked
-   24 Aug 2026, investigated, NOT built. Do not treat this as "download a CSV
-   and retrain"; that is one third of it, and the cheapest third.
+0. **Saudi Pro League — history DONE 24 Aug 2026, fixtures still BLOCKED.**
+   Asked 23 Aug, investigated, and the investigation was wrong twice before it
+   was right. Read the corrections below before touching this.
 
-   Measured facts:
-   - **Zero Saudi rows, ever.** No `league` in `matches` has ever matched
-     `%saud%`/`%arab%`/`%roshn%`. 298 leagues, none Saudi. "Pro League" in the
-     ledger is Iran/UAE.
-   - **Forebet covers it** (`predictions-for-saudi-arabia/professional-league`
-     is in the raw page dump) — and Forebet is IP-blocked in the cloud, so that
-     route is dead in production. See bug #26.
-   - **PredictZ does not** (142 leagues, no Saudi).
-   - **football-data.co.uk publishes no Saudi CSV.** The 102 files in
-     `data/historical/` cover ~36 European/American/Asian leagues. So a Saudi
-     fixture has NO history.
-   - **0 of 20 Saudi Pro League club names fuzzy-match any of the 1604 known
-     teams** (checked 24 Aug 2026 against `match_team_name`, the real matcher).
-     Not one false match either, so there is no wrong-club hazard.
+   **What now exists** (shipped 24 Aug 2026):
+   - `scrapers/espn_history.py` — a reusable downloader for ANY ESPN league slug
+     into a football-data.co.uk-shaped CSV. ESPN's scoreboard accepts a date
+     RANGE (`?dates=20250301-20250331`), so a month costs one request and four
+     seasons cost ~40. No API key, and ESPN is the one source proven unblocked
+     in Actions.
+   - `data/historical/SaudiProLeague.csv` — 1,179 finished matches, 28 clubs.
+     **ESPN has no Saudi data before 2022/23** regardless of `--start`, so this
+     is four seasons, not eight. Per-league coverage is not uniform; check the
+     per-season counts the script prints rather than trusting `--start`.
+   - `"ksa.1"` in `espn_leagues.EXTRA`, so Saudi games get kickoff times, live
+     state and — the point — **grading**. (`ksa.2` returns HTTP 400.)
+   - Retrained: **28/28 Saudi clubs now match** `match_team_name`, most with
+     130+ games (`team_history` 1604 -> 1632 teams). Overall accuracy 51.2%,
+     tier calibration unmoved (65% -> 74.3%, 55% -> 65.2%), so nothing was
+     traded away for this.
 
-   **Two claims that were in this entry on 23 Aug 2026 were wrong. Both are
-   corrected below, because acting on either would have wasted a day.**
+   **What is still missing, and it is the part that matters: ODDS.** A league
+   needs an upcoming fixture WITH a price to produce a pick.
+
+   **PredictZ already delivers Saudi FIXTURES** — under the league name
+   **"Professional League"**. This entry previously said "PredictZ does not
+   cover Saudi (142 leagues, none)" and that '"Pro League" in the ledger is
+   Iran/UAE'. Both were wrong, and the reason they were wrong is worth knowing:
+   the ledger contains *three* near-identical league names —
+
+       "Professional League"  -> SAUDI      (Al Nassr, Al Ettifaq, Neom SC)
+       "Pro League"           -> UAE        (Al Wasl, Al Ittihad Kalba)
+       "Stars League"         -> QATAR      (Al Gharrafa, Al Arabi)
+
+   — so a name-based check for Saudi found "nothing" while Saudi fixtures were
+   arriving daily. Never conclude a league is absent from a league-name search
+   alone; check the club names.
+
+   What those rows do NOT have is **any price or any percentage**: every Saudi
+   `scraped_predictions` row has `odds_home IS NULL` *and*
+   `home_win_pct IS NULL` (only `predicted_*_goals`). So `build_live_features`
+   returns None and `predict.py:381` skips them — correctly, by bug #7. Saudi is
+   now *predictable* (form solved, permanently) but not yet *served*, and the
+   single remaining blocker is an odds source that covers it:
+   - `scrapers/fixtures_api.py` (api-sports.io v3) is the only live fixture+odds
+     route — and **that account is SUSPENDED.** `{'access': 'Your account is
+     suspended, check on https://dashboard.api-football.com.'}`, returned even
+     by `/status`. Its last ledger row is **9 Aug 2026**. This is a live
+     production regression that predates the Saudi work and is not caused by it;
+     it needs Boss to log in. Combined with Forebet's IP block (bug #26) the
+     pipeline is down from four sources to two: `predictz` and `espn`.
+   - Forebet covers Saudi and is Cloudflare-403'd from datacenter IPs.
+
+   **Saudi club spellings differ between PredictZ and ESPN, and the difference
+   lands in the near-miss band** (0.85-0.95), so those fixtures would be skipped
+   as unmatched even with odds. `predict.py` already reports them for curation
+   into `TEAM_ALIASES`; measured 24 Aug 2026:
+
+       "Al Taawon": "Al Taawoun",        # 0.95
+       "Al Hazm": "Al Hazem",            # 0.93
+       "Al Shabab Riyadh": "Al Shabab",  # 0.92
+       "Al Qadisiyah": "Al Qadsiah",     # 0.91
+       "Al Faiha": "Al Fayha",           # 0.88
+
+   plus `Ittihad Jeddah`, `Abha Club`, `Al Faisaly`, `Diriyah Club`. These are
+   deliberately NOT added yet: while the odds are missing every one of these
+   fixtures is skipped anyway, so adding them changes nothing observable and
+   would be a guess nobody could check. Add them in the same change that fixes
+   the odds, and confirm against real served picks.
+
+   **One EXACT-name collision was created by adding this CSV, and it is
+   measured, not hypothetical.** All 28 Saudi club names were new to
+   `team_history` (1604 -> 1632 teams), and one of them, `Al Ittihad`, is also
+   an Egyptian club: `Zamalek v Al Ittihad [Premier League]`. `match_team_name`
+   step 2 is an exact-string match, which **bypasses the NAME_MATCH_MIN=0.95
+   similarity guard entirely** — so that fixture would silently be predicted on
+   the SAUDI club's form. Scope right now: exactly **1 fixture in the whole
+   ledger**, and it has no odds, so it has never been predicted and cannot be.
+   That is luck, not a defence. The real fix is league-aware matching (the
+   matcher is global by name and knows nothing about country), which is its own
+   piece of work. Until then, expect this class of collision to grow with every
+   Gulf/North-African league added — `Al Ahli`, `Al Hilal`, `Al Shabab` and
+   `Al Wehda` all exist in several countries.
+
+   **Three claims that were in this entry before 24 Aug 2026 were wrong.** All
+   are corrected here, because acting on any of them would have wasted a day.
 
    *Wrong claim 1: "ESPN is the viable route — adding `"ksa.1"` to `EXTRA` is a
    one-line change."* `espn_leagues.ALL_LEAGUES` is imported in exactly two
    places — `kickoff_times.py` and `results_espn.py` — and **neither inserts a
-   fixture**. `kickoff_times.py` only ever `UPDATE`s rows already in `matches`
-   (it attaches kickoff time, live state and an odds row); the sole
-   `INSERT ... INTO matches` in the repo is in `db/database.py:192`. So ESPN is
-   an *enrichment and grading* source, not a fixture source, and `"ksa.1"` alone
-   cannot bring in a single Saudi fixture. It is still needed — without it Saudi
-   games would never be graded — but it is step 3, not step 1.
-
-   The actual fixture sources are PredictZ (no Saudi), Forebet (has Saudi, IP-
-   blocked), clubelo (no odds) and **`scrapers/fixtures_api.py` (api-sports.io
-   v3) — the only live route.** That file filters to a hand-built `LEAGUE_IDS`
-   whitelist of 34 ids, deliberately, "to keep only leagues the model has history
-   for". It already has a `/leagues?current=true` resolver for exactly this job.
-   So step 1 is: resolve the Saudi league id there and add it.
+   fixture**. `kickoff_times.py` only ever `UPDATE`s rows already in `matches`;
+   the sole `INSERT ... INTO matches` in the repo is `db/database.py:192`. ESPN
+   is an *enrichment, history and grading* source, not a fixture source.
 
    *Wrong claim 2: "Saudi picks would be built on nine features asserting both
-   teams are the worst in football."* They would not — `models/predict.py:370`
-   **skips** a match when either team fails to match the history, and 0/20 Saudi
-   clubs match. Adding Saudi fixtures today yields **zero Saudi picks**, which is
-   pointless, not dangerous. The pipeline defends itself here.
+   teams are the worst in football."* They would not — `predict.py:370`
+   **skips** a match when either team fails to match history. Before the CSV,
+   adding Saudi fixtures yielded **zero** Saudi picks: pointless, not dangerous.
 
-   But that defence has a hole, and the hole is live right now — see bug #27.
-   `build_current_team_histories()` appends **our own graded results** to form
-   (`predict.py:109-134`), so any team we have ever recorded a result for exists
-   in `team_history` with as little as one game, and is therefore predicted. That
-   is how a new league bootstraps itself in with no download — and also why it
-   must not be allowed to until bug #27 is fixed.
+   *Wrong claim 3: "a Saudi history source with no odds re-creates the exact gap
+   rf_v2 just closed."* It does not. `train.py:extract_odds` already returns the
+   flat prior with `odds_is_market=0.0` for odds-less rows — rf_v2 added that
+   flag precisely so the forest can discount them — and
+   `InternationalResults.csv` (4,589 rows, no odds columns at all) has been in
+   the training set all along. At serve time bug #7 refuses to predict without
+   odds, so a flat-prior row can never reach a user. Odds-less history is a
+   shape the pipeline already accepts, and demanding odds would have blocked the
+   whole thing for no reason.
 
-   So the order of work is: (a) fix bug #27 (minimum-history guard + a
-   `has_form_history` flag so the forest can tell "no data" from "dreadful", same
-   fix shape as `odds_is_market`); (b) resolve and add the Saudi league id to
-   `LEAGUE_IDS` in `fixtures_api.py`; (c) `"ksa.1"` in `espn_leagues.py` so the
-   games get kickoff times and get graded; (d) let history accumulate from our own
-   graded results, or import a Saudi history source WITH bookmaker odds to skip
-   the wait — a source with no odds re-creates the exact gap rf_v2 just closed;
-   (e) retrain. Doing (b)+(c) without (a) ships confidently wrong picks the moment
-   the first Saudi result lands.
+   Remaining order of work: (a) unsuspend the API-Football account; (b) resolve
+   the Saudi league id via `fixtures_api.py --discover` and add it to
+   `LEAGUE_IDS`; (c) add the `TEAM_ALIASES` entries above *in that same change*,
+   and verify against real served picks; (d) bug #27's `has_form_history`
+   feature, so the forest can tell "no data" from "dreadful" — note this is NOT
+   a blocker for Saudi any more, since Saudi clubs now have real depth rather
+   than one game.
 
 1. **Let the honest ledger accumulate 2–3 weeks.** Highest value, zero work. Scheduler
    runs daily. Watch: do the tiers hold calibration on REAL scores? Do the model's

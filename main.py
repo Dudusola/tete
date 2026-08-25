@@ -163,11 +163,11 @@ def run_test_mode():
     }
     insert_scraped_prediction(test_pred)
 
-    console.print("[green]✅ Database: OK[/green]")
+    console.print("[green][OK] Database: OK[/green]")
 
     # Test Ollama
     if check_ollama_running():
-        console.print("[green]✅ Ollama: Running[/green]")
+        console.print("[green][OK] Ollama: Running[/green]")
         analysis = analyze_match({**test_match, **test_pred,
                                    "home_win_prob": 52.0,
                                    "draw_prob": 24.0,
@@ -179,9 +179,9 @@ def run_test_mode():
         console.print("\n[bold]Sample Gemma Analysis:[/bold]")
         console.print(f"[italic]{analysis}[/italic]")
     else:
-        console.print("[yellow]⚠️  Ollama: Not running (start with 'ollama serve')[/yellow]")
+        console.print("[yellow][!]  Ollama: Not running (start with 'ollama serve')[/yellow]")
 
-    console.print("\n[bold green]✅ System test complete. All core modules working.[/bold green]")
+    console.print("\n[bold green][OK] System test complete. All core modules working.[/bold green]")
 
 
 if __name__ == "__main__":
