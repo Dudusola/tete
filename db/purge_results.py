@@ -29,7 +29,7 @@ def run(apply=False):
         cur.execute("DELETE FROM results")
         cur.execute("UPDATE matches SET status='scheduled' WHERE status='finished'")
         conn.commit()
-        print("\n✅ Purged. The ledger restarts clean - run the fixed results.py "
+        print("\n[OK] Purged. The ledger restarts clean - run the fixed results.py "
               "after today's matches finish.")
     else:
         print("\n(DRY RUN) Re-run with --apply to wipe. This is the honest reset.")
