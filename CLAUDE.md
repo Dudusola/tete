@@ -752,6 +752,97 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     "N/A". **No schedule change fixes an IP block** — the options are a proxy, a
     different host, a scheduled local run, or accepting the loss.
 
+27. **One recorded game produces a full-magnitude form signal, and it is
+    reshaping a third of the served picks** (found 24 Aug 2026, measured, NOT
+    yet fixed). Re-run the measurement with
+    `python db/form_depth_health.py` — it exists so this never has to be
+    rediscovered by hand.
+
+    Two mechanisms combine. First, `build_current_team_histories()` appends
+    **our own graded results** to form (`predict.py:109-134`, deliberately — it
+    keeps form fresh after the CSVs end). Second, `form_ppg`, `goals_avg` and
+    `venue_ppg` divide by `len(recent)`, **not by the window**
+    (`train.py:197-218`). So a club that exists in history solely because we
+    once recorded a result for it gets a form feature at full strength from a
+    sample of one: one win reads `form_ppg = 3.0`, identical to five straight
+    wins; one defeat reads 0.0, identical to five straight defeats.
+
+    The scale is not marginal:
+    - **523 of 1604 teams (33%) have ≤5 games; 386 have 1-2.** These are clubs
+      from leagues we never trained on at all — Kofu, Schaffhausen, Galway
+      United, Rizhao Yuqi, even "American Samoa".
+    - **96 of 264 served HIGH/MEDIUM picks (36.4%) involve one.** Example:
+      `Besiktas v Kauno Zalgiris`, HIGH, 90% — Kauno Zalgiris has exactly one
+      recorded game.
+
+    **But thin history is NOT uniformly bad, and this is the part that matters
+    for the fix.** On 635 graded picks:
+
+        thin   HIGH    29/34   85.3%   <- BEST bucket in the whole ledger
+        deep   HIGH    32/51   62.7%
+        deep   MEDIUM  63/96   65.6%
+        thin   MEDIUM  23/47   48.9%   <- below the floor MEDIUM promises
+        thin   LOW     64/145  44.1%
+        deep   LOW    115/262  43.9%
+
+    Overall the bands are identical (51.3% each). **Read the next three points
+    carefully, because the first framing of this finding was wrong and the
+    script is what caught it.**
+
+    - **Tier ordering within thin picks is INTACT** (85% > 49% > 44%). It is
+      *deep* that shows a mild inversion (HIGH 63% < MEDIUM 66%) — and those two
+      intervals overlap heavily, so that is most likely noise, not a defect.
+    - **The real, measurable defect is a labelling failure, not an ordering
+      one:** thin MEDIUM's 95% interval is 35-63%, which **excludes the claimed
+      66%**. For thin picks the MEDIUM badge is not supported by the ledger.
+      (`deep HIGH` is borderline too: 49-75% against a claimed 75%.)
+    - **Hit rate does NOT decline with less history.** By depth of the shallower
+      team: 1g 62%, 2g 50%, 3-5g 51%, 6-10g 52%, 11-25g 50%, 26+g 51%. Flat,
+      with heavily overlapping intervals. So the `len(recent)` mechanism is real
+      and provable in the code, but its effect on accuracy is **not** yet
+      demonstrated — do not claim it is. What is demonstrated is the thin-MEDIUM
+      labelling gap above.
+
+    The thin-HIGH 85% (n=34) is a genuine outlier worth watching, not yet
+    explained. The plausible story is that a one-game club is usually a minnow in
+    a European qualifier, so "we have almost no record of this team" correlates
+    with "out of its depth" — but the flat depth curve argues against depth
+    itself carrying that signal, so treat this as unexplained.
+
+    **Therefore the obvious fix is the wrong fix.** Refusing to predict without
+    N games of history would delete the best-performing bucket in the ledger and,
+    given the flat depth curve, on no evidence that depth is what hurts. The
+    right fix is a **`has_form_history` / games-count feature** so the forest can
+    distinguish "no data" from "dreadful" and learn any split itself — the same
+    fix shape as `odds_is_market` in rf_v2, and the same underlying bug as #7 and
+    #18: a silent fallback that changes what a feature MEANS without erroring.
+
+    **Do not ship a tier demotion on these numbers either.** thin MEDIUM is
+    n=47. The gap is suggestive and now has a CI that excludes the claim, but
+    this project already mistook a 13-sample tier inversion for a real one
+    ("What's next" item 4) and acted on it. Re-run `form_depth_health.py` as the
+    ledger grows.
+
+    **And the finding is threshold-sensitive, which is the strongest argument
+    for waiting.** Re-running the same 635 picks with `--depth 3` instead of the
+    default 5 moves every conclusion:
+
+        --depth 5:  thin MEDIUM 23/47  49%  CI 35-63%   excludes claim 66%
+        --depth 3:  thin MEDIUM 18/31  58%  CI 41-74%   CONTAINS claim 66%
+        --depth 5:  deep ordering BROKEN (HIGH 63% < MEDIUM 66%)
+        --depth 3:  deep ordering OK     (HIGH 64% > MEDIUM 61%)
+
+    A result that flips when you nudge an arbitrary cut-off from 5 to 3 is not
+    yet a result. The one thing stable across both cuts is thin HIGH being
+    extraordinary (85% at ≤5, 92% at ≤3, n=34/24) — small, but pointing the same
+    way each time. Everything else: wait for more picks.
+
+    **Sequencing note:** the fix needs a retrain, which mints a new
+    `MODEL_VERSION`. rf_v2 has not yet been observed in the cloud even once, so
+    stacking rf_v3 on top now would make it impossible to attribute either
+    change. Watch rf_v2 first — that ordering is the whole reason the era
+    comparison in item 4 was possible.
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
@@ -914,30 +1005,55 @@ unknown until the honest ledger matures (`db/edge_report.py`).
      is in the raw page dump) — and Forebet is IP-blocked in the cloud, so that
      route is dead in production. See bug #26.
    - **PredictZ does not** (142 leagues, no Saudi).
-   - **ESPN is the viable route.** ESPN supplies odds AND win% on 582/582 rows,
-     which is all `build_live_features` needs, and `scrapers/espn_leagues.py` is
-     the single shared list for fixtures, kickoff times AND grading. Adding
-     `"ksa.1"` to `EXTRA` is a one-line change. That file's whole premise —
-     "a league we predict must be a league we can GRADE" — makes this the right
-     place, not a second list.
    - **football-data.co.uk publishes no Saudi CSV.** The 102 files in
      `data/historical/` cover ~36 European/American/Asian leagues. So a Saudi
      fixture has NO history.
+   - **0 of 20 Saudi Pro League club names fuzzy-match any of the 1604 known
+     teams** (checked 24 Aug 2026 against `match_team_name`, the real matcher).
+     Not one false match either, so there is no wrong-club hazard.
 
-   Why the missing history is the real blocker, not a nice-to-have: 9 of the 13
-   model features come from `home_hist`/`away_hist`, and on an empty list
-   `form_ppg`, `goals_avg` and `venue_ppg` all return **0.0**
-   (`models/train.py:197-218`). 0.0 is not "unknown" — in training it means
-   "lost every match, scored nothing". So Saudi picks would be built on nine
-   features asserting both teams are the worst in football, would look normal,
-   would get graded, and would move the tier stats. **This is bug #7 and bug #18
-   again**: a silent fallback that changes what a feature MEANS without erroring.
+   **Two claims that were in this entry on 23 Aug 2026 were wrong. Both are
+   corrected below, because acting on either would have wasted a day.**
 
-   So the order of work is: (a) a `has_form_history` flag so the forest can tell
-   "no data" from "dreadful", the same fix shape as `odds_is_market`; (b) a
-   Saudi history source WITH bookmaker odds — adding a league with no odds
-   re-creates the exact gap rf_v2 just closed; (c) `"ksa.1"` in
-   `espn_leagues.py`; (d) retrain. Doing (c) alone ships confidently wrong picks.
+   *Wrong claim 1: "ESPN is the viable route — adding `"ksa.1"` to `EXTRA` is a
+   one-line change."* `espn_leagues.ALL_LEAGUES` is imported in exactly two
+   places — `kickoff_times.py` and `results_espn.py` — and **neither inserts a
+   fixture**. `kickoff_times.py` only ever `UPDATE`s rows already in `matches`
+   (it attaches kickoff time, live state and an odds row); the sole
+   `INSERT ... INTO matches` in the repo is in `db/database.py:192`. So ESPN is
+   an *enrichment and grading* source, not a fixture source, and `"ksa.1"` alone
+   cannot bring in a single Saudi fixture. It is still needed — without it Saudi
+   games would never be graded — but it is step 3, not step 1.
+
+   The actual fixture sources are PredictZ (no Saudi), Forebet (has Saudi, IP-
+   blocked), clubelo (no odds) and **`scrapers/fixtures_api.py` (api-sports.io
+   v3) — the only live route.** That file filters to a hand-built `LEAGUE_IDS`
+   whitelist of 34 ids, deliberately, "to keep only leagues the model has history
+   for". It already has a `/leagues?current=true` resolver for exactly this job.
+   So step 1 is: resolve the Saudi league id there and add it.
+
+   *Wrong claim 2: "Saudi picks would be built on nine features asserting both
+   teams are the worst in football."* They would not — `models/predict.py:370`
+   **skips** a match when either team fails to match the history, and 0/20 Saudi
+   clubs match. Adding Saudi fixtures today yields **zero Saudi picks**, which is
+   pointless, not dangerous. The pipeline defends itself here.
+
+   But that defence has a hole, and the hole is live right now — see bug #27.
+   `build_current_team_histories()` appends **our own graded results** to form
+   (`predict.py:109-134`), so any team we have ever recorded a result for exists
+   in `team_history` with as little as one game, and is therefore predicted. That
+   is how a new league bootstraps itself in with no download — and also why it
+   must not be allowed to until bug #27 is fixed.
+
+   So the order of work is: (a) fix bug #27 (minimum-history guard + a
+   `has_form_history` flag so the forest can tell "no data" from "dreadful", same
+   fix shape as `odds_is_market`); (b) resolve and add the Saudi league id to
+   `LEAGUE_IDS` in `fixtures_api.py`; (c) `"ksa.1"` in `espn_leagues.py` so the
+   games get kickoff times and get graded; (d) let history accumulate from our own
+   graded results, or import a Saudi history source WITH bookmaker odds to skip
+   the wait — a source with no odds re-creates the exact gap rf_v2 just closed;
+   (e) retrain. Doing (b)+(c) without (a) ships confidently wrong picks the moment
+   the first Saudi result lands.
 
 1. **Let the honest ledger accumulate 2–3 weeks.** Highest value, zero work. Scheduler
    runs daily. Watch: do the tiers hold calibration on REAL scores? Do the model's
