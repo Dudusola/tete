@@ -22,6 +22,13 @@ class BetOption:
     selection: str     # "Brazil or Draw", "Over 2.5", etc.
     probability: float # 0..1
     risk: str          # LOW / MEDIUM / HIGH
+    # The real kickoff, when we have one. `kickoff_time` above is a PLACEHOLDER
+    # for most fixtures — PredictZ writes "00:00", measured at 38/38 of today's
+    # slate — so it cannot order a slip, while kickoff_utc was populated for
+    # 38/38 of the same slate. Defaulted and declared LAST on purpose: the
+    # self-test below builds BetOption positionally, and a non-defaulted field
+    # here would break it.
+    kickoff_utc: str | None = None
 
 
 def risk_from_prob(p: float) -> str:
@@ -114,6 +121,7 @@ def derive_markets(pred: dict) -> list:
         match_id=pred["match_id"], home_team=home, away_team=away,
         league=pred["league"], match_date=pred["match_date"],
         kickoff_time=pred["kickoff_time"],
+        kickoff_utc=pred.get("kickoff_utc"),
     )
 
     options = []
@@ -348,8 +356,32 @@ def build_slip(all_options: list, risk: str, num_games: int,
                 clusters.append({"date": opt.match_date, "opts": [opt]})
         fixtures.extend(clusters)
 
-    # Best fixtures first — the ordering the slip has always used.
-    fixtures.sort(key=lambda c: c["opts"][0].probability, reverse=True)
+    # Soonest matchday first; best fixture within that day.
+    #
+    # WHY not pure probability, which is what this used to be: the candidate
+    # pool spans today, tomorrow AND anything further out in the table, while
+    # today's fixtures drop out one by one as their kickoffs pass. By
+    # mid-afternoon tomorrow is the bigger, un-depleted pool, so a pure
+    # probability sort quietly fills the slip with tomorrow's games — Boss
+    # noticed this from the outside ("the builder mostly builds with tomorrow
+    # games rather than the same day games"). A slip built at 10am that cannot
+    # settle until tomorrow night is a worse product than a slightly
+    # lower-probability one that settles tonight.
+    #
+    # Preferring the soonest day costs very little quality, because every
+    # candidate has ALREADY passed the risk-band filter above — we are choosing
+    # between legs of comparable strength, not trading a good bet for a soon
+    # one. Today fills first and the list simply continues into tomorrow when
+    # today runs out, which is also the right behaviour late in the day when
+    # little of today is left.
+    #
+    # It also fixes a quieter version of the same bug: a fixture three days out
+    # could previously outrank everything today on probability alone and land
+    # in a slip the user thought was for tonight.
+    #
+    # Nothing random, so the slip stays deterministic and 'swap a leg' still
+    # back-fills predictably.
+    fixtures.sort(key=lambda c: (c["date"], -c["opts"][0].probability))
 
     # ── Correlation cap ─────────────────────────────────────────────────────
     # Six legs of "Under 2.5 Goals" is not six bets, it is one bet on a
@@ -406,6 +438,16 @@ def build_slip(all_options: list, risk: str, num_games: int,
                 chosen.append(best)
                 used_fixtures.add(id(best))
 
+    # Bankers stay at the top — the user pinned them, and that placement is
+    # deliberate (see the docstring). The rest now read in kickoff order, like
+    # a real betting slip, instead of the probability order they happened to be
+    # selected in. Selection order and DISPLAY order are different questions;
+    # the correlation cap above needs the former, the reader wants the latter.
+    # match_date leads so days stay grouped even where kickoff_utc is missing;
+    # kickoff_utc then gives the real within-day order (kickoff_time is the
+    # "00:00" placeholder on essentially every fixture, so sorting on it did
+    # nothing at all).
+    chosen.sort(key=lambda o: (o.match_date, o.kickoff_utc or o.kickoff_time or ""))
     return pinned_legs + chosen
 
 
