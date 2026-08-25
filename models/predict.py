@@ -77,6 +77,20 @@ TEAM_ALIASES = {
     # confirmed the same club (Talleres de Cordoba, Argentina — the only
     # Talleres in the Argentine CSVs).
     "Talleres": "Talleres Cordoba",
+    # Saudi Pro League, 25 Aug 2026. PredictZ spells these two differently from
+    # SaudiProLeague.csv and both fell below the threshold, so the fixtures were
+    # skipped for having no form history — NOT for having no odds, which is what
+    # it looks like from the outside. Measured cost on the first Saudi matchday
+    # after the CSV landed: 2 of 6 fixtures lost, both carrying a real
+    # bookmaker price (1.74 and 1.71) and both in servable territory.
+    #
+    # Safe to confirm by hand: each name occurs in exactly ONE historical file
+    # (SaudiProLeague.csv), so there is no other club either could resolve to.
+    # Al Shabab FC is the Riyadh club, which is what "Al Shabab Riyadh" says.
+    # Al Diriyah holds only 2 games, so it will correctly fire the SMALL SAMPLE
+    # warning rather than pretend to a five-game trend.
+    "Al Shabab Riyadh": "Al Shabab",
+    "Diriyah Club": "Al Diriyah",
     # DO NOT add "Independiente del Valle" -> "Independiente". It scores 0.92,
     # which is exactly the trap this band exists for: Independiente del Valle
     # is Ecuadorian, Independiente is Argentine. Different clubs, and the
