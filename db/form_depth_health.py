@@ -78,8 +78,10 @@ from models.predict import (build_current_team_histories,   # noqa: E402
                             match_team_name)
 
 BEST_BET_TO_OUTCOME = {"Home Win": "H", "Away Win": "A", "Draw": "D"}
-# Claimed calibration, same source of truth as track_record_health.py.
-CLAIMED = {"HIGH": 75, "MEDIUM": 66}
+# Claimed calibration, same source of truth as track_record_health.py — see the
+# comment there for why MEDIUM is 62 and not 66 (the old value was a cumulative
+# >=55% figure being graded against a band, so the alarm always fired).
+CLAIMED = {"HIGH": 74, "MEDIUM": 62}
 TIERS = ["HIGH", "MEDIUM", "LOW"]
 
 

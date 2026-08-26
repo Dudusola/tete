@@ -37,15 +37,41 @@ MODEL_VERSION = "rf_v2"   # rf_v2 = odds features fixed (closing-odds columns no
                           # HIGH tier); demote kept. rf_v1d = July data refresh.
 
 # Confidence tiers calibrated from training evaluation.
-#   >=65% model prob -> ~75% historical accuracy -> HIGH
-#   >=55%            -> ~66%                     -> MEDIUM
-# Re-measured on rf_v2 (23 Aug 2026) and both still hold, which is the reason
-# they are unchanged: 65% -> 74.6% (was 74.2%), 55% -> 65.0% (was 65.1%). The
-# fix did not move the accuracy at a given threshold; it moved the VOLUME that
-# clears it (65% tier: 8.4% -> 12.5% of matches). Do not re-tune these from a
-# single run — the served-picks record in the ledger is the real test.
+#   >=65% model prob -> ~73% historical accuracy -> HIGH
+#   >=60%            -> ~62% for the band        -> MEDIUM
+# Re-measured on rf_v2 (23 Aug 2026) and the ACCURACY AT A THRESHOLD held:
+# 65% -> 74.6% (was 74.2%), 55% -> 65.0% (was 65.1%). The fix did not move the
+# accuracy at a given threshold; it moved the VOLUME that clears it (65% tier:
+# 8.4% -> 12.5% of matches).
+#
+# TIER_MEDIUM raised 0.55 -> 0.60 (26 Aug 2026). Measured on a 13,762-fixture
+# held-out slice, time-ordered so no future informs the fit:
+#
+#     bar    served picks   served accuracy
+#     0.55        12.5/day            65.1%
+#     0.60         8.5/day            69.1%
+#     0.62         7.0/day            70.8%
+#
+# TIER_HIGH is deliberately NOT raised, because raising it cannot improve the
+# record. Served picks are everything above the MEDIUM bar, so served accuracy
+# is a function of that bar alone — moving TIER_HIGH only relabels picks between
+# the two tiers. Measured: 0.70 and 0.72 both leave served accuracy at exactly
+# 65.1% while halving HIGH's volume from 5.4 to 2.7 picks a day. HIGH stays at
+# 0.65 delivering ~73%, so its bar, its claim and its history all stay
+# comparable across this change.
+#
+# 0.62 was rejected on volume: it thins the MEDIUM band to 1.7 picks a day, and
+# a tier that fires twice a week is not a product. 0.60 is the knee.
+#
+# This does NOT contradict the standing "do not re-tune from a single run"
+# warning below — the evidence here is 13,762 held-out fixtures, roughly 58x the
+# 236 served picks the ledger has graded. The ledger remains the real test, and
+# the expected effect there is a served rate near 69%.
+#
+# Do not re-tune these from a single run — the served-picks record in the ledger
+# is the real test.
 TIER_HIGH = 0.65
-TIER_MEDIUM = 0.55
+TIER_MEDIUM = 0.60
 
 # Forebet name -> historical dataset name
 # Grows over time as skip logs reveal mismatches
