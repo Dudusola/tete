@@ -179,23 +179,37 @@ def _predictions_with_goals() -> list:
             SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = m.match_id
         )
         -- Plain MAX(id): the latest scraped row, whether or not it carries a
-        -- predicted scoreline. REVERTED ON PURPOSE (Boss's call, 9 Aug 2026).
+        -- predicted scoreline.
         --
-        -- Filtering to "latest row that HAS goals" is technically the more
-        -- correct join, and it made Over/Under, BTTS and Handicap appear on
-        -- nearly every fixture instead of one. But those markets are derived
-        -- from the predicted SCORELINE as if it were an expected-goals rate,
-        -- which prices "Under 2.5" at 91-99% when the bookmaker has it near
-        -- even money. Making them plentiful put that error in front of users
-        -- on every slip; leaving the newest odds-only row to win the join
-        -- keeps them rare, which is the behaviour Boss preferred and the
-        -- lesser of the two evils.
+        -- The narrowness of this join no longer matters, and the constraint the
+        -- previous comment set here has been satisfied. It read:
         --
-        -- Do not "fix" this join again without first fixing the goals
-        -- derivation it feeds. The correct order is: get a real goals signal
-        -- (team attack/defence rates, or the bookmaker's own O/U line), then
-        -- widen the join. See the git history around 9 Aug 2026 for the full
-        -- argument and the numbers.
+        --     "Do not 'fix' this join again without first fixing the goals
+        --      derivation it feeds. The correct order is: get a real goals
+        --      signal (team attack/defence rates, or the bookmaker's own O/U
+        --      line), then widen the join."
+        --
+        -- That was the right call at the time. Over/Under, BTTS and Handicap
+        -- were derived from the predicted SCORELINE as if it were an
+        -- expected-goals rate, which priced "Under 2.5" at 91-99% with the
+        -- bookmaker near even money, so keeping those markets RARE was the
+        -- lesser evil (Boss's call, 9 Aug 2026).
+        --
+        -- The goals signal now exists: models/goals_model.py fits team
+        -- attack/defence rates from 98,422 historical matches, and
+        -- derive_markets takes its total from there and the split from the 1X2
+        -- probabilities. It does not read predicted_home_goals,
+        -- predicted_away_goals or over_2_5_pct at all — a modal integer
+        -- scoreline consumed as a Poisson rate was the whole bug, and 49% of
+        -- them contain a zero. So goals markets are now priced on every fixture
+        -- regardless of what this join returns, and they measure inside +5
+        -- rather than -22.6.
+        --
+        -- The three columns below are kept only because they are cheap and this
+        -- row shape is shared; nothing in market derivation consumes them. The
+        -- Picks page separately joins to the latest row that HAS a scoreline
+        -- (see above) purely to display "Expected: 2 - 1", which is a display of
+        -- Forebet's most likely score, not an input to any price.
         LEFT JOIN scraped_predictions p ON p.id = (
             SELECT MAX(p2.id) FROM scraped_predictions p2 WHERE p2.match_id = m.match_id
         )
