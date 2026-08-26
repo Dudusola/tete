@@ -30,12 +30,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 # deploy for 10 minutes without ever reaching production (Aug 2026).
 COPY api/__init__.py api/server.py            ./api/
 COPY db/__init__.py db/database.py            ./db/
-COPY models/__init__.py models/markets.py models/consensus.py models/leagues.py models/live_scores.py models/gradeability.py models/draws.py models/team_match.py ./models/
+COPY models/__init__.py models/markets.py models/goals_model.py models/consensus.py models/leagues.py models/live_scores.py models/gradeability.py models/draws.py models/team_match.py ./models/
 COPY scrapers/__init__.py scrapers/booking_codes.py ./scrapers/
 COPY deploy/render/sync_ledger.py deploy/render/app_entry.py ./
 
 # Data files models/leagues.py reads at import time.
 COPY data/league_codes.json ./data/league_codes.json
+
+# Fitted team attack/defence rates. models/markets.py needs these to price
+# Over/Under, BTTS and the handicaps; goals_model.load() treats a missing file
+# as "fall back to the flat league total", so leaving this out would NOT crash
+# the container — it would quietly serve every fixture a 2.70 expected total
+# and look exactly like a working deploy. Worse than the trap above, which at
+# least dies visibly.
+COPY data/goals_ratings.json ./data/goals_ratings.json
 
 # The web app. api/server.py already mounts this at "/" when the directory
 # exists — but the directory never existed in the image, so the mount silently

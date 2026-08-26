@@ -1,13 +1,18 @@
 """
 markets.py - Derive multiple bet markets from the model's H/D/A probabilities
-plus scraped Forebet data (predicted score, average goals).
+and fitted team goal rates.
 
-No new model needed - every market here is computed from numbers we already have.
+Every market here comes from ONE Poisson score matrix per fixture. The split
+between the two sides is implied by the 1X2 probabilities; the total is the
+fitted attack/defence expectation from goals_model, or a league average when
+either team is unrated.
 """
 
 import math
 from datetime import datetime
 from dataclasses import dataclass
+
+from models import goals_model
 
 
 @dataclass
@@ -68,10 +73,11 @@ LEAGUE_AVG_TOTAL_GOALS = 2.70
 def _means_from_1x2(H: float, A: float) -> tuple:
     """Poisson means implied by our win probabilities, at a normal goal total.
 
-    Used ONLY for handicaps. The split between the two means is fitted to the
-    share of non-draw probability belonging to the home side, which is what
-    the model actually knows; the total is a league-average prior, which it
-    does not.
+    The SPLIT between the two means is fitted to the share of non-draw
+    probability belonging to the home side, which is what the model actually
+    knows. The total is a league-average prior, which it does not — callers
+    that have a fitted expected total (see goals_model) rescale to it and keep
+    this split.
 
     The predicted SCORELINE is deliberately not used here. It is an integer
     ("1-0", "0-0"), and feeding it in as a rate is what priced Under 2.5 at
@@ -148,44 +154,121 @@ def derive_markets(pred: dict) -> list:
         add("Draw No Bet", f"{home} (DNB)", H / (H + A))
         add("Draw No Bet", f"{away} (DNB)", A / (H + A))
 
-    # ── Handicap ±1.5, available on EVERY fixture ───────────────────────────
+    # ── One score matrix, every derived market ──────────────────────────────
     #
-    # Handicap used to be derived from the predicted-scoreline block below, so
-    # it only existed when a scoreline was present — 1 of 18 upcoming fixtures.
-    # It was effectively invisible.
+    # Handicap, Over/Under, BTTS and Result & Goals all read the SAME Poisson
+    # matrix, built from the 1X2 probabilities and a league-average total.
+    # Sharing it is deliberate: two matrices meant the same fixture could be
+    # quoted a handicap off one set of means and a goals line off another, and
+    # nothing forced the two to agree.
     #
-    # It is separated out because a handicap asks a question the model can
-    # answer. A handicap is about the MARGIN, and margin is what the 1X2
-    # probabilities describe. Over/Under and BTTS ask about the TOTAL, which
-    # nothing in this engine models — that is why they stay on the old
-    # scoreline path and stay rare. Mixing the two is what produced
-    # "Under 2.5 at 91%, LOW RISK" against a bookmaker price near even money.
+    # Handicap used to be derived from the predicted-scoreline block, so it only
+    # existed when a scoreline was present — 1 of 18 upcoming fixtures. It was
+    # effectively invisible. Moving it here fixed that, and it measured well
+    # afterwards: +0 to +5 points, erring safe.
     #
-    # Scale is a league-average total; the split comes from our win
-    # probabilities. Approximate, and honest about being so — but the ORDERING
-    # it produces (which side needs the cushion, and how big) is driven by the
-    # model rather than invented.
+    # Over/Under and BTTS have now followed it, and that REVERSES the call this
+    # comment used to record. The old reasoning was that a handicap asks about
+    # the MARGIN, which the 1X2 probabilities describe, whereas Over/Under and
+    # BTTS ask about the TOTAL, which nothing here models — so those two were
+    # left on the predicted scoreline. Measuring the consequence killed that
+    # argument. Over 651 graded fixtures:
+    #
+    #     BTTS - No     predicted 73.2%   actual 50.6%   gap -22.6
+    #     BTTS - Yes    predicted 26.8%   actual 49.4%   gap +22.6
+    #     Over 1.5      predicted 60.7%   actual 70.6%   gap  +9.9
+    #     Over 2.5      predicted 38.7%   actual 48.9%   gap +10.2
+    #     Over 3.5      predicted 22.0%   actual 26.1%   gap  +4.1
+    #
+    # The cause is not a mild bias, it is a degenerate distribution. Forebet
+    # publishes an integer MODAL scoreline, and 49% of them contain a zero
+    # ("2-0", "1-0", "0-1"). Consumed as a Poisson RATE, a zero asserts that the
+    # side will not score, probability 1.0 — floored to 0.05 by _poisson_matrix,
+    # which prices BTTS - Yes at 3%. Averaged over a slate where half the
+    # fixtures do that, BTTS - Yes reads 26.8% against a real rate of 49.4%.
+    # Because risk_from_prob reads these numbers, the worst legs were the ones
+    # stamped LOW RISK.
+    #
+    # Not having a total is better than having a broken one. Scored by Brier on
+    # the four goals markets, 180 fixtures with both a scoreline and a stored
+    # prediction (720 legs):
+    #
+    #     scoreline as a rate (old)            0.2819
+    #     this matrix, flat league total       0.2242
+    #     fitted: affine map of the scoreline  0.2302  (held out)
+    #     fitted: blended with avg-goals       0.2365  (held out)
+    #
+    # Every FITTED alternative lost, and both optimisers walked their parameters
+    # to the grid edge — minimum weight on the scoreline, and weight exactly 0.0
+    # on the average-goals column. That is the fit reporting that the predicted
+    # scoreline carries no usable information about the total once the 1X2
+    # probabilities are known. The winner has no fitted parameters at all, so
+    # there is nothing in it to overfit and its held-out score IS its score.
+    #
+    # over_2_5_pct is gone from this function for the same reason. Despite the
+    # name it holds an average-goals figure (measured range 0.50-5.13, mean
+    # 2.34 against an actual 2.64), it was present on only 29% of rows, and the
+    # scaling it fed was a no-op on average — mean total 2.307 before, 2.307
+    # after. btts_pct is NULL on every row ever scraped; no scraper writes it.
+    #
+    # Resulting calibration, same fixtures — every market inside +5, which is
+    # the band Match Result and Handicap already sit in:
+    #
+    #     Over 1.5   -9.9 -> +4.6      Over 3.5   -4.1 -> +2.5
+    #     Over 2.5  -10.2 -> +1.7      BTTS      -22.6 -> +0.7
+    #
+    # Two honest consequences. These markets are now a deterministic function
+    # of the 1X2 probabilities, so Over 2.5 and BTTS land near 50% on most
+    # fixtures and will rarely clear the LOW-risk bar — correct, because we have
+    # no genuine information about the total, and the reason a real goals model
+    # (team attack/defence rates from the historical files) is the next job.
+    # And they now exist on every priced fixture rather than only those carrying
+    # a scoreline, so the builder has more goals legs to choose from, not fewer.
     if (H + A) > 0:
         mu_h, mu_a = _means_from_1x2(H, A)
-        hmx = _poisson_matrix(mu_h, mu_a)
-        add("Handicap", f"{home} +1.5", _matrix_prob(hmx, lambda i, j: i - j >= -1))
-        add("Handicap", f"{away} +1.5", _matrix_prob(hmx, lambda i, j: j - i >= -1))
-        add("Handicap", f"{home} -1.5", _matrix_prob(hmx, lambda i, j: i - j >= 2))
-        add("Handicap", f"{away} -1.5", _matrix_prob(hmx, lambda i, j: j - i >= 2))
 
-    # Goals markets from predicted scoreline
-    phg = pred.get("predicted_home_goals")
-    pag = pred.get("predicted_away_goals")
-    avg_goals = pred.get("over_2_5_pct")
-
-    if phg is not None and pag is not None:
-        # Poisson means from the predicted scoreline; if Forebet's average-goals
-        # signal is present, scale total goals toward it (keep the home/away ratio)
-        mu_h, mu_a = float(phg), float(pag)
-        if avg_goals and (mu_h + mu_a) > 0:
-            scale = ((mu_h + mu_a + float(avg_goals)) / 2) / (mu_h + mu_a)
+        # The SPLIT above is what the 1X2 probabilities know. The TOTAL is what
+        # they do not, and the flat league constant that first fixed these
+        # markets is a placeholder standing in for a measurement. goals_model
+        # supplies the measurement: attack/defence rates fitted from 98,422
+        # historical matches, time-decayed and shrunk toward average for clubs
+        # with little history, giving expected totals from 1.98 to 3.60 instead
+        # of 2.70 for every fixture alike.
+        #
+        # Ratings replace the total and leave the split alone. Fitting the split
+        # from the ratings too was measured and is NOT used: it improved the
+        # goals Brier by 0.0002 while moving the handicap Brier from 0.1318 to
+        # 0.1344, and the handicap markets are already calibrated to within
+        # +0/+5. Trading a market that works for a rounding error in one that
+        # now also works is not a trade.
+        #
+        # Graded on 424 fixtures from 2026-06-15 with both teams rated, ratings
+        # fitted with a cutoff so none of the graded matches informed them:
+        #
+        #     goals Brier   flat total 0.2178 -> ratings total 0.2151
+        #     hcap  Brier   flat total 0.1318 -> ratings total 0.1324
+        #
+        # Honest scale: that is a 1.2% goals gain, not a transformation. The
+        # large win was refusing to read Forebet's modal scoreline as a rate
+        # (0.2819 -> 0.2242); this is a refinement on top of it. Its real value
+        # is discrimination — a flat total cannot tell a 1.98-goal fixture from
+        # a 3.60-goal one, so before this every Over/Under pick was driven
+        # purely by how lopsided the 1X2 was.
+        #
+        # An unrated side returns None rather than half a guess, and then this
+        # falls back to the flat total, which is what shipped before. That is
+        # 35% of fixtures today and shrinks as history accumulates.
+        xg = goals_model.expected_goals(home, away)
+        if xg and (mu_h + mu_a) > 0:
+            scale = sum(xg) / (mu_h + mu_a)
             mu_h, mu_a = mu_h * scale, mu_a * scale
+
         mx = _poisson_matrix(mu_h, mu_a)
+
+        add("Handicap", f"{home} +1.5", _matrix_prob(mx, lambda i, j: i - j >= -1))
+        add("Handicap", f"{away} +1.5", _matrix_prob(mx, lambda i, j: j - i >= -1))
+        add("Handicap", f"{home} -1.5", _matrix_prob(mx, lambda i, j: i - j >= 2))
+        add("Handicap", f"{away} -1.5", _matrix_prob(mx, lambda i, j: j - i >= 2))
 
         # Over/Under lines
         for line in (1.5, 2.5, 3.5):
@@ -193,16 +276,10 @@ def derive_markets(pred: dict) -> list:
             add(f"Over/Under {line}", f"Over {line} Goals", over)
             add(f"Over/Under {line}", f"Under {line} Goals", 1 - over)
 
-        # BTTS from the score matrix (was a hardcoded constant before)
+        # BTTS
         btts_yes = _matrix_prob(mx, lambda i, j: i >= 1 and j >= 1)
         add("Both Teams To Score", "BTTS - Yes", btts_yes)
         add("Both Teams To Score", "BTTS - No", 1 - btts_yes)
-
-        # Asian Handicap ±1.5 (two-way, no push)
-        # Handicap is NOT derived here any more — it is computed above from the
-        # 1X2 probabilities for every fixture. Leaving it in both places would
-        # give the handful of fixtures that carry a scoreline two different
-        # handicap prices for the same bet.
 
         # Result & Goals combos: model's win prob x P(goals line | that result)
         winner = home if H >= A else away

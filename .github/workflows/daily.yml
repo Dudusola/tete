@@ -71,6 +71,16 @@ jobs:
         if: steps.model-cache.outputs.cache-hit != 'true'
         run: python models/train.py
 
+      # Not cached, unlike the model above. The whole fit is ~10s over 98k
+      # matches, and caching it would reintroduce exactly the staleness the
+      # cache key protects the RF from: goals_model.load() treats a missing or
+      # old file as "fall back to a flat league total" and logs nothing, so a
+      # newly added league would price its goals markets off a league average
+      # forever while looking completely healthy. Refitting unconditionally
+      # costs less than the cache lookup would.
+      - name: Fit team goal ratings
+        run: python -m models.goals_model
+
       - name: Ensure DB schema exists
         run: python db/database.py
 
@@ -152,6 +162,11 @@ jobs:
           # refreshed CSV is part of the state this job produces.
           git add -f db/sports_predictor.db feed/bot_feed.json
           git add -A data/historical || true
+          # Refitted above from whatever historical CSVs are now present. It has
+          # to be committed, not just built: deploy/render/Dockerfile COPYs it
+          # into the API image, so the ratings Render prices with are the ones
+          # in the repo, not the ones this runner just computed.
+          git add data/goals_ratings.json || true
           if git diff --cached --quiet; then
             echo "No ledger changes to commit."
           else
