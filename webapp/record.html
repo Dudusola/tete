@@ -12,15 +12,7 @@
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
-tailwind.config = { darkMode:"class", theme:{ extend:{
-    "colors":{"inverse-surface":"#2d3133","primary-container":"#131b2e","surface-container-high":"#e6e8ea","on-error-container":"#93000a","on-secondary-fixed-variant":"#304f00","background":"#f7f9fb","on-tertiary-fixed-variant":"#38485d","on-error":"#ffffff","on-primary-container":"#7c839b","secondary-fixed-dim":"#91db2a","on-background":"#191c1e","surface-container-lowest":"#ffffff","surface":"#f7f9fb","tertiary-fixed-dim":"#b7c8e1","on-primary":"#ffffff","secondary-container":"#acf847","on-secondary-container":"#457000","inverse-primary":"#bec6e0","on-secondary-fixed":"#102000","primary-fixed-dim":"#bec6e0","inverse-on-surface":"#eff1f3","secondary-fixed":"#acf847","on-primary-fixed":"#131b2e","primary-fixed":"#dae2fd","tertiary-container":"#0b1c30","primary":"#000000","surface-container-highest":"#e0e3e5","tertiary":"#000000","on-surface":"#191c1e","surface-variant":"#e0e3e5","on-tertiary-fixed":"#0b1c30","error":"#ba1a1a","surface-container":"#eceef0","on-secondary":"#ffffff","tertiary-fixed":"#d3e4fe","surface-dim":"#d8dadc","outline":"#76777d","secondary":"#416900","on-tertiary":"#ffffff","surface-container-low":"#f2f4f6","outline-variant":"#c6c6cd","error-container":"#ffdad6","on-surface-variant":"#45464d","surface-bright":"#f7f9fb","surface-tint":"#565e74","on-tertiary-container":"#75859d","on-primary-fixed-variant":"#3f465c"},
-    "borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},
-    "spacing":{"sm":"12px","gutter":"16px","xs":"8px","md":"16px","xl":"32px","container-max":"1280px","base":"4px","lg":"24px"},
-    "fontFamily":{"body-lg":["Inter"],"label-sm":["Inter"],"body-md":["Inter"],"headline-lg":["Inter"],"headline-md":["Inter"],"display-lg":["Inter"],"headline-lg-mobile":["Inter"],"data-tabular":["Inter"]},
-    "fontSize":{"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],"label-sm":["12px",{"lineHeight":"16px","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],"headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],"display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],"headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],"data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]}
-}}}
-</script>
+<script src="js/theme.js?v=1"></script>
 <style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;} .icon-fill{font-variation-settings:'FILL' 1;} .pb-safe{padding-bottom:env(safe-area-inset-bottom);}
 .tooltip-wrap{position:relative;display:inline-flex;}
 .tooltip-box{visibility:hidden;opacity:0;transition:opacity .15s;position:absolute;right:0;top:130%;width:260px;z-index:60;background:#131b2e;color:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:13px;line-height:1.4;}
@@ -30,17 +22,20 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <body class="bg-surface text-on-surface min-h-screen pb-24 md:pt-16" style="font-family:'Inter',sans-serif;">
 
 <!-- Desktop Nav -->
-<nav class="hidden md:flex fixed top-0 left-0 z-50 w-full justify-between items-center px-gutter h-16 bg-surface-container-lowest/90 backdrop-blur-md border-b border-outline-variant shadow-sm">
+<nav class="hidden md:flex fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+<!-- Identical on all five pages except the active link. See index.html for why.
+     backdrop-blur-md + /90 removed from here: this was the only translucent
+     header in the app. -->
 <div class="flex items-center gap-2">
-<img src="logo-mark.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
-<span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+  <img src="logo-mark.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+  <span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
 </div>
-<div class="flex space-x-lg">
-<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors border-b-2 border-transparent pb-1 text-label-sm" href="index.html">Picks</a>
-<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors border-b-2 border-transparent pb-1 text-label-sm" href="slip.html">Builder</a>
-<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors border-b-2 border-transparent pb-1 text-label-sm" href="consensus.html">Consensus</a>
-<a class="text-on-surface-variant font-medium hover:text-secondary transition-colors border-b-2 border-transparent pb-1 text-label-sm" href="checker.html">Checker</a>
-<a class="text-secondary font-bold border-b-2 border-secondary pb-1 text-label-sm" href="record.html">Record</a>
+<div class="flex gap-lg items-center">
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="index.html">Picks</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="slip.html">Builder</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="consensus.html">Consensus</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
+<a class="text-secondary font-bold text-label-sm border-b-2 border-secondary pb-1" href="record.html" aria-current="page">Record</a>
 </div>
 </nav>
 <!-- This title used to live in a md:hidden sticky bar, so the DESKTOP page had
@@ -115,10 +110,14 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 <span class="tooltip-wrap">
   <button id="info-btn" class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer">info</button>
   <span class="tooltip-box" id="info-tip">
+    <!-- Bands are filled in from /api/stats/tiers by renderTierBands(), NOT
+         written here. They used to be prose — "MEDIUM — 55–65%" — and stayed
+         that way for a day after the engine moved the bar to 60%, publishing
+         wrong numbers on the one page whose whole job is honest disclosure.
+         The loading text below is what shows if the API never answers: vague,
+         but never wrong. -->
     <strong>Confidence tiers</strong> reflect how sure the model is:<br><br>
-    🟢 <strong>HIGH</strong> — ≥65% model confidence. Historically the most reliable.<br>
-    🟡 <strong>MEDIUM</strong> — 55–65%. Solid but more variance.<br>
-    🔴 <strong>LOW</strong> — below 55%. Shown for the record; not recommended bets.<br><br>
+    <span id="tier-bands">Loading tier definitions…</span><br>
     Tap any tier to see its scored picks.
   </span>
 </span>
@@ -147,7 +146,7 @@ tailwind.config = { darkMode:"class", theme:{ extend:{
 </main>
 
 <!-- Mobile Nav -->
-<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface-container-lowest shadow-lg border-t border-outline-variant md:hidden pb-safe">
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface-container-lowest border-t border-outline-variant shadow-lg pb-safe">
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 flex-1" href="index.html"><span class="material-symbols-outlined mb-1">analytics</span><span class="text-label-sm">Picks</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant p-2 flex-1" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span><span class="text-label-sm">Builder</span></a>
 <a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl p-2 flex-1" href="record.html"><span class="material-symbols-outlined mb-1 icon-fill">query_stats</span><span class="text-label-sm">Record</span></a>
@@ -165,7 +164,47 @@ const TIER_STYLE = {
 };
 const TIER_ORDER = ["HIGH","MEDIUM","LOW"];
 
-function escapeHtml(s){return (s||"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+/* Tier definitions, written from the engine's own thresholds.
+
+   These three lines used to be hardcoded HTML. That is two sources of truth for
+   one number, and the copy no build step can check is the one that goes stale —
+   which it did, the day TIER_MEDIUM went from 0.55 to 0.60. /api/stats/tiers now
+   serves min_prob/max_prob straight from models/tiers.py, the same constants
+   predict.py assigns the tiers with, so this text cannot disagree with the picks.
+
+   Bands, not thresholds: a MEDIUM pick cleared 60% but NOT 65%, so quoting it as
+   "≥60%" would silently include every HIGH pick. That exact confusion already
+   produced a false alarm in the health checks. */
+const TIER_BLURB = {
+    HIGH:   "Historically the most reliable.",
+    MEDIUM: "Solid but more variance.",
+    LOW:    "Shown for the record; not recommended bets.",
+};
+const TIER_DOT = { HIGH:"🟢", MEDIUM:"🟡", LOW:"🔴" };
+
+function bandText(d) {
+    const pct = v => `${Math.round(v * 100)}%`;
+    const lo = d && d.min_prob != null ? d.min_prob : null;
+    const hi = d && d.max_prob != null ? d.max_prob : null;
+    if (lo != null && hi != null) return `${pct(lo)}–${pct(hi)}`;
+    if (lo != null) return `≥${pct(lo)} model confidence`;
+    if (hi != null) return `below ${pct(hi)}`;
+    return null;
+}
+
+function renderTierBands(tiers) {
+    const el = document.getElementById("tier-bands");
+    if (!el) return;
+    const lines = TIER_ORDER
+        .map(t => [t, bandText(tiers[t])])
+        .filter(([, band]) => band)
+        .map(([t, band]) =>
+            `${TIER_DOT[t]} <strong>${t}</strong> — ${band}. ${TIER_BLURB[t]}`);
+    // No bands in the response = leave the honest placeholder alone rather than
+    // print an empty list.
+    if (lines.length) el.innerHTML = lines.join("<br>") + "<br>";
+}
+
 
 function tierCard(tier, d) {
     const s = TIER_STYLE[tier];
@@ -286,6 +325,7 @@ async function loadRecord() {
         const [overall, tiers] = await Promise.all([
             PotentialProAPI.stats(), PotentialProAPI.statsTiers(),
         ]);
+        renderTierBands(tiers);
         // Headline = ALL tiers. The served (HIGH+MEDIUM) figure moves to the
         // supporting line: still prominent, no longer the biggest number.
         const at = overall.all_tiers || {};
