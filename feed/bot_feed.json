@@ -1,62 +1,11 @@
 {
- "generated_at": "2026-09-20T13:24:20+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Sunday, 20 September 2026*\n\n🟢 *AC Milan vs Lecce*\n   Serie A | 2026-09-20 00:00\n   H 81% | D 12% | A 7%\n   👉 *Home Win* (81%) — HIGH\n   💬 _AC Milan are heavily favoured at a price of 1.24, backed by a flawless head-to-head record of five wins from five previous meetings against Lecce. \n\nHowever, a significant risk to this selection is AC_\n\n🟢 *Toluca vs Santos Laguna*\n   La Division | 2026-09-21 00:00\n   H 80% | D 14% | A 7%\n   👉 *Home Win* (80%) — HIGH\n   💬 _Toluca enters this match in formidable form with five consecutive wins averaging 3.00 points per game, scoring 2.40 and conceding just 0.20 per match, alongside a dominant head-to-head record of four _\n\n🟡 *Inter Miami vs San Diego FC*\n   Major League Soccer | 2026-09-21 00:00\n   H 64% | D 20% | A 15%\n   👉 *Home Win* (64%) — MEDIUM\n   💬 _Inter Miami enter this fixture at a price of 1.43 alongside a home record of 1.00 points per game, while San Diego FC struggle on the road with 0.00 points per game and an away defensive record conced_\n\n🟡 *Villarreal vs Levante*\n   La Liga | 2026-09-20 00:00\n   H 64% | D 21% | A 15%\n   👉 *Home Win* (64%) — MEDIUM\n   💬 _Villarreal holds a clear advantage here, priced at 1.53 by the bookmakers and backed by a flawless head-to-head record of 2 wins from 2 previous meetings against Levante. However, a major risk to this_\n\n🟡 *Belgrano vs Estudiantes Rio Cuarto*\n   Liga Profesional | 2026-09-20 00:00\n   H 63% | D 21% | A 17%\n   👉 *Home Win* (63%) — MEDIUM\n   💬 _Belgrano holds the clear advantage here priced at 1.44 against an Estudiantes Rio Cuarto side averaging just 0.40 points and 0.40 goals per game over their last five matches, alongside a previous head_\n\n_Bet responsibly. Confidence ≠ certainty._",
- "picks_count": 5,
+ "generated_at": "2026-09-21T15:31:06+00:00",
+ "picks_message": "📭 No HIGH or MEDIUM confidence picks today.\n\nThe model evaluated today's fixtures and none met the confidence threshold. No bet is also a decision. 🧠",
+ "picks_count": 0,
  "stats": {
-  "total": 439,
-  "correct": 300,
-  "accuracy": 68.3
+  "total": 448,
+  "correct": 304,
+  "accuracy": 67.9
  },
- "picks": [
-  {
-   "home": "AC Milan",
-   "away": "Lecce",
-   "league": "Serie A",
-   "date": "2026-09-20",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 81.0,
-   "confidence": "HIGH"
-  },
-  {
-   "home": "Toluca",
-   "away": "Santos Laguna",
-   "league": "La Division",
-   "date": "2026-09-21",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 79.6,
-   "confidence": "HIGH"
-  },
-  {
-   "home": "Inter Miami",
-   "away": "San Diego FC",
-   "league": "Major League Soccer",
-   "date": "2026-09-21",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 64.5,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Villarreal",
-   "away": "Levante",
-   "league": "La Liga",
-   "date": "2026-09-20",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 63.9,
-   "confidence": "MEDIUM"
-  },
-  {
-   "home": "Belgrano",
-   "away": "Estudiantes Rio Cuarto",
-   "league": "Liga Profesional",
-   "date": "2026-09-20",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 62.5,
-   "confidence": "MEDIUM"
-  }
- ]
+ "picks": []
 }
