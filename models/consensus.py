@@ -23,6 +23,7 @@ from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
+from models.sports import FOOTBALL, sport_sql
 
 
 def _sim(a: str, b: str) -> float:
@@ -223,7 +224,7 @@ def _best_outcome(pred: dict) -> str | None:
 def get_latest_predictions_by_source() -> dict:
     """{source: [prediction_rows]} for upcoming matches, latest per match."""
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT m.home_team, m.away_team, m.match_date, m.league,
                p.source, p.home_win_pct, p.draw_pct, p.away_win_pct,
                p.predicted_home_goals, p.predicted_away_goals, p.match_id
@@ -248,7 +249,12 @@ def get_latest_predictions_by_source() -> dict:
                 AND draw_pct IS NOT NULL
                 AND away_win_pct IS NOT NULL
               GROUP BY match_id, source) k ON k.latest_id = p.id
+        -- Football only: consensus compares SOURCES on one fixture, and the
+        -- fuzzy team matcher below is name-based with no sport attached, so a
+        -- basketball fixture could be merged with a football one on a shared
+        -- club name -- bug #2's duplicate-fixture shape, across sports.
         WHERE m.match_date >= date('now')
+          {sport_sql(FOOTBALL)}
     """).fetchall()
     conn.close()
 

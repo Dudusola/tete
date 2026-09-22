@@ -42,6 +42,7 @@ MODEL_VERSION = "rf_v2"   # rf_v2 = odds features fixed (closing-odds columns no
 # Re-exported so `from models.predict import TIER_HIGH` keeps working for the
 # health scripts. The calibration evidence lives with the constants.
 from models.tiers import TIER_HIGH, TIER_MEDIUM  # noqa: E402,F401
+from models.sports import FOOTBALL, sport_sql  # noqa: E402
 
 # Forebet name -> historical dataset name
 # Grows over time as skip logs reveal mismatches
@@ -120,9 +121,15 @@ def build_current_team_histories() -> dict:
     # reflects games played after the historical CSVs end. Only genuine
     # finished scores live in results, so this can't leak predictions.
     conn = get_connection()
-    rows = conn.execute("""
+    # Football only. team_history is keyed by team NAME with no sport attached,
+    # so a basketball result would land in the same dict the football forest
+    # reads its form features from -- and a 120-98 final would enter goals_for
+    # as if it were a scoreline. Names collide for real (Phoenix, Arsenal in
+    # multiple codes), so this is not hypothetical once a second sport lands.
+    rows = conn.execute(f"""
         SELECT m.home_team, m.away_team, r.home_goals, r.away_goals, r.outcome
         FROM results r JOIN matches m ON m.match_id = r.match_id
+        WHERE 1=1 {sport_sql(FOOTBALL)}
         ORDER BY m.match_date, r.recorded_at
     """).fetchall()
     conn.close()
@@ -202,7 +209,7 @@ def match_team_name(scraped_name: str, known_teams: list) -> str | None:
 def get_todays_scraped_matches() -> list:
     """Latest scraped prediction per match, today onwards."""
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.league,
                m.match_date, m.kickoff_time,
                p.home_win_pct, p.draw_pct, p.away_win_pct,
@@ -214,6 +221,7 @@ def get_todays_scraped_matches() -> list:
             WHERE p2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
+          {sport_sql(FOOTBALL)}
         ORDER BY m.match_date, m.kickoff_time
     """).fetchall()
     conn.close()

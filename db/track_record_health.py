@@ -18,6 +18,9 @@ import os, sys, sqlite3, math
 from collections import defaultdict
 from datetime import date
 
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from models.sports import FOOTBALL, sport_sql
+
 DB_PATH = os.getenv("DB_PATH", "./db/sports_predictor.db")
 BEST_BET_TO_OUTCOME = {"Home Win": "H", "Away Win": "A", "Draw": "D"}
 # Expected hit rate for each tier, for reality-check against the Wilson CI.
@@ -146,12 +149,13 @@ def main():
     # add no row). The honest signals are: (a) how promptly finished matches get
     # scored, and (b) how many predicted past matches were never graded at all.
     print("\n" + "-"*64 + "\n  SCORING PROMPTNESS (days from match date -> recorded)")
-    lag = conn.execute("""
+    lag = conn.execute(f"""
         SELECT CAST(julianday(substr(r.recorded_at,1,10))
                    - julianday(substr(m.match_date,1,10)) AS INT) lag,
                COUNT(*) n
         FROM results r JOIN matches m ON m.match_id = r.match_id
         WHERE m.match_date IS NOT NULL AND r.recorded_at IS NOT NULL
+          {sport_sql(FOOTBALL)}
         GROUP BY lag ORDER BY lag
     """).fetchall()
     total_lag = sum(r["n"] for r in lag)
@@ -164,18 +168,24 @@ def main():
 
     # ---- The real leak: ungraded predictions -------------------------------
     print("\n" + "-"*64 + "\n  GRADING COVERAGE (the metric that actually gates launch)")
-    total_pred = conn.execute(
-        "SELECT COUNT(DISTINCT match_id) FROM model_predictions").fetchone()[0]
-    ungraded = conn.execute("""
+    total_pred = conn.execute(f"""
+        SELECT COUNT(DISTINCT mp.match_id) FROM model_predictions mp
+        JOIN matches m ON m.match_id = mp.match_id
+        WHERE 1=1 {sport_sql(FOOTBALL)}
+    """).fetchone()[0]
+    ungraded = conn.execute(f"""
         SELECT COUNT(DISTINCT mp.match_id)
         FROM model_predictions mp
         JOIN matches m ON m.match_id = mp.match_id
         LEFT JOIN results r ON r.match_id = mp.match_id
         WHERE r.match_id IS NULL AND m.match_date < date('now','-2 day')
+          {sport_sql(FOOTBALL)}
     """).fetchone()[0]
-    graded_matches = conn.execute("""
+    graded_matches = conn.execute(f"""
         SELECT COUNT(DISTINCT mp.match_id) FROM model_predictions mp
         JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
+        WHERE 1=1 {sport_sql(FOOTBALL)}
     """).fetchone()[0]
     print(f"  Distinct predicted matches : {total_pred}")
     print(f"  Graded (have a result)     : {graded_matches}")
@@ -187,11 +197,12 @@ def main():
         print(f"     it (WC national-team naming, Europa Ldg qualifiers, Brazil B,")
         print(f"     Superettan, Veikkausliiga, Copa Sudamericana...). Fix is to")
         print(f"     align predicted leagues with scoreable ones, not re-key.")
-        by_league = conn.execute("""
+        by_league = conn.execute(f"""
             SELECT m.league, COUNT(DISTINCT mp.match_id) n
             FROM model_predictions mp JOIN matches m ON m.match_id = mp.match_id
             LEFT JOIN results r ON r.match_id = mp.match_id
             WHERE r.match_id IS NULL AND m.match_date < date('now','-2 day')
+              {sport_sql(FOOTBALL)}
               AND NOT EXISTS (SELECT 1 FROM results r2 JOIN matches m2
                     ON m2.match_id = r2.match_id WHERE m2.league = m.league)
             GROUP BY m.league ORDER BY n DESC LIMIT 8

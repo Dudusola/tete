@@ -50,6 +50,8 @@ import sys
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+from models.sports import FOOTBALL, sport_sql
+
 # A league needs this many gradeable-but-ungraded picks before we will say we
 # cannot track it. Below this, "never scored" is indistinguishable from
 # "barely seen".
@@ -58,7 +60,17 @@ MIN_EVIDENCE = 4
 # Results arrive late; don't call a match ungraded until it has had time.
 GRACE_DAYS = 2
 
-_ELIGIBLE = f"""
+def _eligible_sql(sport: str) -> str:
+    """The one query the whole module is built on, for a SINGLE sport.
+
+    Coverage is per-sport or it is meaningless. Two reasons, and the second is
+    the one that bites: a blended percentage is the same dishonesty as the
+    blended accuracy it is the error bar FOR, and `GROUP BY m.league` collides
+    outright — a basketball "Premier League" and a football one would merge
+    into a single row, so a league we cannot grade in one sport could be
+    masked by a well-graded league of the same name in the other.
+    """
+    return f"""
     WITH latest AS (SELECT MAX(id) AS id FROM model_predictions GROUP BY match_id)
     SELECT m.league AS league,
            COUNT(*) AS eligible,
@@ -68,13 +80,14 @@ _ELIGIBLE = f"""
     JOIN matches m ON m.match_id = mp.match_id
     LEFT JOIN results r ON r.match_id = mp.match_id
     WHERE m.match_date <= date('now', '-{GRACE_DAYS} day')
+      {sport_sql(sport)}
     GROUP BY m.league
 """
 
 
-def league_coverage(conn) -> list:
+def league_coverage(conn, sport: str = FOOTBALL) -> list:
     """Per-league [{league, eligible, graded, pct}], worst coverage first."""
-    rows = conn.execute(_ELIGIBLE).fetchall()
+    rows = conn.execute(_eligible_sql(sport)).fetchall()
     out = []
     for r in rows:
         eligible = r["eligible"] or 0
@@ -89,29 +102,29 @@ def league_coverage(conn) -> list:
     return out
 
 
-def untracked_leagues(conn) -> list:
+def untracked_leagues(conn, sport: str = FOOTBALL) -> list:
     """Leagues with enough evidence to say we cannot verify results there.
 
     Returned sorted by how much of the ledger each one costs us, because that
     is the order in which they are worth doing something about.
     """
-    bad = [c for c in league_coverage(conn)
+    bad = [c for c in league_coverage(conn, sport)
            if c["graded"] == 0 and c["eligible"] >= MIN_EVIDENCE]
     bad.sort(key=lambda d: -d["eligible"])
     return bad
 
 
-def overall_coverage(conn) -> dict:
+def overall_coverage(conn, sport: str = FOOTBALL) -> dict:
     """How much of the gradeable ledger has actually been graded.
 
     `pct` is the honest error bar on every accuracy figure the product
     publishes: at 81% coverage, a stated 60% hit rate is 60% OF THE PICKS WE
     COULD CHECK, and the unchecked fifth is not guaranteed to look the same.
     """
-    rows = league_coverage(conn)
+    rows = league_coverage(conn, sport)
     eligible = sum(r["eligible"] for r in rows)
     graded = sum(r["graded"] for r in rows)
-    untracked = untracked_leagues(conn)
+    untracked = untracked_leagues(conn, sport)
     return {
         "eligible": eligible,
         "graded": graded,
