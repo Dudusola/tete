@@ -17,7 +17,7 @@ Endpoints:
     GET /api/slip?risk=&games= -> build a risk-based slip
     GET /api/consensus         -> cross-source agreement
     GET /api/stats             -> running track record
-    GET /api/stats/tiers       -> accuracy broken down by confidence tier
+    GET /api/stats/tiers       -> accuracy + probability band per confidence tier
 """
 
 import os
@@ -31,6 +31,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.markets import (derive_markets, build_slip, accumulator_probability,
                             kickoff_passed, teams_key)
+from models.goals_model import expected_goals
+# Thresholds only — models/tiers.py is import-free by design so the API can read
+# the tier bands without importing models/predict.py (joblib + pandas + sklearn).
+from models.tiers import TIER_BANDS
 from scrapers.booking_codes import attach_sporty_odds
 from models.leagues import pretty_league
 from models.gradeability import overall_coverage
@@ -205,11 +209,13 @@ def _predictions_with_goals() -> list:
         -- regardless of what this join returns, and they measure inside +5
         -- rather than -22.6.
         --
-        -- The three columns below are kept only because they are cheap and this
-        -- row shape is shared; nothing in market derivation consumes them. The
-        -- Picks page separately joins to the latest row that HAS a scoreline
-        -- (see above) purely to display "Expected: 2 - 1", which is a display of
-        -- Forebet's most likely score, not an input to any price.
+        -- The three columns below now have NO consumer at all. They were kept
+        -- after PR #7 for one reason: the Picks card displayed them as
+        -- "Expected: 2 - 1". That display is gone — the card shows the fitted
+        -- rate from goals_model instead (_attach_expected_goals), which is the
+        -- number its prices are actually built from. These stay only because
+        -- they are cheap and this row shape is shared with other endpoints.
+        -- Nothing reads them; do not build anything new on them.
         LEFT JOIN scraped_predictions p ON p.id = (
             SELECT MAX(p2.id) FROM scraped_predictions p2 WHERE p2.match_id = m.match_id
         )
@@ -332,8 +338,54 @@ def get_picks():
     """
     picks = _attach_consensus(_model_predictions(only_strong=True))
     _attach_market_check(picks)
+    try:
+        _attach_expected_goals(picks)
+    except Exception:
+        # Same rule as attach_live_scores: decoration must never 500 the page.
+        pass
     return {"count": len(picks), "generated_at": _last_generated_at(),
             "picks": picks, "started": _started_today()}
+
+
+def _attach_expected_goals(picks: list) -> None:
+    """Add the FITTED expected-goals rate for each fixture, in place.
+
+    The Picks card used to display `predicted_home_goals`/`predicted_away_goals`
+    under the label "Expected: 2 - 1". Those are Forebet's MODAL scoreline — the
+    single most likely result — and PR #7 established they are not a rate: 49% of
+    them contain a zero, and consuming one as a Poisson mean is what priced
+    "Under 2.5" at 91% while the bookmaker sat near even money.
+
+    Every price on that card now comes from goals_model, so displaying the modal
+    scoreline beside them invited exactly the inference that was removed from the
+    pricing: a card could read "Expected: 2 - 0" above its own BTTS leg priced
+    near 50%. This serves the number the prices are actually built from.
+
+    None when either team is unrated — goals_model returns None rather than a
+    half-informed guess, and its name matcher is deliberately strict (see its
+    docstring: a fuzzy hit must clear 0.90 AND beat the runner-up, so "Real
+    Sociedad" does not silently resolve to the CSVs' "Sociedad"). Measured
+    coverage: 64% of all 288 served picks in the ledger have both teams rated,
+    but only 42% of today's slate — European qualifier nights lean heavily on
+    clubs the historical CSVs never cover. The field is omitted entirely in that
+    case, so the UI hides the line rather than rendering a blank or a fake zero.
+    An unrated fixture is not degraded by this: derive_markets already falls back
+    to the flat league total for it, exactly as it did before this display.
+
+    Free: goals_model imports only json/math/os and is already loaded in this
+    process by models.markets, which prices every fixture off the same ratings.
+    """
+    for p in picks:
+        try:
+            mu = expected_goals(p.get("home_team"), p.get("away_team"))
+        except Exception:
+            mu = None
+        if mu:
+            # Two decimals: this is a rate, and rounding it to an integer is how
+            # it gets mistaken for a scoreline again.
+            p["expected_goals"] = {"home": round(mu[0], 2),
+                                   "away": round(mu[1], 2),
+                                   "total": round(mu[0] + mu[1], 2)}
 
 
 def _attach_market_check(picks: list) -> None:
@@ -754,7 +806,17 @@ def get_stats_trend(weeks: int = Query(8, ge=2, le=26)):
 
 @app.get("/api/stats/tiers")
 def get_stats_by_tier():
-    """Accuracy broken down by confidence tier."""
+    """Accuracy broken down by confidence tier, plus each tier's PROBABILITY BAND.
+
+    The bands come from models/tiers.py — the same two floats predict.py uses to
+    assign them — because record.html previously hardcoded them as prose
+    ("MEDIUM — 55–65%") and went stale the day TIER_MEDIUM moved to 0.60. Serving
+    them means the page can never disagree with the engine again.
+
+    `max_prob` is null for HIGH: the top band IS the cumulative tail. `min_prob`
+    is null for LOW. Every tier is present even with no graded picks yet, so the
+    UI can always state the bands.
+    """
     conn = get_connection()
     rows = conn.execute("""
         SELECT mp.confidence,
@@ -770,17 +832,23 @@ def get_stats_by_tier():
         GROUP BY mp.confidence
     """).fetchall()
     conn.close()
-    tiers = {}
+    tiers = {name: {"total": 0, "correct": 0, "accuracy": None,
+                    "min_prob": band["min_prob"], "max_prob": band["max_prob"]}
+             for name, band in TIER_BANDS.items()}
     for r in rows:
         d = dict(r)
         total = d["total"] or 0
         correct = d["correct"] or 0
-        tiers[d["confidence"]] = {
+        # setdefault, not assignment: an unrecognised confidence value in the
+        # ledger (an old model version, a typo) must not lose its counts.
+        tiers.setdefault(d["confidence"], {"min_prob": None, "max_prob": None})
+        tiers[d["confidence"]].update({
             "total": total,
             "correct": correct,
             "accuracy": round(correct / total * 100, 1) if total else None,
-        }
+        })
     return tiers
+
 
 @app.get("/api/stats/picks")
 def get_scored_picks(tier: str = Query(None, description="HIGH, MEDIUM, or LOW; omit for all")):

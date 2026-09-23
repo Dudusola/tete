@@ -361,6 +361,32 @@ function prettyLeague(s) {
     return cleaned.replace(/\b[a-z]/g, c => c.toUpperCase());
 }
 
+/* ── Shared text helpers ──────────────────────────────────────────────
+   escapeHtml was defined five times, once per page — identical bodies, 91 call
+   sites between them. Team names, league names and AI prose all arrive from
+   scrapers and go straight into template literals, so this is the function
+   standing between a scraped string and the DOM. Five copies of that is five
+   places to fix if the escaping is ever found wanting, and nothing to stop them
+   drifting apart in the meantime.
+
+   `esc` is the same function under the name checker.html uses at 40 call sites.
+   One alias is cheaper than 40 edits, and both names now resolve to one body.
+
+   Loaded before every page's inline <script>, so plain function declarations
+   are in scope by the time any page code runs. */
+function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, c => (
+        {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
+    ));
+}
+const esc = escapeHtml;
+
+// A league label, resolved and then escaped. Both steps every time: a raw code
+// in front of a user is a bug, and an unescaped one is a vulnerability.
+function cleanLeague(league) {
+    return escapeHtml(prettyLeague(league));
+}
+
 /* ── Kickoff time helpers ─────────────────────────────────────────────
    match_date is "YYYY-MM-DD", kickoff_time is "HH:MM" (may be missing). */
 /* Kickoff handling.
