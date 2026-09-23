@@ -1,11 +1,22 @@
 {
- "generated_at": "2026-09-23T10:54:26+00:00",
- "picks_message": "📭 No HIGH or MEDIUM confidence picks today.\n\nThe model evaluated today's fixtures and none met the confidence threshold. No bet is also a decision. 🧠",
- "picks_count": 0,
+ "generated_at": "2026-09-23T13:59:04+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Wednesday, 23 September 2026*\n\n🟡 *Birmingham Legion vs Brooklyn*\n   United Soccer League | 2026-09-23 00:00\n   H 63% | D 21% | A 15%\n   👉 *Home Win* (63%) — MEDIUM\n   💬 _Birmingham Legion are priced at 1.51 with a home record of 0.67 points per game, scoring 2.00 and conceding 2.33 goals per match, while Brooklyn averages 0.67 goals scored and 1.67 conceded with an aw_\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "picks_count": 1,
  "stats": {
   "total": 448,
   "correct": 304,
   "accuracy": 67.9
  },
- "picks": []
+ "picks": [
+  {
+   "home": "Birmingham Legion",
+   "away": "Brooklyn",
+   "league": "United Soccer League",
+   "date": "2026-09-23",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 63.5,
+   "confidence": "MEDIUM"
+  }
+ ]
 }
