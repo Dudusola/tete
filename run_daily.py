@@ -384,6 +384,19 @@ def run_pipeline() -> list:
     fixture_sources["predictz"] = run_step(
         "Scrape PredictZ fixtures", ["scrapers/predictz.py"], DEGRADED)
 
+    # PredictZ has exactly two pages, today and tomorrow, so until this step
+    # existed `matches` never held more than two days of football and the app
+    # could not see past tomorrow. During the Sept 2026 international break
+    # that meant an empty site for a week while 87 club fixtures sat on the
+    # Saturday, already priced by ESPN, four days out of reach.
+    #
+    # Runs AFTER PredictZ and BEFORE the deduper, both deliberately: it only
+    # inserts from +2 so the two sources never write the same day, and the
+    # day-boundary duplicates it does create (today's +2 is tomorrow's +1) are
+    # exactly what the deduper below is for.
+    fixture_sources["espn-fixtures"] = run_step(
+        "ESPN fixtures (+2..+5)", ["scrapers/espn_fixtures.py"], DEGRADED)
+
     # OPTIONAL (demoted 11 Aug 2026, Boss's call, and the evidence supports it).
     #
     # It was DEGRADED as the third independent opinion. Two accounts have now
