@@ -150,7 +150,7 @@ function badgeClasses(conf) {
 function consensusBadge(c) {
     if (!c) return "";
     if (c.agree) {
-        return `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Forebet and PredictZ agree on this outcome">
+        return `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Every source covering this fixture points to the same result">
           <span class="material-symbols-outlined text-[14px]">handshake</span>${c.sources} sources agree</span>`;
     }
     return `<span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold" title="Sources disagree on the outcome — extra caution">
@@ -483,8 +483,7 @@ async function loadPicks() {
         feed.innerHTML = "";
         status.textContent = "";
         document.getElementById("stat-strip").innerHTML =
-          `<div class="col-span-full glass-card rounded-xl border border-outline-variant p-md text-center text-error">
-             ⚠️ Couldn't reach the prediction engine. Start it with: uvicorn api.server:app --port 8080</div>`;
+          ppErrorBox(err, "load today's picks", "loadPicks");
         console.error(err);
     }
 }
@@ -651,7 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     DRAW_DISCLOSURE = d.disclosure || "";
                 } catch (e) {
                     document.getElementById("status").textContent =
-                        "Couldn't load draw picks.";
+                        ppErrorMessage(e, "load the draw list");
                     return;
                 }
             }

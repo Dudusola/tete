@@ -503,6 +503,16 @@ function ppSkeleton(heightPx) {
     return `<div class="pp-skel" style="height:${heightPx}px"></div>`;
 }
 
+/* ── Two vocabularies that must never share words ─────────────────────────
+   HIGH / MEDIUM / LOW are CONFIDENCE tiers everywhere a user sees them (Picks,
+   Record): HIGH is the likeliest. The Builder's risk setting runs the other
+   way -- its "HIGH" is the least likely -- and the API still calls it
+   risk=LOW|MEDIUM|HIGH. Shown as "High Risk" next to a HIGH tier badge, a
+   first-timer picks it believing it is the best tier. So risk is only ever
+   DISPLAYED through this map; the API values are untouched. */
+const PP_RISK_LABEL = {LOW: "Safer", MEDIUM: "Balanced", HIGH: "Longer odds"};
+const ppRiskLabel = r => PP_RISK_LABEL[String(r || "").toUpperCase()] || r || "";
+
 /* ── Booking-code result, shared by the Builder and the Checker ────────────
    This is the moment someone stakes money, so it has to say exactly what the
    code contains. It used to show a green success box reading "(3 legs)" with
@@ -544,7 +554,7 @@ function ppBookingResult(d, providerName, legs) {
 
     if (!unmapped.length) {
         return `
-    <div class="rounded-lg p-sm bg-secondary-container text-on-secondary-container">
+    <div class="rounded-lg p-sm bg-secondary-container text-on-secondary-container" role="status">
       <div class="text-label-sm">${esc(providerName)} code · all ${mapped.length} ${mapped.length === 1 ? "leg" : "legs"} booked</div>
       ${codeRow}
     </div>${hint}`;
@@ -569,6 +579,41 @@ function ppBookingResult(d, providerName, legs) {
     </div>${hint}`;
 }
 
+/* The same honesty for codes the Checker's tools MINT from other codes
+   (Convert to another bookmaker, Merge several). Those responses carry no
+   model probabilities and name dropped legs only as "Home v Away" strings, so
+   this is ppBookingResult without the estimate. Convert used to show a green
+   chip with "N leg(s) couldn't be carried over" as a footnote: the exact
+   pattern the booking result was rewritten to stop. */
+function ppCodeResult(code, providerName, carried, missing) {
+    const esc = escapeHtml;
+    missing = missing || [];
+    const total = carried + missing.length;
+    const codeRow = `
+      <div class="flex items-center justify-between gap-sm">
+        <div class="text-headline-md font-headline-md font-bold tracking-widest">${esc(code)}</div>
+        <button type="button" class="pp-copy-code shrink-0 bg-surface text-primary border border-outline-variant rounded-lg px-md py-sm text-label-sm font-bold"
+          data-code="${esc(code)}" data-provider="${esc(providerName)}">Copy</button>
+      </div>`;
+    if (!missing.length) {
+        return `
+    <div class="rounded-lg p-sm bg-secondary-container text-on-secondary-container" role="status">
+      <div class="text-label-sm">${esc(providerName)} code · all ${carried} ${carried === 1 ? "leg" : "legs"} carried over</div>
+      ${codeRow}
+    </div>`;
+    }
+    return `
+    <div class="rounded-lg p-sm bg-surface-container-low border border-outline text-on-surface" role="status">
+      <div class="flex items-center gap-xs text-body-md font-semibold text-primary">
+        <span class="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+        ${carried} of ${total} legs carried over. This code is a different slip.
+      </div>
+      <p class="text-body-md text-on-surface-variant mt-xs">Couldn't be matched on ${esc(providerName)}, so not in the code:</p>
+      <ul class="text-body-md mt-xs space-y-1">${missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul>
+      <div class="mt-sm pt-sm border-t border-outline-variant">${codeRow}</div>
+    </div>`;
+}
+
 // One delegated handler for every Copy button ppBookingResult renders, so the
 // code never has to be spliced into an inline onclick string.
 document.addEventListener("click", e => {
@@ -580,21 +625,138 @@ document.addEventListener("click", e => {
     });
 });
 
+/* ── Talking to a server that sleeps ──────────────────────────────────────
+   The API is on Render's free tier: it sleeps after ~15 idle minutes and the
+   first request then takes ~50s, sometimes failing outright while the
+   container boots. Every page used to answer that with a developer's message
+   ("Start it with: uvicorn api.server:app --port 8080", "Is the API running
+   on port 8080?") -- shown to bettors, routinely, on a product whose whole
+   asset is trust.
+
+   Three pieces, all here so no page can drift:
+   - GETs retry twice with backoff on a network failure or a 502/503/504 (what
+     a waking container answers). POSTs never retry: /api/booking/generate
+     creates a coupon, and doing that twice is not ours to decide.
+   - Any request still pending after 5s shows a small "waking" notice, so a
+     slow first load reads as a server starting, not a broken app.
+   - ppErrorMessage / ppErrorBox turn a failure into plain language that says
+     whose problem it is, with a Try again button. */
+const PP_RETRY_DELAYS = [3000, 8000];
+const ppSleep = ms => new Promise(r => setTimeout(r, ms));
+let ppInflight = 0, ppWakeTimer = null;
+
+function ppWakeStart() {
+    if (ppInflight++ === 0) ppWakeTimer = setTimeout(() => ppWakingNotice(true), 5000);
+}
+function ppWakeEnd() {
+    ppInflight = Math.max(0, ppInflight - 1);
+    if (ppInflight === 0) { clearTimeout(ppWakeTimer); ppWakingNotice(false); }
+}
+function ppWakingNotice(show) {
+    let n = document.getElementById("pp-waking");
+    if (!show) { if (n) n.classList.remove("show"); return; }
+    if (!n) {
+        n = document.createElement("div");
+        n.id = "pp-waking";
+        n.setAttribute("role", "status");
+        n.textContent = "Waking the prediction server. After a quiet spell the first load can take up to a minute.";
+        document.body.appendChild(n);
+    }
+    n.classList.add("show");
+}
+
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`);
-    if (!res.ok) throw new Error(`API ${path} returned ${res.status}`);
-    return res.json();
+    ppWakeStart();
+    try {
+        for (let attempt = 0; ; attempt++) {
+            let res;
+            try {
+                res = await fetch(`${API_BASE}${path}`);
+            } catch (err) {                       // network: offline, DNS, reset
+                if (attempt < PP_RETRY_DELAYS.length) { await ppSleep(PP_RETRY_DELAYS[attempt]); continue; }
+                err.network = true;
+                throw err;
+            }
+            if ([502, 503, 504].includes(res.status) && attempt < PP_RETRY_DELAYS.length) {
+                await ppSleep(PP_RETRY_DELAYS[attempt]);
+                continue;
+            }
+            if (!res.ok) {
+                const e = new Error(`API ${path} returned ${res.status}`);
+                e.status = res.status;
+                throw e;
+            }
+            return res.json();
+        }
+    } finally {
+        ppWakeEnd();
+    }
 }
 
 async function apiPost(path, body) {
-    const res = await fetch(`${API_BASE}${path}`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`API ${path} returned ${res.status}`);
-    return res.json();
+    ppWakeStart();
+    try {
+        let res;
+        try {
+            res = await fetch(`${API_BASE}${path}`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body),
+            });
+        } catch (err) {
+            err.network = true;
+            throw err;
+        }
+        if (!res.ok) {
+            const e = new Error(`API ${path} returned ${res.status}`);
+            e.status = res.status;
+            throw e;
+        }
+        return res.json();
+    } finally {
+        ppWakeEnd();
+    }
 }
+
+/* Plain-language failure text. `what` completes "…to <what>" (e.g. "load
+   today's picks"). Three different failures, three different sentences:
+   - err.status  -> the server answered with an error: ours, not the user's.
+   - err.network -> tagged by apiGet/apiPost when fetch itself failed: the
+                    connection, or a server still waking.
+   - anything else is a bug in the page. It must NOT be reported as the
+     network: calling every failure an outage is how a ReferenceError in the
+     Checker once spent an afternoon looking like one. */
+function ppErrorMessage(err, what) {
+    const target = what ? ` to ${what}` : "";
+    const trying = what ? ` while trying to ${what}` : "";
+    if (err && err.status) {
+        return `The prediction server hit a problem${trying} (error ${err.status}). ` +
+               `That's on our side, not yours. Try again in a minute.`;
+    }
+    if (err && err.network) {
+        return `Couldn't reach the prediction server${target}. It sleeps after a quiet ` +
+               `spell and can take up to a minute to wake, or your connection may have dropped.`;
+    }
+    return `Something went wrong on this page${trying}. Reloading usually fixes it.`;
+}
+
+/* The same message as a block with a Try again button. `retry` names a
+   page-level loader (a global function such as "loadPicks"); without one the
+   button reloads the page. */
+function ppErrorBox(err, what, retry) {
+    return `<div class="pp-error col-span-full rounded-xl border border-outline-variant bg-surface-container-low p-md text-body-md text-on-surface" role="alert">
+      <p>${escapeHtml(ppErrorMessage(err, what))}</p>
+      <button type="button" class="pp-retry mt-sm bg-primary text-on-primary rounded-lg px-md py-sm text-label-sm font-bold"
+        data-retry="${escapeHtml(retry || "")}">Try again</button>
+    </div>`;
+}
+
+document.addEventListener("click", e => {
+    const btn = e.target.closest && e.target.closest(".pp-retry");
+    if (!btn) return;
+    const fn = btn.dataset.retry && window[btn.dataset.retry];
+    if (typeof fn === "function") fn(); else location.reload();
+});
 
 const PotentialProAPI = {
     picks:       ()          => apiGet("/api/picks"),
@@ -748,6 +910,18 @@ const PotentialProAPI = {
         -webkit-user-select: none; user-select: none; }
       @media (pointer: coarse) {
         input, select, textarea { font-size: 16px !important; }
+      }
+
+      /* 4d. "Waking the prediction server" notice (see apiGet). Sits above the
+             mobile bottom nav, centred; never covers content on desktop. */
+      #pp-waking { position: fixed; left: 50%; transform: translateX(-50%);
+        bottom: 24px; z-index: 60; width: max-content; max-width: min(92vw, 420px);
+        padding: 10px 16px; border-radius: 12px; font-size: 14px; line-height: 20px;
+        background: #2d3133; color: #eff1f3; box-shadow: 0 6px 20px rgba(0,0,0,.18);
+        opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+      #pp-waking.show { opacity: 1; }
+      @media (max-width: 767px) {
+        #pp-waking { bottom: calc(84px + env(safe-area-inset-bottom)); }
       }
 
       /* 5. Very small phones (360px and below are still common in Nigeria):

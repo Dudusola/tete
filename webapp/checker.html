@@ -217,12 +217,6 @@ let FIXTURES = [];
 let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
 
 
-function riskColor(r){
-    return r==="LOW" ? "text-on-secondary-container bg-secondary-container"
-        : r==="MEDIUM" ? "text-on-tertiary-fixed bg-tertiary-fixed"
-        : "text-on-error-container bg-error-container";
-}
-
 /* Which markets are collapsed away, per fixture. A fixture card shows the 6
    highest-probability selections; the rest are one click away rather than
    unreachable. Keyed by match_id so re-rendering (search, filter, adding a leg)
@@ -239,7 +233,7 @@ function marketChip(fx, m, picked) {
         : "border-outline-variant hover:bg-surface-container-high";
     return `<button class="add-leg text-label-sm px-2 py-1 rounded-md border transition ${cls}"
         data-mid="${esc(fx.match_id)}" data-sel="${esc(m.selection)}"
-        title="${esc(m.market)} • ${m.risk || ""}">
+        title="${esc(m.market)}${m.risk ? " • " + esc(ppRiskLabel(m.risk)) : ""}">
         ${esc(m.selection)} <span class="${picked ? "" : "text-on-surface-variant"}">${Math.round(m.probability*100)}%</span>
       </button>`;
 }
@@ -407,11 +401,7 @@ async function bookCheckerSlip(provider) {
         // Shared with the Builder (api.js) so the two cannot drift apart.
         out.innerHTML = ppBookingResult(d, name, SLIP);
     } catch (err) {
-        const network = (err instanceof TypeError) || /fetch|network/i.test(err.message || "");
-        out.innerHTML = `<span class="text-error">⚠️ ${
-            network ? "Couldn't reach the engine — is the API running?"
-                    : "Something went wrong: " + esc(err.message || String(err))
-        }</span>`;
+        out.innerHTML = `<p class="text-body-md text-on-surface">${esc(ppErrorMessage(err, "create the code"))}</p>`;
         console.error(err);
     } finally {
         btns.forEach(b => b.disabled = !SLIP.length);
@@ -428,7 +418,7 @@ async function load() {
         renderFixtures();
     } catch (err) {
         document.getElementById("fixture-list").innerHTML =
-            `<div class="text-error">⚠️ Couldn't load fixtures. Is the API running on port 8080?</div>`;
+            ppErrorBox(err, "load today's fixtures", "load");
         console.error(err);
     }
 }
@@ -508,13 +498,11 @@ async function runTool(fn, outId) {
         }
         out.innerHTML = d.html;
     } catch (err) {
-        // Distinguish "the API is unreachable" from "our own code threw".
-        // Labelling every failure a network error is how a ReferenceError in
-        // this very function spent an afternoon looking like an outage.
-        const network = (err instanceof TypeError) || /fetch|network/i.test(err.message || "");
-        out.innerHTML = `<span class="text-error text-label-sm">⚠️ ${
-            network ? "Couldn't reach the engine." : "Something went wrong rendering that: " + esc(err.message || String(err))
-        }</span>`;
+        // ppErrorMessage keeps "the API is unreachable" apart from "our own
+        // code threw" (apiPost tags real network failures). Labelling every
+        // failure a network error is how a ReferenceError in this very
+        // function spent an afternoon looking like an outage.
+        out.innerHTML = `<p class="text-label-sm text-on-surface">${esc(ppErrorMessage(err, "run that tool"))}</p>`;
         console.error(err);
     } finally {
         btns.forEach(b => b.disabled = false);
@@ -559,9 +547,10 @@ function wireSlipTools() {
             const target = document.getElementById("tool-target").value;
             const d = await PotentialProAPI.convertCode(provider, code, target);
             if (!d.ok) return d;
-            const dropped = d.dropped && d.dropped.length
-                ? `<div class="text-label-sm text-on-surface-variant mt-1">${d.dropped.length} leg(s) couldn't be carried over.</div>` : "";
-            return {ok: true, html: codeChip(d.code, `On ${esc(d.to)} — ${d.legs ? d.legs.length : ""} legs`) + dropped};
+            // Name every leg that didn't survive the conversion, above the
+            // code (shared with the booking result in api.js).
+            const to = CK_PROVIDER_NAME[d.to] || d.to;
+            return {ok: true, html: ppCodeResult(d.code, to, d.converted, d.dropped)};
         }, "tool-result"));
 
     document.getElementById("tool-merge").addEventListener("click", () =>
@@ -574,8 +563,9 @@ function wireSlipTools() {
                 codes.map(c => ({provider, code: c})), provider);
             if (!d.ok) return d;
             const conflicts = d.conflicts && d.conflicts.length
-                ? `<div class="text-label-sm text-error mt-1">Conflicting picks on: ${d.conflicts.map(esc).join(", ")} — kept the first.</div>` : "";
-            return {ok: true, html: codeChip(d.code, `Merged — ${d.merged_legs} legs`) + conflicts};
+                ? `<p class="text-body-md text-on-surface mt-xs">Two codes picked different results for ${d.conflicts.map(esc).join(", ")}. The merged code keeps the pick from the first code.</p>` : "";
+            const to = CK_PROVIDER_NAME[d.to] || d.to;
+            return {ok: true, html: ppCodeResult(d.code, to, d.merged_legs, d.dropped) + conflicts};
         }, "merge-result"));
 }
 
@@ -602,7 +592,7 @@ async function decodeBookingCode() {
         status.textContent = summary;
         legsEl.innerHTML = d.legs.map(renderDecodedLeg).join("");
     } catch (err) {
-        status.textContent = "⚠️ Couldn't decode — is the API running?";
+        status.textContent = ppErrorMessage(err, "read that code");
         console.error(err);
     }
 }

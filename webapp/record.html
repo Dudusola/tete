@@ -264,7 +264,7 @@ async function openDrill(tier) {
             ? data.picks.map(renderDrillRow).join("")
             : `<div class="p-md text-on-surface-variant">No scored picks in this tier yet.</div>`;
     } catch (err) {
-        list.innerHTML = `<div class="p-md text-error">Couldn't load picks.</div>`;
+        list.innerHTML = `<div class="p-md">${ppErrorBox(err, "load these picks")}</div>`;
         console.error(err);
     }
 }
@@ -402,7 +402,7 @@ async function loadRecord() {
         }
     } catch (err) {
         document.getElementById("tier-cards").innerHTML =
-            `<div class="text-error text-body-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
+            ppErrorBox(err, "load the track record", "loadRecord");
         console.error(err);
     }
 }

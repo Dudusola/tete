@@ -37,10 +37,15 @@
 <header class="mb-lg pt-md md:pt-xl">
 <div class="flex items-center gap-sm mb-xs">
 <span class="material-symbols-outlined icon-fill text-secondary text-[32px]">groups</span>
-<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Strongest Consensus</h1>
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Where sources agree</h1>
 </div>
+<!-- This used to promise "independent prediction sources" and call agreement
+     "a stronger signal", above a verified tick on every card. Most live
+     sources read bookmaker odds, so their agreement is one market seen twice.
+     Agreement is only worth what the sources' independence is worth, and each
+     card now says which kind it has. -->
 <p class="text-on-surface-variant text-body-md max-w-2xl">
-Fixtures where independent prediction sources agree on the outcome. Agreement across sources is a stronger signal than any single source alone.
+Fixtures where every source we have points to the same result. Agreement is only as strong as the sources are independent: sources built from bookmaker odds mostly agree because they read the same market. Each card says which kind of source agreed.
 </p>
 </header>
 
@@ -74,14 +79,20 @@ const OUTCOME_NAME = {"H": "Home Win", "D": "Draw", "A": "Away Win"};
 const SOURCE_NAME = {"forebet": "Forebet (model)", "predictz": "PredictZ (odds)",
                      "espn": "ESPN (odds)", "apifootball": "API-Football (odds)",
                      "clubelo": "ClubElo (Elo model)"};
+// Sources that form their own view rather than reading a bookmaker's price.
+const MODEL_SOURCES = new Set(["forebet", "clubelo"]);
 
 
 function renderCard(c) {
     const outcome = OUTCOME_NAME[c.agreed_outcome] || c.agreed_outcome;
-    const sources = Object.keys(c.sources).map(s => SOURCE_NAME[s] || s);
-    const nSources = sources.length;
+    const keys = Object.keys(c.sources);
+    const sources = keys.map(s => SOURCE_NAME[s] || s);
+    const models = keys.filter(k => MODEL_SOURCES.has(k)).length;
+    const kind = models
+        ? `${models === 1 ? "Includes an independent model" : "Includes independent models"}`
+        : "All built from bookmaker odds: the same market, read more than once";
     return `
-<article class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col border-l-[3px] border-l-secondary">
+<article class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition-shadow relative overflow-hidden flex flex-col">
   <div class="p-md border-b border-outline-variant flex justify-between items-start bg-surface-bright">
     <div>
       <div class="flex items-center gap-base mb-xs">
@@ -100,17 +111,12 @@ function renderCard(c) {
   </div>
   <div class="p-md flex-grow flex items-center justify-between">
     <div class="flex flex-col">
-      <span class="text-label-sm text-on-surface-variant mb-xs uppercase tracking-wider">Agreed Outcome</span>
-      <div class="bg-secondary-container text-on-secondary-container px-sm py-base rounded-md border border-secondary font-data-tabular text-data-tabular flex items-center gap-xs shadow-sm w-fit">
-        <span class="material-symbols-outlined text-[18px]">verified</span>${escapeHtml(outcome)}
-      </div>
+      <span class="text-label-sm text-on-surface-variant mb-xs">Sources point to</span>
+      <div class="bg-surface-container-high text-primary px-sm py-base rounded-md font-semibold text-body-md w-fit">${escapeHtml(outcome)}</div>
     </div>
-    <div class="flex flex-col items-end">
-      <span class="text-label-sm text-on-surface-variant mb-xs">Sources Agreeing</span>
-      <div class="flex gap-base">
-        ${Array.from({length: nSources}, () => `<span class="w-8 h-2 bg-secondary rounded-sm"></span>`).join("")}
-      </div>
-      <span class="text-label-sm text-primary mt-xs font-bold">${nSources} of ${nSources} agree</span>
+    <div class="flex flex-col items-end text-right max-w-[55%]">
+      <span class="text-label-sm text-on-surface-variant mb-xs">${sources.length} ${sources.length === 1 ? "source" : "sources"}</span>
+      <span class="text-label-sm text-primary font-semibold">${kind}</span>
     </div>
   </div>
   <div class="px-md py-sm bg-surface-container flex items-center gap-sm border-t border-outline-variant">
@@ -128,7 +134,7 @@ async function loadConsensus() {
     try {
         const data = await PotentialProAPI.consensus();
         summary.innerHTML = `
-            <span><strong class="text-primary">${data.total_fixtures}</strong> upcoming fixtures</span>
+            <span><strong class="text-primary">${data.total_fixtures}</strong> upcoming ${data.total_fixtures === 1 ? "fixture" : "fixtures"}</span>
             <span>•</span>
             <span><strong class="text-primary">${data.covered_by_multiple}</strong> covered by 2+ sources</span>
             <span>•</span>
@@ -148,7 +154,7 @@ async function loadConsensus() {
         }
         grid.innerHTML = data.agreed_picks.map(renderCard).join("");
     } catch (err) {
-        grid.innerHTML = `<div class="text-error col-span-full">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
+        grid.innerHTML = ppErrorBox(err, "load the consensus list", "loadConsensus");
         console.error(err);
     }
 }

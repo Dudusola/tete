@@ -41,25 +41,25 @@
 
 <!-- Risk Level -->
 <section>
-<h2 class="text-headline-md font-headline-md text-primary mb-md">Risk Level</h2>
+<h2 class="text-headline-md font-headline-md text-primary mb-md">How much risk?</h2>
 <div class="grid grid-cols-1 md:grid-cols-3 gap-md" id="risk-group">
-<button data-risk="LOW" class="risk-btn flex flex-col items-start p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
+<button data-risk="LOW" class="risk-btn flex flex-col items-start text-left p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
 <!-- Neutral signal-bar icons, one ladder for all three: the old shield /
      balance / red flame read as "safe", "sensible" and "exciting", and "safe"
      and "maximum returns" are claims a prediction cannot make. The copy now
      says what the setting actually changes. -->
 <span class="material-symbols-outlined text-on-surface-variant mb-2" aria-hidden="true">signal_cellular_alt_1_bar</span>
-<span class="text-body-lg text-primary font-semibold">Low Risk</span>
+<span class="text-body-lg text-primary font-semibold">Safer</span>
 <span class="text-body-md text-on-surface-variant mt-1">Likelier picks at shorter odds. Can still lose.</span>
 </button>
-<button data-risk="MEDIUM" class="risk-btn flex flex-col items-start p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
+<button data-risk="MEDIUM" class="risk-btn flex flex-col items-start text-left p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
 <span class="material-symbols-outlined text-on-surface-variant mb-2" aria-hidden="true">signal_cellular_alt_2_bar</span>
-<span class="text-body-lg text-primary font-semibold">Medium Risk</span>
+<span class="text-body-lg text-primary font-semibold">Balanced</span>
 <span class="text-body-md text-on-surface-variant mt-1">A middle ground between how likely and how long the odds are.</span>
 </button>
-<button data-risk="HIGH" class="risk-btn flex flex-col items-start p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
+<button data-risk="HIGH" class="risk-btn flex flex-col items-start text-left p-md bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm hover:shadow-md transition relative overflow-hidden">
 <span class="material-symbols-outlined text-on-surface-variant mb-2" aria-hidden="true">signal_cellular_alt</span>
-<span class="text-body-lg text-primary font-semibold">High Risk</span>
+<span class="text-body-lg text-primary font-semibold">Longer odds</span>
 <span class="text-body-md text-on-surface-variant mt-1">Longer odds, less likely picks. Expect more of these slips to lose.</span>
 </button>
 </div>
@@ -128,17 +128,19 @@ function isPinned(leg) {
         p.selection === leg.selection);
 }
 
-const SELECTED_RISK = "border-l-2 border-l-secondary bg-secondary/10 shadow-md";
 const SELECTED_COUNT = "bg-primary text-on-primary font-semibold shadow-sm";
 const UNSELECTED_COUNT = "border border-outline-variant text-on-surface";
 
 function paintRisk() {
     document.querySelectorAll(".risk-btn").forEach(btn => {
         const on = btn.dataset.risk === selectedRisk;
-        btn.classList.toggle("border-l-2", on);
-        btn.classList.toggle("border-l-secondary", on);
+        // A full 2px outline, not a thick left stripe: the stripe read as a
+        // warning bar, and the state now also reaches screen readers.
+        btn.classList.toggle("ring-2", on);
+        btn.classList.toggle("ring-secondary", on);
         btn.classList.toggle("shadow-md", on);
         btn.style.backgroundColor = on ? "rgba(145,219,42,0.15)" : "";
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
     });
 }
 function paintCount() {
@@ -212,7 +214,7 @@ function renderSlip(data) {
     const out = document.getElementById("slip-output");
     if (!data.legs || data.legs.length === 0) {
         out.innerHTML = `<section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-md text-center text-on-surface-variant">
-            No ${escapeHtml(data.risk)} risk picks available right now. Try a different risk level or check back when more fixtures are scheduled.
+            No ${escapeHtml(ppRiskLabel(data.risk).toLowerCase())} picks available right now. Try a different risk setting or check back when more fixtures are scheduled.
         </section>`;
         return;
     }
@@ -221,13 +223,13 @@ function renderSlip(data) {
 <section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
   <div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
     <h3 class="text-body-lg text-primary font-semibold">Generated Acca</h3>
-    <span class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">${escapeHtml(data.risk)} Risk • ${data.actual_games} Games</span>
+    <span class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">${escapeHtml(ppRiskLabel(data.risk))} • ${data.actual_games} ${data.actual_games === 1 ? "game" : "games"}</span>
   </div>
   ${data.actual_games < data.requested_games ? `
   <div class="bg-surface-container-low px-md py-xs border-b border-outline-variant">
     <span class="text-label-sm text-on-surface-variant">
       You asked for ${data.requested_games} but only ${data.actual_games} qualifying
-      ${data.actual_games === 1 ? "match is" : "matches are"} available at this risk level right now —
+      ${data.actual_games === 1 ? "match is" : "matches are"} available at this risk setting right now —
       padding it with weaker picks would be worse than a shorter slip.
     </span>
   </div>` : ""}
@@ -331,7 +333,7 @@ async function bookSlip(provider) {
         if (!d.ok) { out.innerHTML = `<span class="text-error">⚠️ ${escapeHtml(d.error)}</span>`; return; }
         out.innerHTML = ppBookingResult(d, PROVIDER_NAME[provider], LAST_SLIP);
     } catch (err) {
-        out.innerHTML = `<span class="text-error">⚠️ Couldn't book — is the API running?</span>`;
+        out.innerHTML = `<p class="text-body-md text-on-surface">${escapeHtml(ppErrorMessage(err, "create the code"))}</p>`;
         console.error(err);
     } finally {
         btns.forEach(b => b.disabled = false);
@@ -343,12 +345,12 @@ async function generateSlip() {
     const out = document.getElementById("slip-output");
     btn.disabled = true;
     out.innerHTML = `<div class="space-y-sm">${ppSkeleton(56)}${ppSkeleton(180)}${ppSkeleton(90)}</div>
-      <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${selectedRisk.toLowerCase()} slip…</div>`;
+      <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${ppRiskLabel(selectedRisk).toLowerCase()} slip…</div>`;
     try {
         const data = await PotentialProAPI.slip(selectedRisk, selectedCount, [...selectedLeagues], excludedPairs, pinnedLegs);
         renderSlip(data);
     } catch (err) {
-        out.innerHTML = `<div class="text-center text-error py-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
+        out.innerHTML = ppErrorBox(err, "build your slip", "generateSlip");
         console.error(err);
     } finally {
         btn.disabled = false;
@@ -388,7 +390,7 @@ async function loadLeagues() {
             }));
         paintLeagues();
     } catch (err) {
-        group.innerHTML = `<span class="text-label-sm text-on-surface-variant">Couldn't load leagues (API offline?) — slips will use all leagues.</span>`;
+        group.innerHTML = `<span class="text-label-sm text-on-surface-variant">${escapeHtml(ppErrorMessage(err, "load the league list"))} Slips will use all leagues.</span>`;
     }
 }
 
