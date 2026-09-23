@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="icon" type="image/png" href="icons/icon-192.png"/>
@@ -165,10 +165,10 @@
 </div>
 <div class="bg-primary-container text-on-primary p-md flex justify-between items-center">
 <div>
-<span class="text-body-md text-inverse-primary block">Accumulator Chance</span>
+<span class="text-body-md text-inverse-primary block">Model's estimate, all legs win</span>
 <span class="text-label-sm text-inverse-primary" id="acc-note"></span>
 </div>
-<span class="text-display-lg font-display-lg text-secondary" id="acc-pct">—</span>
+<span class="text-headline-md font-headline-md font-bold text-on-primary" id="acc-pct">—</span>
 </div>
 
 <!-- Book the hand-picked slip. This panel could already price a slip you
@@ -369,8 +369,12 @@ function renderSlip() {
     // combined probability
     const acc = SLIP.reduce((p, l) => p * l.probability, 1);
     document.getElementById("acc-pct").textContent = (acc*100).toFixed(1) + "%";
+    // Only 1X2 has ever been graded, so say when the estimate rests on markets
+    // the ledger has never checked.
+    const ungraded = SLIP.some(l => l.market !== "Match Result");
     document.getElementById("acc-note").textContent =
-        SLIP.length + " legs — all must win";
+        (SLIP.length === 1 ? "1 leg" : SLIP.length + " legs — all must win") +
+        (ungraded ? " · includes markets not yet graded" : "");
     // A code minted for an older set of legs is a trap: it looks current and
     // isn't. Clear it whenever the slip changes.
     document.getElementById("ck-book-result").innerHTML = "";
@@ -400,13 +404,8 @@ async function bookCheckerSlip(provider) {
         }
         // Say which legs the bookmaker didn't list. A code that silently drops
         // half your slip is the single most expensive way to be unhelpful here.
-        const skipped = (d.unmapped && d.unmapped.length)
-            ? `<div class="text-label-sm text-on-surface-variant mt-1">⚠️ ${d.unmapped.length} leg(s) not listed on ${esc(name)} (skipped): ${d.unmapped.map(u => esc((u.home_team || "?") + " vs " + (u.away_team || "?"))).join(", ")}</div>`
-            : "";
-        out.innerHTML =
-            codeChip(d.code, `${name} booking code (${d.mapped ? d.mapped.length : 0} legs)`) +
-            skipped +
-            `<div class="text-label-sm text-on-surface-variant mt-1">Paste it in the ${esc(name)} app under “Load Booking Code”. Odds may shift before kickoff.</div>`;
+        // Shared with the Builder (api.js) so the two cannot drift apart.
+        out.innerHTML = ppBookingResult(d, name, SLIP);
     } catch (err) {
         const network = (err instanceof TypeError) || /fetch|network/i.test(err.message || "");
         out.innerHTML = `<span class="text-error">⚠️ ${

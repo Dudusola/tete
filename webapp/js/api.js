@@ -503,6 +503,83 @@ function ppSkeleton(heightPx) {
     return `<div class="pp-skel" style="height:${heightPx}px"></div>`;
 }
 
+/* ── Booking-code result, shared by the Builder and the Checker ────────────
+   This is the moment someone stakes money, so it has to say exactly what the
+   code contains. It used to show a green success box reading "(3 legs)" with
+   the skipped legs as a grey footnote underneath, and the page's hit chance
+   still described the FULL slip. Someone copying the code bet a different
+   accumulator from the one we had scored.
+
+   Now a partial booking is headed "3 of 6 legs booked", lists the missing
+   legs at body size ABOVE the code, and gives the model's estimate for the
+   legs that are actually in the code. `legs` is the slip as the page holds it
+   ({home_team, away_team, market, selection, probability}); `d` is the
+   /api/booking/generate response, whose mapped[].leg echoes what we sent. */
+function ppBookingResult(d, providerName, legs) {
+    const mapped = d.mapped || [];
+    const unmapped = d.unmapped || [];
+    const total = mapped.length + unmapped.length;
+    const esc = escapeHtml;
+    const same = (a, b) => a.home_team === b.home_team && a.away_team === b.away_team &&
+        a.market === b.market && a.selection === b.selection;
+    const probOf = legList => {
+        let p = 1;
+        for (const leg of legList) {
+            const own = (legs || []).find(l => same(l, leg));
+            if (!own || own.probability == null) return null;
+            p *= own.probability;
+        }
+        return p;
+    };
+    const pct = p => (p * 100).toFixed(1) + "%";
+    const legName = l => esc(`${l.home_team || "?"} vs ${l.away_team || "?"}`);
+    const copyBtn = `<button type="button" class="pp-copy-code shrink-0 bg-surface text-primary border border-outline-variant rounded-lg px-md py-sm text-label-sm font-bold"
+        data-code="${esc(d.code)}" data-provider="${esc(providerName)}">Copy</button>`;
+    const codeRow = `
+      <div class="flex items-center justify-between gap-sm">
+        <div class="text-headline-md font-headline-md font-bold tracking-widest">${esc(d.code)}</div>
+        ${copyBtn}
+      </div>`;
+    const hint = `<p class="text-label-sm text-on-surface-variant mt-xs">Paste it in the ${esc(providerName)} app under “Load Booking Code”. Odds may shift before kickoff.</p>`;
+
+    if (!unmapped.length) {
+        return `
+    <div class="rounded-lg p-sm bg-secondary-container text-on-secondary-container">
+      <div class="text-label-sm">${esc(providerName)} code · all ${mapped.length} ${mapped.length === 1 ? "leg" : "legs"} booked</div>
+      ${codeRow}
+    </div>${hint}`;
+    }
+
+    const booked = probOf(mapped.map(m => m.leg));
+    const full = probOf([...mapped.map(m => m.leg), ...unmapped]);
+    const estimate = booked == null ? "" : `
+      <p class="text-body-md mt-sm">Model's estimate for the ${mapped.length} booked ${mapped.length === 1 ? "leg" : "legs"}:
+        <strong>${pct(booked)}</strong>${full == null ? "" : ` <span class="text-on-surface-variant">(the full slip was ${pct(full)})</span>`}</p>`;
+    return `
+    <div class="rounded-lg p-sm bg-surface-container-low border border-outline text-on-surface" role="status">
+      <div class="flex items-center gap-xs text-body-md font-semibold text-primary">
+        <span class="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+        ${mapped.length} of ${total} legs booked. This code is a different slip.
+      </div>
+      <p class="text-body-md text-on-surface-variant mt-xs">Not listed on ${esc(providerName)}, so not in the code:</p>
+      <ul class="text-body-md mt-xs space-y-1">
+        ${unmapped.map(u => `<li>${legName(u)} <span class="text-on-surface-variant">· ${esc(u.market || "")}${u.selection ? ": " + esc(u.selection) : ""}</span></li>`).join("")}
+      </ul>${estimate}
+      <div class="mt-sm pt-sm border-t border-outline-variant">${codeRow}</div>
+    </div>${hint}`;
+}
+
+// One delegated handler for every Copy button ppBookingResult renders, so the
+// code never has to be spliced into an inline onclick string.
+document.addEventListener("click", e => {
+    const btn = e.target.closest && e.target.closest(".pp-copy-code");
+    if (!btn) return;
+    navigator.clipboard.writeText(btn.dataset.code).then(() => {
+        btn.textContent = "Copied!";
+        showToast(`${btn.dataset.provider} code copied`);
+    });
+});
+
 async function apiGet(path) {
     const res = await fetch(`${API_BASE}${path}`);
     if (!res.ok) throw new Error(`API ${path} returned ${res.status}`);
@@ -570,12 +647,17 @@ const PotentialProAPI = {
         .pp-enter.pp-in { opacity:1; transform:none;
           transition:opacity .45s cubic-bezier(.2,.7,.3,1), transform .45s cubic-bezier(.2,.7,.3,1); }
         main .rounded-xl.border { transition:box-shadow .25s ease, transform .25s ease; }
-        main .rounded-xl.border:hover { transform:translateY(-2px);
-          box-shadow:0 6px 20px rgba(0,0,0,0.08); }
-        html.dark main .rounded-xl.border:hover { box-shadow:0 6px 20px rgba(0,0,0,0.45); }
         button { transition:transform .12s ease, background-color .2s ease,
                  color .2s ease, box-shadow .2s ease, border-color .2s ease; }
         button:active { transform:scale(.97); }
+      }
+      /* The card lift is a MOUSE affordance. Ungated, a phone applies :hover on
+         tap and leaves it there, so every tapped card stayed lifted until the
+         next tap elsewhere. */
+      @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+        main .rounded-xl.border:hover { transform:translateY(-2px);
+          box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+        html.dark main .rounded-xl.border:hover { box-shadow:0 6px 20px rgba(0,0,0,0.45); }
       }
       button:focus-visible, a:focus-visible {
         outline:2px solid #91db2a; outline-offset:2px; border-radius:6px; }
@@ -651,6 +733,23 @@ const PotentialProAPI = {
         }
       }
 
+      /* 4c. The tells that make a web app read as "a website" on a phone.
+             - The grey/blue flash the browser paints over anything tappable.
+               Press feedback comes from button:active above instead.
+             - The double-tap-zoom wait before a tap fires.
+             - Long-press selecting a chip's label (controls only; content
+               text stays selectable).
+             - iOS zooms into any field under 16px and never zooms back out;
+               the Checker's selects were 12px. Coarse pointers only, so the
+               desktop layout keeps its compact controls. */
+      html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+      button, a, [role="button"], select, label { touch-action: manipulation; }
+      button, [role="button"], .tier-chip, .league-chip, .league-btn, .count-btn, .add-leg {
+        -webkit-user-select: none; user-select: none; }
+      @media (pointer: coarse) {
+        input, select, textarea { font-size: 16px !important; }
+      }
+
       /* 5. Very small phones (360px and below are still common in Nigeria):
             stop headline text forcing horizontal overflow. */
       @media (max-width: 380px) {
@@ -680,8 +779,11 @@ const PotentialProAPI = {
       main {
         max-width: 1280px;
         margin-inline: auto;
-        padding-left: 16px;
-        padding-right: 16px;
+        /* max() with the safe-area inset: now that the viewport is
+           viewport-fit=cover, a landscape iPhone would otherwise put the
+           first column under the notch. */
+        padding-left: max(16px, env(safe-area-inset-left));
+        padding-right: max(16px, env(safe-area-inset-right));
         padding-top: 16px;
       }
       @media (min-width: 768px) {
@@ -723,17 +825,29 @@ const PotentialProAPI = {
         if (!main) return;
         [...main.children].forEach((el, i) => enter(el, i * 70));
         // Content injected later (slips, pick lists, stats) enters the same way
+        // ...but only the FIRST time real content lands in a given container.
+        // Every re-render replaces innerHTML, so the observer used to replay the
+        // fade-up on each tier-chip or league-chip tap, on every leg swap in the
+        // Builder: a repeated action made to wait on an entrance animation.
+        // Skeleton placeholders don't count as the first arrival, so the real
+        // cards that replace them still enter once.
+        const arrived = new WeakSet();
+        const isSkeleton = n => n.matches(".pp-skel, .animate-pulse") ||
+            (n.querySelector && n.querySelector(".pp-skel, .animate-pulse") &&
+             !n.querySelector(":scope > :not(.pp-skel):not(.animate-pulse)"));
         new MutationObserver(muts => {
             for (const m of muts) {
+                if (arrived.has(m.target)) continue;
+                let i = 0, real = false;
                 for (const n of m.addedNodes) {
-                    if (n.nodeType !== 1) continue;
-                    if (n.matches && n.matches("section, .rounded-xl")) enter(n, 40);
-                    else if (n.querySelectorAll) {
-                        let i = 0;
-                        for (const c of n.querySelectorAll(":scope > section, :scope > .rounded-xl"))
-                            enter(c, 40 + (i++ * 60));
-                    }
+                    if (n.nodeType !== 1 || isSkeleton(n)) continue;
+                    // Only a card/section arriving counts: a "Loading…" line
+                    // beside the skeletons must not use up the one entrance.
+                    const cards = n.matches("section, .rounded-xl") ? [n]
+                        : [...n.querySelectorAll(":scope > section, :scope > .rounded-xl")];
+                    for (const c of cards) { enter(c, 40 + Math.min(i++, 5) * 60); real = true; }
                 }
+                if (real) arrived.add(m.target);
             }
         }).observe(main, {childList: true, subtree: true});
     });
