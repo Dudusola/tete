@@ -23,6 +23,7 @@ from loguru import logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from scrapers.results_api import team_match, dates_close
+from models.sports import FOOTBALL, sport_sql
 
 BASE = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
 
@@ -103,10 +104,17 @@ def fetch_finished(days_back: int = 7) -> list | None:
 
 def score_our_fixtures(api_results: list) -> int:
     conn = get_connection()
-    ours = conn.execute("""
-        SELECT match_id, home_team, away_team, match_date
-        FROM matches
-        WHERE match_id NOT IN (SELECT match_id FROM results)
+    # Football only, and this one is load-bearing rather than tidy: the rows
+    # below are matched to ESPN's FOOTBALL scoreboard by FUZZY TEAM NAME. Leave
+    # basketball fixtures in this set and a name that scores above the floor in
+    # both sports grades an NBA game against a football scoreline -- bug #1,
+    # arrived at through bug #22's matcher. scrapers/espn_basketball.py records
+    # its own finals by exact ESPN event id and never needs this path.
+    ours = conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.match_date
+        FROM matches m
+        WHERE m.match_id NOT IN (SELECT match_id FROM results)
+          {sport_sql(FOOTBALL)}
     """).fetchall()
 
     inserted = 0
