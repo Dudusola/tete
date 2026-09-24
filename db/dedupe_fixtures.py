@@ -17,6 +17,7 @@ Run:
 import sys
 import os
 import sqlite3
+from datetime import datetime
 
 DB_PATH = os.getenv("DB_PATH", "./db/sports_predictor.db")
 
@@ -107,6 +108,47 @@ def run(apply=False):
         FROM matches ORDER BY created_at ASC, id ASC
     """).fetchall()]
 
+    # Compare only fixtures whose dates are within a day of each other, by
+    # bucketing on the date first.
+    #
+    # This is not an optimisation for its own sake, it is a deadline. The old
+    # loop compared EVERY pair in the table -- and the table is the whole
+    # history, not the upcoming fixtures -- so the cost grows with the square
+    # of a number that only ever increases. Measured in the cloud on 23 Sept
+    # 2026 at 6,066 rows: 4 minutes 46 seconds, against run_daily's 15-minute
+    # step timeout. A third of the budget spent, and quadratic: ~9,000 rows is
+    # roughly 10 minutes and ~12,000 blows the timeout outright. That failure
+    # would arrive on an ordinary day months from now, with no change to blame,
+    # and it would stop the deduper -- which is the only thing standing between
+    # cross-source duplicates and a double-counted track record (bug #2).
+    #
+    # Exactly equivalent, not merely close: same_fixture() requires
+    # _dates_close(), which is |d1 - d2| <= 1 day, so a pair in non-adjacent
+    # buckets could never have matched. Rows whose date will not parse keep
+    # _dates_close's own fallback (d1 == d2) by bucketing on the raw string.
+    # Candidates are still visited in ascending original order, so the clusters
+    # built are identical, member for member.
+    def _bucket(raw):
+        try:
+            return ("d", datetime.strptime(raw, "%Y-%m-%d").toordinal())
+        except (ValueError, TypeError):
+            return ("raw", raw)
+
+    by_bucket = {}
+    for i, m in enumerate(matches):
+        by_bucket.setdefault(_bucket(m["match_date"]), []).append(i)
+
+    def _candidates(i, m):
+        kind, key = _bucket(m["match_date"])
+        if kind == "raw":
+            positions = by_bucket.get((kind, key), [])
+        else:
+            positions = []
+            for offset in (-1, 0, 1):
+                positions.extend(by_bucket.get(("d", key + offset), []))
+            positions.sort()
+        return (matches[p] for p in positions if p > i)
+
     clusters = []
     used = set()
     for i, m in enumerate(matches):
@@ -114,7 +156,7 @@ def run(apply=False):
             continue
         cluster = [m]
         used.add(m["match_id"])
-        for other in matches[i+1:]:
+        for other in _candidates(i, m):
             if other["match_id"] in used:
                 continue
             if same_fixture(m, other):
