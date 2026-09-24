@@ -1,21 +1,21 @@
 {
- "generated_at": "2026-09-23T13:59:04+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Wednesday, 23 September 2026*\n\n🟡 *Birmingham Legion vs Brooklyn*\n   United Soccer League | 2026-09-23 00:00\n   H 63% | D 21% | A 15%\n   👉 *Home Win* (63%) — MEDIUM\n   💬 _Birmingham Legion are priced at 1.51 with a home record of 0.67 points per game, scoring 2.00 and conceding 2.33 goals per match, while Brooklyn averages 0.67 goals scored and 1.67 conceded with an aw_\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "generated_at": "2026-09-24T13:59:45+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Thursday, 24 September 2026*\n\n🟡 *Girona vs Albacete*\n   Segunda Division | 2026-09-25 00:00\n   H 61% | D 25% | A 14%\n   👉 *Home Win* (61%) — MEDIUM\n   💬 _Girona enters this fixture as clear favourites priced at 1.54, supported by a recent form of 1.80 points per game with 2.20 goals scored per match, while Albacete struggles on a dismal run of 0.20 poi_\n\n_Bet responsibly. Confidence ≠ certainty._",
  "picks_count": 1,
  "stats": {
-  "total": 448,
-  "correct": 304,
+  "total": 449,
+  "correct": 305,
   "accuracy": 67.9
  },
  "picks": [
   {
-   "home": "Birmingham Legion",
-   "away": "Brooklyn",
-   "league": "United Soccer League",
-   "date": "2026-09-23",
+   "home": "Girona",
+   "away": "Albacete",
+   "league": "Segunda Division",
+   "date": "2026-09-25",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 63.5,
+   "prob": 60.9,
    "confidence": "MEDIUM"
   }
  ]
