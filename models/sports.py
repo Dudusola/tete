@@ -55,10 +55,19 @@ exist, the football surfaces cannot see them by accident.
 
 FOOTBALL = "football"
 BASKETBALL = "basketball"
+# Association football is FOOTBALL above; this is the American game. The two
+# must never share a value, and the naming is a genuine trap rather than a
+# pedantic one: ESPN's API calls the American game "football" and association
+# football "soccer", the exact opposite of this schema. A mapping written from
+# ESPN's vocabulary without noticing files NFL games into the soccer ledger --
+# the precise outcome the sport filter exists to prevent. Any code that talks
+# to ESPN therefore states its URL segment explicitly rather than deriving it
+# from the sport name.
+AMERICAN_FOOTBALL = "american_football"
 
 # Every sport that may legally appear in `matches.sport`. A value outside this
 # set is a bug in whatever wrote the row, not a new sport to be tolerated.
-SPORTS = frozenset({FOOTBALL, BASKETBALL})
+SPORTS = frozenset({FOOTBALL, BASKETBALL, AMERICAN_FOOTBALL})
 
 
 def sport_sql(sport: str, alias: str = "m") -> str:

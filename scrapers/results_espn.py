@@ -108,7 +108,7 @@ def score_our_fixtures(api_results: list) -> int:
     # below are matched to ESPN's FOOTBALL scoreboard by FUZZY TEAM NAME. Leave
     # basketball fixtures in this set and a name that scores above the floor in
     # both sports grades an NBA game against a football scoreline -- bug #1,
-    # arrived at through bug #22's matcher. scrapers/espn_basketball.py records
+    # arrived at through bug #22's matcher. scrapers/espn_ledger.py records
     # its own finals by exact ESPN event id and never needs this path.
     ours = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.match_date
