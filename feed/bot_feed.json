@@ -1,7 +1,7 @@
 {
- "generated_at": "2026-09-24T13:59:45+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Thursday, 24 September 2026*\n\n🟡 *Girona vs Albacete*\n   Segunda Division | 2026-09-25 00:00\n   H 61% | D 25% | A 14%\n   👉 *Home Win* (61%) — MEDIUM\n   💬 _Girona enters this fixture as clear favourites priced at 1.54, supported by a recent form of 1.80 points per game with 2.20 goals scored per match, while Albacete struggles on a dismal run of 0.20 poi_\n\n_Bet responsibly. Confidence ≠ certainty._",
- "picks_count": 1,
+ "generated_at": "2026-09-25T14:20:41+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Friday, 25 September 2026*\n\n🟢 *Stockport vs Peterborough*\n   League One | 2026-09-26 00:00\n   H 74% | D 15% | A 10%\n   👉 *Home Win* (74%) — HIGH\n   💬 _Stockport are priced at 1.36 and hold the historical edge with 2 wins from 4 previous meetings against Peterborough, who average just 0.60 points per game over their last 5 and concede 1.60 per match._\n\n🟢 *Plymouth vs Burton Albion*\n   League One | 2026-09-26 00:00\n   H 66% | D 21% | A 13%\n   👉 *Home Win* (66%) — HIGH\n   💬 _Plymouth enters this fixture in strong form with four wins from their last five matches averaging 2.40 points per game, alongside 2.40 goals scored per match and a bookmaker price of 1.59. A primary r_\n\n🟢 *York vs Gillingham*\n   League Two | 2026-09-26 00:00\n   H 65% | D 21% | A 14%\n   👉 *Home Win* (65%) — HIGH\n   💬 _York enters this fixture backed by a flawless home venue record of 3.00 points per game, alongside recent form of 1.40 points per game with 1.80 goals scored and 1.40 goals conceded, while trading at _\n\n🟡 *Girona vs Albacete*\n   Segunda Division | 2026-09-25 00:00\n   H 62% | D 24% | A 14%\n   👉 *Home Win* (62%) — MEDIUM\n   💬 _Girona enters this fixture as the clear favourite priced at 1.51, backed by a recent form of 1.80 points per game where they score 2.20 goals per match, contrasting sharply with an Albacete side takin_\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "picks_count": 4,
  "stats": {
   "total": 449,
   "correct": 305,
@@ -9,13 +9,43 @@
  },
  "picks": [
   {
+   "home": "Stockport",
+   "away": "Peterborough",
+   "league": "League One",
+   "date": "2026-09-26",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 74.3,
+   "confidence": "HIGH"
+  },
+  {
+   "home": "Plymouth",
+   "away": "Burton Albion",
+   "league": "League One",
+   "date": "2026-09-26",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 65.9,
+   "confidence": "HIGH"
+  },
+  {
+   "home": "York",
+   "away": "Gillingham",
+   "league": "League Two",
+   "date": "2026-09-26",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 65.0,
+   "confidence": "HIGH"
+  },
+  {
    "home": "Girona",
    "away": "Albacete",
    "league": "Segunda Division",
    "date": "2026-09-25",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 60.9,
+   "prob": 61.6,
    "confidence": "MEDIUM"
   }
  ]
