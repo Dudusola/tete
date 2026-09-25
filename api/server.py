@@ -35,6 +35,10 @@ from models.goals_model import expected_goals
 # Thresholds only — models/tiers.py is import-free by design so the API can read
 # the tier bands without importing models/predict.py (joblib + pandas + sklearn).
 from models.tiers import TIER_BANDS
+# This API serves FOOTBALL only. `matches.sport` existed from the first commit
+# and nothing filtered on it, so a basketball row would have appeared in the
+# picks feed and — worse — inside the published accuracy. See models/sports.py.
+from models.sports import FOOTBALL, sport_sql
 from scrapers.booking_codes import attach_sporty_odds
 from models.leagues import pretty_league
 from models.gradeability import overall_coverage
@@ -47,6 +51,11 @@ from scrapers.booking_codes import (decode as decode_booking,
                                     convert_code, merge_codes, split_code,
                                     _selections_from_legs, _post_selections,
                                     PROVIDERS, SHARE_POST_URLS)
+
+# Every query in this module that reads `matches` appends this. Built once, from
+# the whitelist in models/sports.py, so a typo raises at import rather than
+# silently filtering nothing.
+SPORT_SQL = sport_sql(FOOTBALL)
 
 app = FastAPI(
     title="PotentialPro API",
@@ -120,6 +129,7 @@ def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> 
     where = "AND mp.confidence IN ('HIGH','MEDIUM')" if only_strong else ""
     time_filter = """
           WHERE m.match_date >= date('now') {where}
+          {sport}
           -- Already-started matches are not recommendable. NULL
           -- kickoff_utc = unknown time, so it stays visible.
           AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
@@ -127,7 +137,8 @@ def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> 
           -- delayed or rescheduled matches, and anything already
           -- in play. NULL = unknown, so it stays visible.
           AND (m.live_state IS NULL OR m.live_state = 'pre')
-    """.format(where=where) if upcoming_only else f"          WHERE 1=1 {where}"
+    """.format(where=where, sport=SPORT_SQL) if upcoming_only \
+        else f"          WHERE 1=1 {where} {SPORT_SQL}"
     rows = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.league,
                m.match_date, m.kickoff_time,
@@ -161,7 +172,15 @@ def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> 
 def _last_generated_at() -> str | None:
     """UTC timestamp of the newest model prediction — when the pipeline last ran."""
     conn = get_connection()
-    row = conn.execute("SELECT MAX(predicted_at) AS ts FROM model_predictions").fetchone()
+    # Joined to matches for the sport filter: this timestamp is stamped on the
+    # football Picks page as "last updated", and a basketball run would have
+    # refreshed it without a single football pick having changed.
+    row = conn.execute(f"""
+        SELECT MAX(mp.predicted_at) AS ts
+        FROM model_predictions mp
+        JOIN matches m ON m.match_id = mp.match_id
+        WHERE 1=1 {SPORT_SQL}
+    """).fetchone()
     conn.close()
     return row["ts"] if row else None
 
@@ -169,7 +188,7 @@ def _last_generated_at() -> str | None:
 def _predictions_with_goals() -> list:
     """Model preds joined with Forebet goal data, for market derivation."""
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.league,
                m.match_date, m.kickoff_time,
                -- Carried through so the Builder and Checker can show the same
@@ -220,6 +239,7 @@ def _predictions_with_goals() -> list:
             SELECT MAX(p2.id) FROM scraped_predictions p2 WHERE p2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
+          {SPORT_SQL}
           AND m.status != 'finished'
           AND m.match_id NOT IN (SELECT match_id FROM results)
           -- Same kickoff guard as /api/picks: a slip must never contain a
@@ -276,7 +296,7 @@ def _started_today() -> list:
     football has started.
     """
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT m.home_team, m.away_team, m.league, m.match_date,
                -- kickoff_time joins kickoff_utc so the UI can label each row
                -- with its own day ("Yesterday 22:15"): this list spans two
@@ -293,6 +313,7 @@ def _started_today() -> list:
         )
         LEFT JOIN results r ON r.match_id = m.match_id
         WHERE mp.confidence IN ('HIGH','MEDIUM')
+          {SPORT_SQL}
           AND m.match_date >= date('now','-1 day')
           AND (
             (m.kickoff_utc IS NOT NULL
@@ -464,7 +485,7 @@ def get_draw_picks():
     and for why this ships with a disclosure rather than a confidence tier.
     """
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
                m.kickoff_time, m.kickoff_utc, m.live_state,
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
@@ -479,6 +500,7 @@ def get_draw_picks():
             SELECT MAX(sp2.id) FROM scraped_predictions sp2
             WHERE sp2.match_id = m.match_id AND sp2.odds_home IS NOT NULL)
         WHERE m.match_date >= date('now')
+          {SPORT_SQL}
           -- The same three guards /api/picks uses. This list had only a
           -- `live_state != 'post'` post-filter, which is NOT equivalent:
           -- effective_live_state only ages a snapshot once kickoff is
@@ -684,7 +706,10 @@ def get_consensus():
 def get_stats():
     """Overall running track record (HIGH+MEDIUM scored picks)."""
     conn = get_connection()
-    row = conn.execute("""
+    # The sport join is not decoration on these four queries: this is the
+    # published accuracy, and a second sport averaged into it is the one thing
+    # in models/sports.py that cannot be undone by deleting rows later.
+    row = conn.execute(f"""
         SELECT COUNT(*) AS total,
                SUM(CASE
                    WHEN (mp.best_bet='Home Win' AND r.outcome='H')
@@ -693,7 +718,9 @@ def get_stats():
                    THEN 1 ELSE 0 END) AS correct
         FROM model_predictions mp
         JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
         WHERE mp.confidence IN ('HIGH','MEDIUM')
+          {SPORT_SQL}
           AND mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = mp.match_id)
     """).fetchone()
     # The same figures across EVERY tier, including LOW. The endpoint has
@@ -702,7 +729,7 @@ def get_stats():
     # table summing to 191 picks. Excluding LOW is right — we never serve
     # those as bets — but the number must not claim to be something it isn't,
     # and the difference is not cosmetic: 60.0% served vs 57.1% all-in.
-    all_row = conn.execute("""
+    all_row = conn.execute(f"""
         SELECT COUNT(*) AS total,
                SUM(CASE
                    WHEN (mp.best_bet='Home Win' AND r.outcome='H')
@@ -712,8 +739,10 @@ def get_stats():
                SUM(CASE WHEN r.outcome='D' THEN 1 ELSE 0 END) AS draws
         FROM model_predictions mp
         JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
         WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
                        WHERE mp2.match_id = mp.match_id)
+          {SPORT_SQL}
     """).fetchone()
     # Grading coverage — the error bar on every number below it. A hit rate is
     # a claim about the picks we could check, and the ones we couldn't are not
@@ -767,7 +796,7 @@ def get_stats_trend(weeks: int = Query(8, ge=2, le=26)):
     scraper caught up with it.
     """
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT strftime('%Y-%W', m.match_date) AS wk,
                MIN(m.match_date) AS starting,
                COUNT(*) AS total,
@@ -781,6 +810,7 @@ def get_stats_trend(weeks: int = Query(8, ge=2, le=26)):
         JOIN matches m ON m.match_id = mp.match_id
         WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
                        WHERE mp2.match_id = mp.match_id)
+          {SPORT_SQL}
         GROUP BY wk
         ORDER BY wk
     """).fetchall()
@@ -818,7 +848,11 @@ def get_stats_by_tier():
     UI can always state the bands.
     """
     conn = get_connection()
-    rows = conn.execute("""
+    # `matches` is joined solely to reach m.sport — this query never needed the
+    # table otherwise. An INNER join is correct rather than incidental: a
+    # prediction with no matches row has no sport, and an unattributable pick
+    # does not belong in a published tier percentage.
+    rows = conn.execute(f"""
         SELECT mp.confidence,
                COUNT(*) AS total,
                SUM(CASE
@@ -828,7 +862,9 @@ def get_stats_by_tier():
                    THEN 1 ELSE 0 END) AS correct
         FROM model_predictions mp
         JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
         WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = mp.match_id)
+          {SPORT_SQL}
         GROUP BY mp.confidence
     """).fetchall()
     conn.close()
@@ -872,6 +908,7 @@ def get_scored_picks(tier: str = Query(None, description="HIGH, MEDIUM, or LOW; 
         JOIN results r ON r.match_id = mp.match_id
         JOIN matches m ON m.match_id = mp.match_id
         WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = mp.match_id)
+          {SPORT_SQL}
           {where}
         ORDER BY m.match_date DESC, mp.id DESC
     """, params).fetchall()

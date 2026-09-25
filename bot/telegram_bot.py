@@ -32,6 +32,7 @@ load_dotenv()
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from db.database import get_connection
+from models.sports import FOOTBALL, sport_sql
 from bot.slip_handlers import register_slip_handlers
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -44,7 +45,7 @@ DAILY_HOUR = 8  # 08:00 Lagos time (WAT = UTC+1)
 def fetch_todays_picks() -> list:
     """Latest model prediction per match for today/future, HIGH+MEDIUM only."""
     conn = get_connection()
-    rows = conn.execute("""
+    rows = conn.execute(f"""
         SELECT m.home_team, m.away_team, m.league, m.match_date, m.kickoff_time,
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
                mp.confidence, mp.best_bet, mp.best_bet_prob, mp.gemma_analysis
@@ -54,6 +55,7 @@ def fetch_todays_picks() -> list:
             WHERE mp2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
+          {sport_sql(FOOTBALL)}
           -- Don't push picks for matches that already kicked off.
           -- NULL kickoff_utc = unknown, so it stays visible.
           AND (m.kickoff_utc IS NULL OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M','now'))
@@ -83,7 +85,11 @@ def fetch_stats() -> dict:
     match, always. (See CLAUDE.md bug #3.)
     """
     conn = get_connection()
-    row = conn.execute("""
+    # Same reasoning as the MAX(id) clause above, one layer out: the bot and
+    # the website must publish ONE number. /api/stats filters by sport, so if
+    # this query did not, Telegram and the site would disagree again the day a
+    # second sport landed -- and this time the gap would be a blended record.
+    row = conn.execute(f"""
         SELECT
             COUNT(*) AS total,
             SUM(CASE
@@ -93,7 +99,9 @@ def fetch_stats() -> dict:
                 THEN 1 ELSE 0 END) AS correct
         FROM model_predictions mp
         JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
         WHERE mp.confidence IN ('HIGH', 'MEDIUM')
+          {sport_sql(FOOTBALL)}
           AND mp.id = (
               SELECT MAX(mp2.id) FROM model_predictions mp2
               WHERE mp2.match_id = mp.match_id
