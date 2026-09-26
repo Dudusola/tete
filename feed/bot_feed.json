@@ -1,13 +1,23 @@
 {
- "generated_at": "2026-09-25T14:20:41+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Friday, 25 September 2026*\n\n🟢 *Stockport vs Peterborough*\n   League One | 2026-09-26 00:00\n   H 74% | D 15% | A 10%\n   👉 *Home Win* (74%) — HIGH\n   💬 _Stockport are priced at 1.36 and hold the historical edge with 2 wins from 4 previous meetings against Peterborough, who average just 0.60 points per game over their last 5 and concede 1.60 per match._\n\n🟢 *Plymouth vs Burton Albion*\n   League One | 2026-09-26 00:00\n   H 66% | D 21% | A 13%\n   👉 *Home Win* (66%) — HIGH\n   💬 _Plymouth enters this fixture in strong form with four wins from their last five matches averaging 2.40 points per game, alongside 2.40 goals scored per match and a bookmaker price of 1.59. A primary r_\n\n🟢 *York vs Gillingham*\n   League Two | 2026-09-26 00:00\n   H 65% | D 21% | A 14%\n   👉 *Home Win* (65%) — HIGH\n   💬 _York enters this fixture backed by a flawless home venue record of 3.00 points per game, alongside recent form of 1.40 points per game with 1.80 goals scored and 1.40 goals conceded, while trading at _\n\n🟡 *Girona vs Albacete*\n   Segunda Division | 2026-09-25 00:00\n   H 62% | D 24% | A 14%\n   👉 *Home Win* (62%) — MEDIUM\n   💬 _Girona enters this fixture as the clear favourite priced at 1.51, backed by a recent form of 1.80 points per game where they score 2.20 goals per match, contrasting sharply with an Albacete side takin_\n\n_Bet responsibly. Confidence ≠ certainty._",
- "picks_count": 4,
+ "generated_at": "2026-09-26T13:31:46+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Saturday, 26 September 2026*\n\n🟢 *Vancouver Whitecaps vs DC United*\n   Major League Soccer | 2026-09-27 00:00\n   H 77% | D 15% | A 8%\n   👉 *Home Win* (77%) — HIGH\n   💬 _Vancouver Whitecaps are heavily backed at 1.24 in the market because they average 2.20 goals scored per game with a recent form of 1.80 points per game, while DC United struggle away with just 0.60 po_\n\n🟢 *Stockport vs Peterborough*\n   League One | 2026-09-26 00:00\n   H 75% | D 16% | A 9%\n   👉 *Home Win* (75%) — HIGH\n   💬 _Stockport is favoured at a bookmaker price of 1.34 by averaging 2.40 goals scored per game across a recent run of two wins, a draw, and two defeats, while Peterborough comes in on a poorer run of two _\n\n🟢 *Philadelphia Union vs Orlando City*\n   Major League Soccer | 2026-09-27 00:00\n   H 69% | D 19% | A 12%\n   👉 *Home Win* (69%) — HIGH\n   💬 _Philadelphia enters this fixture on a strong run of four wins and a draw, averaging 3.40 goals scored and 0.80 conceded per game while maintaining a home record of 2.00 points per game, all supported _\n\n🟢 *Nashville SC vs Toronto FC*\n   Major League Soccer | 2026-09-27 00:00\n   H 67% | D 19% | A 14%\n   👉 *Home Win* (67%) — HIGH\n   💬 _Nashville SC is heavily favoured at 1.41 because they average 3.00 points per game at home within a five-match form of 1.60 points per game, scoring 2.00 and conceding 0.80, alongside a head-to-head r_\n\n🟡 *Plymouth vs Burton Albion*\n   League One | 2026-09-26 00:00\n   H 64% | D 23% | A 13%\n   👉 *Home Win* (64%) — MEDIUM\n   💬 _Plymouth enters this fixture in dominant form with four wins from their last five matches averaging 2.40 points and 2.40 goals per game, contrasted against a struggling Burton Albion side managing jus_\n\n🟡 *Houston Dynamo vs Sporting Kansas City*\n   Major League Soccer | 2026-09-27 00:00\n   H 62% | D 21% | A 17%\n   👉 *Home Win* (62%) — MEDIUM\n   💬 _Houston Dynamo command a strong home form of 2.20 points per game alongside an away opponent taking just 0.00 points per game on the road, while Sporting Kansas City concede 2.80 goals per game during_\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "picks_count": 6,
  "stats": {
-  "total": 449,
-  "correct": 305,
-  "accuracy": 67.9
+  "total": 450,
+  "correct": 306,
+  "accuracy": 68.0
  },
  "picks": [
+  {
+   "home": "Vancouver Whitecaps",
+   "away": "DC United",
+   "league": "Major League Soccer",
+   "date": "2026-09-27",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 77.4,
+   "confidence": "HIGH"
+  },
   {
    "home": "Stockport",
    "away": "Peterborough",
@@ -15,7 +25,27 @@
    "date": "2026-09-26",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 74.3,
+   "prob": 74.6,
+   "confidence": "HIGH"
+  },
+  {
+   "home": "Philadelphia Union",
+   "away": "Orlando City",
+   "league": "Major League Soccer",
+   "date": "2026-09-27",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 69.0,
+   "confidence": "HIGH"
+  },
+  {
+   "home": "Nashville SC",
+   "away": "Toronto FC",
+   "league": "Major League Soccer",
+   "date": "2026-09-27",
+   "kickoff": "00:00",
+   "bet": "Home Win",
+   "prob": 66.6,
    "confidence": "HIGH"
   },
   {
@@ -25,27 +55,17 @@
    "date": "2026-09-26",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 65.9,
-   "confidence": "HIGH"
+   "prob": 64.2,
+   "confidence": "MEDIUM"
   },
   {
-   "home": "York",
-   "away": "Gillingham",
-   "league": "League Two",
-   "date": "2026-09-26",
+   "home": "Houston Dynamo",
+   "away": "Sporting Kansas City",
+   "league": "Major League Soccer",
+   "date": "2026-09-27",
    "kickoff": "00:00",
    "bet": "Home Win",
-   "prob": 65.0,
-   "confidence": "HIGH"
-  },
-  {
-   "home": "Girona",
-   "away": "Albacete",
-   "league": "Segunda Division",
-   "date": "2026-09-25",
-   "kickoff": "00:00",
-   "bet": "Home Win",
-   "prob": 61.6,
+   "prob": 62.1,
    "confidence": "MEDIUM"
   }
  ]
