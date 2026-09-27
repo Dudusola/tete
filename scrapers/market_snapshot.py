@@ -44,6 +44,7 @@ Usage:
 import argparse
 import os
 import sys
+from datetime import datetime, timezone
 
 from loguru import logger
 
@@ -107,7 +108,8 @@ def run(days: int = 2) -> int:
     # works, but nothing depends on it.
     stored = {}
     for row in conn.execute("""
-        SELECT sp.match_id, sp.odds_home, sp.odds_draw, sp.odds_away
+        SELECT sp.match_id, sp.odds_home, sp.odds_draw, sp.odds_away,
+               sp.source, sp.scraped_at
         FROM scraped_predictions sp
         WHERE sp.odds_home IS NOT NULL
           AND sp.id = (SELECT MAX(sp2.id) FROM scraped_predictions sp2
@@ -115,16 +117,21 @@ def run(days: int = 2) -> int:
                          AND sp2.odds_home IS NOT NULL)
     """):
         stored[row["match_id"]] = (row["odds_home"], row["odds_draw"],
-                                   row["odds_away"])
+                                   row["odds_away"], row["source"],
+                                   row["scraped_at"])
 
     def stored_odds_for(r):
-        trio = stored.get(r["match_id"])
-        if not trio:
+        entry = stored.get(r["match_id"])
+        if not entry:
             return None
-        home, draw, away = trio
+        home, draw, away = entry[:3]
         return {"Home Win": home, "Draw": draw, "Away Win": away}.get(r["best_bet"])
 
     odds = [stored_odds_for(r) for r in rows]
+    # Where each price came from and when it was observed, so closing-line
+    # value compares like with like over a known horizon (closing_snapshot.py).
+    origin = [(stored[r["match_id"]][3], stored[r["match_id"]][4]) if o else None
+              for r, o in zip(rows, odds)]
 
     missing = [i for i, o in enumerate(odds) if not o]
     if missing:
@@ -134,21 +141,25 @@ def run(days: int = 2) -> int:
                      "market": "Match Result",
                      "selection": _selection_for(rows[i])} for i in missing]
             live = attach_sporty_odds(legs)["odds"]
+            now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             for i, o in zip(missing, live):
                 if o:
                     odds[i] = o
+                    origin[i] = ("sportybet", now_utc)
         except Exception as e:
             # Never fatal: the stored odds already carry the measurement.
             logger.warning(f"SportyBet top-up unavailable ({e}) - "
                            f"using stored odds only")
 
     stamped = 0
-    for r, o in zip(rows, odds):
+    for r, o, src in zip(rows, odds, origin):
         if not o or o <= 1.0:
             continue
         conn.execute(
-            "UPDATE model_predictions SET book_odds = ?, book_prob = ? WHERE id = ?",
-            (float(o), round(1.0 / float(o), 4), r["id"]))
+            "UPDATE model_predictions SET book_odds = ?, book_prob = ?, "
+            "book_source = ?, book_observed_at = ? WHERE id = ?",
+            (float(o), round(1.0 / float(o), 4),
+             src[0] if src else None, src[1] if src else None, r["id"]))
         stamped += 1
 
     conn.commit()
