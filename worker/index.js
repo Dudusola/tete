@@ -344,6 +344,15 @@ async function triggerDailyPipeline(env) {
 
 export default {
   async scheduled(controller, env, ctx) {
+    // Two crons share this handler (wrangler.toml); controller.cron says which.
+    if (controller.cron === "*/10 * * * *") {
+      ctx.waitUntil(
+        fetch(`${env.API_BASE}/healthz`, { headers: { "User-Agent": "potentialpro-keepwarm" } })
+          .then((r) => { if (!r.ok) console.log(`keep-warm: healthz ${r.status}`); })
+          .catch((err) => console.log(`keep-warm: ${err}`))
+      );
+      return;
+    }
     ctx.waitUntil(triggerDailyPipeline(env));
   },
 

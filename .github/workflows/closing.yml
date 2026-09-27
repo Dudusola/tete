@@ -68,6 +68,15 @@ jobs:
           PYTHONUTF8: '1'
         run: python scrapers/espn_ledger.py --days-back 1 --days-ahead 2
 
+      - name: Refresh shadow Elo predictions (never served)
+        # Updates each upcoming game's Elo probability and the market price
+        # beside it, so both are graded as close to kickoff as possible.
+        continue-on-error: true
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python models/elo_shadow.py
+
       - name: Commit the updated ledger
         if: always()
         run: |

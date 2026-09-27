@@ -17,5 +17,11 @@ API_BASE = "https://potentialpro-api.onrender.com"
 # Telegram push land before the first European kickoff (11:30 UTC) instead of
 # mid-afternoon. See triggerDailyPipeline in index.js for why GitHub's own
 # schedule could not do this.
+#
+# "*/10 * * * *" keeps the API awake. Render's free instance sleeps after ~15
+# idle minutes and the next visitor then waits ~50s on skeleton loaders - for
+# a first-time tester that reads as a broken site. A ping every 10 minutes
+# costs 144 tiny requests a day; one always-on service is ~744h/month, inside
+# Render's 750 free hours as long as it is the ONLY free service.
 [triggers]
-crons = ["0 6 * * *"]
+crons = ["0 6 * * *", "*/10 * * * *"]
