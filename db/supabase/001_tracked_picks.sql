@@ -35,6 +35,14 @@ create index if not exists tracked_picks_user_idx on public.tracked_picks (user_
 -- ship in the web app. Every row is visible and editable ONLY by its owner.
 alter table public.tracked_picks enable row level security;
 
+-- Table privileges. Newer Supabase projects do NOT auto-grant new tables to
+-- the API roles, so without this line even a signed-in user gets
+-- "permission denied for table tracked_picks" (seen 28 Sep 2026: anon was
+-- refused at the privilege level, not by RLS). Only `authenticated` is
+-- granted; anonymous visitors get nothing. RLS above still restricts every
+-- signed-in user to their OWN rows.
+grant select, insert, update, delete on public.tracked_picks to authenticated;
+
 drop policy if exists "own rows: select" on public.tracked_picks;
 drop policy if exists "own rows: insert" on public.tracked_picks;
 drop policy if exists "own rows: update" on public.tracked_picks;
