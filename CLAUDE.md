@@ -75,6 +75,12 @@ generate predictions on demand.
 - Dedup DB:             `python db/dedupe_fixtures.py` (dry run) then `--apply`
 - Score results:        `python scrapers/results_api.py` (API, reliable) and
                         `python scrapers/results.py` (Forebet scrape; `--headed` if Cloudflare-blocked)
+- Calibration check:    `python db/calibration_health.py` (tiers, bands, sign test, eras — run it,
+                        don't re-derive item 4 by hand)
+- Non-soccer ledger:    `python scrapers/espn_ledger.py [--feed nfl|nba|nhl|mlb] [--dry-run]`
+- Non-soccer history:   `python scrapers/sports_history.py` (update) / `--feed mlb --full` (rebuild)
+- **Testing anything that writes the DB: use a COPY** — `cp db/sports_predictor.db <scratch>/t.db`
+  then `DB_PATH=<scratch>/t.db`. The real file is the committed ledger.
 
 ## File map (under project root)
 - run_daily.py            one-command pipeline: forebet → predictz → results(Forebet) → results(API) → predict → consensus
@@ -125,6 +131,40 @@ generate predictions on demand.
                           predict.py serving a pick that has no odds. Coverage varies per league;
                           ask for 2018 and Saudi gives you 2022, so read the per-season counts it
                           prints. First use: data/historical/SaudiProLeague.csv, 1,179 matches.
+- scrapers/espn_fixtures.py FOOTBALL fixtures + odds from ESPN for days +2..+5 (PR #18, 27 Sep 2026).
+                          PredictZ only has today/tomorrow and was the only fixture INSERTER, so the
+                          site could never see past tomorrow (empty during the Sept international
+                          break with 87 priced club fixtures four days out). Inserts from +2 ONLY so it
+                          never writes PredictZ's days; the day-boundary duplicates it does create are
+                          the deduper's job, so it must run BEFORE dedupe. Odds come from the same
+                          payload as the fixture — no fuzzy matcher on a path that feeds features.
+- scrapers/espn_ledger.py THE non-soccer ledger: NFL, NBA, NHL, MLB fixtures + FINAL scores from
+                          ESPN (DEGRADED pipeline step). NOT odds, predictions or markets — coverage
+                          first, claims second (bug #16). Fixture and result share ESPN's event id
+                          (`espnnfl_/espnbb_/espnnhl_/espnmlb_<id>`), so results join EXACTLY — no
+                          team matcher, no bug #22. One `Feed` per league declares the facts that
+                          differ: ESPN path (ESPN calls American football "football" and soccer
+                          "soccer" — never derive the path from our sport name), draws_possible
+                          (NFL yes; NBA/NHL/MLB no, so a level final is bad data and SKIPPED),
+                          reg_periods (4/4/3/9), home_may_skip_last (MLB). Exits 0 on an empty
+                          schedule (off-season), 1 only if every request failed. `_parse_event` is
+                          also the parser for sports_history.py — see bug #31 for what it filters.
+- scrapers/sports_history.py  Historical results for the four non-soccer leagues into
+                          data/sports_history/{nba,nfl,nhl,mlb}.csv — 20,497 / 4,396 / 20,579 /
+                          38,799 games since 2010. Stockpiled for when a model for those sports is
+                          built; nothing trains on it yet. NEVER put these in data/historical/:
+                          train.py globs that folder into the FOOTBALL model and the Actions cache
+                          key hashes it. Daily OPTIONAL step, incremental (refetches from the newest
+                          game in the file, so a missed day self-repairs); `--full` rebuilds. Stores
+                          ESPN FRANCHISE ids (home_id/away_id) — join on those, not names: "Hornets"
+                          was two franchises, Nets/Raiders/Rams/Chargers/Coyotes/Marlins/Guardians/
+                          Commanders renamed or moved. Exactly 30/32/33/30 ids (NHL 33 = Arizona,
+                          gone 2024). A month that fails leaves the file UNCHANGED — never a gap.
+- models/sports.py        `matches.sport` values (football, basketball, american_football,
+                          ice_hockey, baseball) and `sport_sql()`, the WHERE fragment that keeps
+                          them apart. Rejects unknown sports so a typo can't silently filter
+                          nothing. **Every reader of `matches` that fuzzy-matches against a
+                          football feed must carry `sport_sql(FOOTBALL)`** — see bug #30.
 - models/train.py         Random Forest trainer. 72.1k historical matches (103 CSVs since 2018 + internationals).
                           July 2026: refreshed all football-data.co.uk extra-league CSVs and added
                           SwedishLeague/FinlandLeague/IrelandLeague (in-season leagues) — doubled July
@@ -165,7 +205,10 @@ generate predictions on demand.
                           missing COPY fails invisibly (Render keeps serving the old image).
 - bot/telegram_bot.py     /start /picks /slip /stats + daily 08:00 send. drop_pending_updates=True.
 - bot/slip_handlers.py    /slip interactive flow
-- db/database.py          schema/helpers
+- db/database.py          schema/helpers. `results` gained decided_in ('REG'|'OT'|'SO'; NULL =
+                          unknown or soccer) + reg_home_goals/reg_away_goals (27 Sep 2026, bug #31).
+- db/calibration_health.py  Tier/band calibration, sign test and model-era table from the ledger
+                          (PR #13). Read-only. Replaces the hand analysis in item 4.
 - db/dedupe_fixtures.py   merge cross-source duplicate fixtures (fuzzy teams + ±1 day). Handles results UNIQUE(match_id).
 - db/purge_results.py     wipe contaminated results table (used once after the fake-scores fix)
 - db/inspect_scores.py    read-only: show scored picks vs recorded scores
@@ -957,6 +1000,57 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     `logger.*`, never in `print()`.** Third instance of the same cp1252 family —
     see the `webapp/*.html` PowerShell rule and `db/form_depth_health.py`.
 
+30. **Non-soccer rows would have been graded as football (caught before
+    shipping, 27 Sep 2026).** The NBA/NFL ledger PRs (#14, #20) made
+    `results_espn.py` football-only — they had verified a Celtics v Spurs row
+    matching an invented football result — but FOUR other readers of `matches`
+    still took every row and fuzzy-matched it against a FOOTBALL feed:
+      - `results_api.py`   grades by team name        -> bug #1's shape
+      - `kickoff_times.py` writes ODDS + espn_league   -> bug #22's (odds are features)
+      - `clubelo.py`       attaches an opinion row     -> a rating on the wrong match
+      - `dedupe_fixtures`  merges and DELETES a row    -> an NFL fixture merged away
+    And `run_daily.ledger_health` counted upcoming fixtures and recent results
+    across ALL sports, so a weekly NFL slate would have kept it green on a day
+    football produced nothing — bugs #5/#9 exactly. All five now carry
+    `sport_sql(FOOTBALL)`. Verified on a ledger copy: 31 NFL fixtures + 16
+    finals inserted, every football step run, NFL rows byte-identical after.
+    **Fixing the one path that was demonstrated is not fixing the class. When a
+    new kind of row enters a shared table, grep every reader of that table.**
+
+31. **What ESPN's non-soccer data gets wrong, all probed (27 Sep 2026).** Each of
+    these would have put fake or misleading rows into a ledger whose only job is
+    verification. All live in `espn_ledger._parse_event`, shared by the ledger
+    and the history download so the two cannot disagree.
+    - **The final includes overtime and the shootout.** ESPN credits the NHL
+      shootout winner +1 goal: NYI @ NSH "Final/SO" 2-1 was 1-1 after
+      regulation — a DRAW on the regulation 1X2 bookmakers settle these sports
+      on (item 10's trap). `results.decided_in` + `reg_*_goals` record both,
+      derived from linescores and NULL unless they sum exactly to the final and
+      an OT/SO game was level after regulation (6 NHL games since 2010 fail
+      that — ESPN's period split is wrong for them). 23% of NHL games, ~9% MLB,
+      ~6% NBA/NFL go past regulation.
+    - **Preseason is in the feed** (14 NHL games on 26 Sep; NFL fills August):
+      season.type 1 skipped.
+    - **Exhibitions look like games.** competition.type is an ALLOW-list (STD CC
+      RD16 QTR SEMI FINAL QUALIFY); unknown types are skipped AND logged. That
+      caught the NHL 2020 bubble qualifiers (real) and MLB `EXH` (the placeholder
+      for a rained-out playoff game — the real game has its own id) on first run.
+      But the type alone lies: the 2023 NHL All-Star games are typed `SEMI`, like
+      a conference final. So event notes are checked too (All-Star, Pro Bowl,
+      Rising Stars, Face-Off), plus a history-only backstop: a team with <10
+      games in a completed season.
+    - **MLB home side does not bat in the 9th when ahead**, so its linescore is
+      one inning SHORT — 174 of 376 July 2025 games. Requiring equal lengths
+      would have blanked the regulation score on 46% of MLB. Allowed only in the
+      9th and only when home leads. Rain-shortened games stay NULL.
+    - **Fetching:** date RANGES are refused for these sports (400/empty).
+      `dates=YYYYMM` works but is silently CAPPED AT 100 events without `limit`
+      (Jan 2026 NBA stopped on the 14th) — a response AT the limit now fails
+      (bug #10). Some whole months 504 server-side every time (NHL Sept 2010/13/14)
+      and fall back to day-by-day.
+    **An allow-list that logs what it rejects is how every one of these was
+    found. A block-list would have let each through silently.**
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
@@ -1239,7 +1333,18 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    tier (HIGH → 5/13). **Boost DISABLED in rf_v1e**; the protective HIGH→MEDIUM
    demote is kept. Re-enable only if a matured ledger shows agreement-with-model
    wins. index.html still renders the chips; boosted picks simply won't occur.
-4. **HIGH-tier inversion: RESOLVED ITSELF as the sample grew (re-measured
+4. **CALIBRATION — LATEST: 27 Sep 2026, 452 graded HIGH+MEDIUM picks, via
+   `python db/calibration_health.py`. The tiers HOLD their claims:**
+     HIGH   166/219  75.8%  claim 74.6%  CI [69.7, 81.0]
+     MEDIUM 141/233  60.5%  claim 60.7%  CI [54.1, 66.6]
+   Every band within noise; sign test 2/4 above claim (p = 1.0), i.e. the
+   11 Aug "systematically under-confident" lead did NOT survive the larger
+   sample. Grading coverage 94.4% (the coverage caveat below is now much
+   weaker). Eras: **rf_v2 160/224 = 71.4%** [65.2, 76.9] — the best era, and
+   the first ledger evidence for bug #18's fix; rf_v1e 65.9%. Re-run the script
+   rather than editing these numbers by hand. Everything below is history.
+
+   **HIGH-tier inversion: RESOLVED ITSELF as the sample grew (re-measured
    9 Aug 2026 — do not act on the old numbers below).** The inversion that was
    top priority (HIGH 5/13 = 38% < MEDIUM 15/20 = 75%) was a 13-sample artefact.
    On 184 graded 1X2 picks the tiers now rank in the right order:
@@ -1371,7 +1476,47 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    difference is inside the noise (66.2% vs 66.0%) — vary which appears, cost
    nothing. Anything beyond that is degrading picks to look bespoke.
 
-10. DEFERRED until football is validated: second sport, real booking codes.
+10. **Multi-sport — STATUS 27 Sep 2026: the LEDGER and the HISTORY exist for
+    NFL, NBA, NHL and MLB; no model, odds, markets or picks for any of them.**
+    | League | Ledger live from | History (data/sports_history) |
+    |---|---|---|
+    | NFL | now (mid-season) | 4,396 games, 2010- |
+    | MLB | now (postseason next) | 38,799 games, 2010- |
+    | NHL | 29 Sep 2026 (season opener) | 20,579 games, 2010-11- |
+    | NBA | 22 Oct 2026 | 20,497 games, 2010-11- |
+    Next, per sport and in this order (docs/basketball.md §5 generalised):
+    (1) in season, count how many upcoming games ESPN PRICES — no price, no pick
+    (bug #7); (2) a sport-specific trainer on data/sports_history with 2-way
+    features (no draw), NOT train.py; (3) grade on the ledger for weeks before
+    serving; (4) only then SportyBet market ids — and use the FULL-GAME ids, not
+    the regulation ones (the trap below; `results.decided_in` exists for it).
+
+    **Reference repos reviewed 27 Sep 2026** (Boss supplied them). Licence
+    decides what we may take — no licence means ideas only:
+    - `gschwaeb/NHL_Game_Prediction` — **CC0, reusable.** Frames the goal as
+      beating the moneyline's implied probability, not a coin flip. Features:
+      starting-goalie quality (GSAx, HD SV%), 5v5 xGF%, Elo, back-to-back
+      (hurts the HOME side more). Data: Natural Stat Trick (scrape) + NHL API.
+      2021, unmaintained.
+    - `skrt0215/gridiron-prophet` — **MIT, reusable with attribution.** NFL
+      win-prob + spread models, injury weighting, logs picks BEFORE games and
+      grades after (our rule). Only 4 seasons of data; odds via The Odds API.
+    - `gmalbert/hockey-predictions` — no licence, ideas only. Active. Pulls NHL
+      odds from ESPN (verify ourselves at step 1); goalie/xG from api.nhle.com.
+    - `gmalbert/baseball-predictions` — no licence. Ideas: starting-pitcher
+      matchup, park factors, bullpen workload, rest; Retrosheet for history.
+    - `nealmick/Sports-Betting-ML-Tools-NBA` — no licence, commercial
+      (FireBet.ai). Idea only: player-availability adjustment.
+    - `whisdev/NBA-prediction-sports-betting` — no licence; same "~69%" pitch as
+      kyleskom's repo below. 69% is roughly what always backing the NBA
+      favourite scores, so it demonstrates nothing. Skip.
+    - `abzdel/NBA_Over_Under_Prediction_App` — CC0 but a plain linear regression
+      its own author says not to bet on. Skip.
+    Features we can already build from data/sports_history: rest days and
+    back-to-backs (dates), home advantage (neutral_site), Elo from results.
+    Goalie / starting pitcher need a new source (api-web.nhle.com,
+    statsapi.mlb.com — free, unprobed from the cloud).
+
     **Basketball groundwork is DONE and written up — see `docs/basketball.md`
     (11 Aug 2026).** Research only; nothing is wired into the pipeline. Probed
     live, so it is fact not plan: ESPN's NBA scoreboard has the IDENTICAL
