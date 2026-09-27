@@ -17,6 +17,7 @@ Run:
 import sys
 import os
 import sqlite3
+from datetime import datetime
 
 DB_PATH = os.getenv("DB_PATH", "./db/sports_predictor.db")
 
@@ -39,6 +40,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # multi-word names whose distinguishing words disagree. It is already trusted
 # for consensus and slip building; there is no reason for a second opinion here.
 from models.consensus import same_teams, _dates_close
+from models.sports import FOOTBALL, sport_sql
 
 
 def same_fixture(m1, m2):
@@ -97,15 +99,62 @@ def run(apply=False):
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
-    matches = [dict(r) for r in cur.execute("""
+    matches = [dict(r) for r in cur.execute(f"""
         -- `league` is read by _best_league(). It was NOT selected here, so
         -- _best_league raised KeyError on the FIRST cluster and the whole
         -- script exited 1 — on every run since that helper was added. The
         -- pipeline step is required=False, so the run stayed green while no
         -- deduping happened at all (verified across 6 consecutive cloud runs).
-        SELECT match_id, home_team, away_team, match_date, league, created_at
-        FROM matches ORDER BY created_at ASC, id ASC
+        --
+        -- Football only. A merge here DELETES a row, and NBA/NFL fixtures carry
+        -- ESPN's exact event id (scrapers/espn_ledger.py) - they cannot have a
+        -- cross-source duplicate, only a false one.
+        SELECT m.match_id, m.home_team, m.away_team, m.match_date, m.league,
+               m.created_at
+        FROM matches m WHERE 1=1 {sport_sql(FOOTBALL)}
+        ORDER BY m.created_at ASC, m.id ASC
     """).fetchall()]
+
+    # Compare only fixtures whose dates are within a day of each other, by
+    # bucketing on the date first.
+    #
+    # This is not an optimisation for its own sake, it is a deadline. The old
+    # loop compared EVERY pair in the table -- and the table is the whole
+    # history, not the upcoming fixtures -- so the cost grows with the square
+    # of a number that only ever increases. Measured in the cloud on 23 Sept
+    # 2026 at 6,066 rows: 4 minutes 46 seconds, against run_daily's 15-minute
+    # step timeout. A third of the budget spent, and quadratic: ~9,000 rows is
+    # roughly 10 minutes and ~12,000 blows the timeout outright. That failure
+    # would arrive on an ordinary day months from now, with no change to blame,
+    # and it would stop the deduper -- which is the only thing standing between
+    # cross-source duplicates and a double-counted track record (bug #2).
+    #
+    # Exactly equivalent, not merely close: same_fixture() requires
+    # _dates_close(), which is |d1 - d2| <= 1 day, so a pair in non-adjacent
+    # buckets could never have matched. Rows whose date will not parse keep
+    # _dates_close's own fallback (d1 == d2) by bucketing on the raw string.
+    # Candidates are still visited in ascending original order, so the clusters
+    # built are identical, member for member.
+    def _bucket(raw):
+        try:
+            return ("d", datetime.strptime(raw, "%Y-%m-%d").toordinal())
+        except (ValueError, TypeError):
+            return ("raw", raw)
+
+    by_bucket = {}
+    for i, m in enumerate(matches):
+        by_bucket.setdefault(_bucket(m["match_date"]), []).append(i)
+
+    def _candidates(i, m):
+        kind, key = _bucket(m["match_date"])
+        if kind == "raw":
+            positions = by_bucket.get((kind, key), [])
+        else:
+            positions = []
+            for offset in (-1, 0, 1):
+                positions.extend(by_bucket.get(("d", key + offset), []))
+            positions.sort()
+        return (matches[p] for p in positions if p > i)
 
     clusters = []
     used = set()
@@ -114,7 +163,7 @@ def run(apply=False):
             continue
         cluster = [m]
         used.add(m["match_id"])
-        for other in matches[i+1:]:
+        for other in _candidates(i, m):
             if other["match_id"] in used:
                 continue
             if same_fixture(m, other):

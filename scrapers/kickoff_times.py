@@ -32,6 +32,7 @@ from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
+from models.sports import FOOTBALL, sport_sql
 # The matcher moved to models/team_match.py so live_scores.py can use the SAME
 # one. It could not before, and silently failed to find fixtures this file had
 # already matched — see that module's header.
@@ -153,10 +154,14 @@ def enrich(days: int = 2) -> int:
     # Every upcoming match is re-checked, not just untimed ones: live state
     # changes through the day, and a match that was 'pre' an hour ago may be
     # 'in' now. The kickoff itself is only written once (it doesn't move).
-    rows = conn.execute("""
-        SELECT match_id, home_team, away_team, match_date, kickoff_utc
-        FROM matches
-        WHERE match_date >= date('now')
+    # Football only: the rows below are fuzzy-matched by team name against a
+    # FOOTBALL feed. NBA/NFL fixtures (scrapers/espn_ledger.py) must never
+    # reach a soccer matcher - see models/sports.py and results_espn.py.
+    rows = conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.match_date, m.kickoff_utc
+        FROM matches m
+        WHERE m.match_date >= date('now')
+          {sport_sql(FOOTBALL)}
     """).fetchall()
 
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
@@ -225,9 +230,10 @@ def enrich(days: int = 2) -> int:
                 priced += 1
 
     conn.commit()
-    remaining = conn.execute("""
-        SELECT COUNT(*) FROM matches
-        WHERE match_date >= date('now') AND kickoff_utc IS NULL
+    remaining = conn.execute(f"""
+        SELECT COUNT(*) FROM matches m
+        WHERE m.match_date >= date('now') AND m.kickoff_utc IS NULL
+          {sport_sql(FOOTBALL)}
     """).fetchone()[0]
     conn.close()
 

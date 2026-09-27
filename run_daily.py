@@ -27,6 +27,8 @@ import requests
 from dotenv import load_dotenv
 from loguru import logger
 
+from models.sports import FOOTBALL, sport_sql
+
 load_dotenv()
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -131,12 +133,19 @@ def ledger_health() -> list[str]:
     try:
         conn = sqlite3.connect(os.getenv("DB_PATH", "./db/sports_predictor.db"))
         today = datetime.now().strftime("%Y-%m-%d")
+        # Football only. The NFL ledger (espn_ledger.py) writes fixtures and
+        # finals every week of its season, so a count across sports would stay
+        # healthy on a day football produced nothing - the exact silent stall
+        # this check exists to catch (bugs #5, #9).
         upcoming = conn.execute(
-            "SELECT COUNT(*) FROM matches WHERE match_date >= ?", [today]
+            f"SELECT COUNT(*) FROM matches m WHERE m.match_date >= ? "
+            f"{sport_sql(FOOTBALL)}", [today]
         ).fetchone()[0]
         cutoff = (datetime.now() - timedelta(days=3)).strftime("%Y-%m-%d %H:%M:%S")
         recent_results = conn.execute(
-            "SELECT COUNT(*) FROM results WHERE recorded_at >= ?", [cutoff]
+            f"SELECT COUNT(*) FROM results r JOIN matches m "
+            f"ON m.match_id = r.match_id WHERE r.recorded_at >= ? "
+            f"{sport_sql(FOOTBALL)}", [cutoff]
         ).fetchone()[0]
         if upcoming == 0:
             problems.append("no upcoming fixtures in DB - both scrapers likely blocked")
@@ -448,6 +457,15 @@ def run_pipeline() -> list:
     if result_sources and not any(result_sources.values()):
         logger.error("❌ EVERY results source failed - nothing will be graded today")
         degraded_failures.append("all results sources")
+
+    # DEGRADED: fixtures + finals for the non-soccer ledgers (NFL now, NBA from
+    # late October). Ledger time cannot be backfilled past ESPN's window, which
+    # is why it runs before any prediction for these sports exists. It exits 0
+    # on an empty schedule (off-season) and 1 only when every ESPN request
+    # failed, so a red here means the feed is really down, not "no games".
+    # Kept OUT of result_sources: those grade football picks, this does not.
+    run_step("Non-soccer ledger (ESPN: NFL, NBA)",
+             ["scrapers/espn_ledger.py"], DEGRADED)
 
     # 3. Merge cross-source duplicate fixtures BEFORE predicting, so the same
     #    real match never gets two predictions/picks

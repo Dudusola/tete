@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="icon" type="image/png" href="icons/icon-192.png"/>
@@ -68,7 +68,7 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <main class="max-w-container-max mx-auto px-gutter md:px-lg py-md md:py-xl">
 <header class="mb-lg md:mb-xl">
 <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Today's Picks</h1>
-<p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">Data-driven picks for champions</p>
+<p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">The model's picks for today. Every one is graded against the final score.</p>
 </header>
 
 <!-- Summary stat strip -->
@@ -150,7 +150,7 @@ function badgeClasses(conf) {
 function consensusBadge(c) {
     if (!c) return "";
     if (c.agree) {
-        return `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Forebet and PredictZ agree on this outcome">
+        return `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Every source covering this fixture points to the same result">
           <span class="material-symbols-outlined text-[14px]">handshake</span>${c.sources} sources agree</span>`;
     }
     return `<span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold" title="Sources disagree on the outcome — extra caution">
@@ -328,14 +328,20 @@ function statTile(label, value, sub, icon, accent) {
 function renderStatStrip(picks, stats) {
     const high = picks.filter(p => p.confidence === "HIGH").length;
     const agree = picks.filter(p => p.consensus && p.consensus.agree).length;
+    // stats.accuracy is HIGH+MEDIUM only (the picks we serve), which is the
+    // flattering subset. The tile used to show it bare as "Hit rate"; it now
+    // says which picks it counts and puts the every-prediction figure beside
+    // it, the same order of honesty the Record page uses.
     const acc = stats && stats.accuracy != null ? `${stats.accuracy}%` : "—";
+    const all = stats && stats.all_tiers && stats.all_tiers.accuracy != null
+        ? ` · all picks ${stats.all_tiers.accuracy}%` : "";
     const accSub = stats && stats.scored_picks
-        ? `${stats.correct}/${stats.scored_picks} scored` : "building";
+        ? `${stats.correct}/${stats.scored_picks} High+Medium${all}` : "building";
     document.getElementById("stat-strip").innerHTML =
         statTile("Today", picks.length, "model picks", "today", "text-secondary") +
         statTile("High conf.", high, "≥65% probability", "verified", "text-secondary") +
         statTile("Sources agree", agree, "2+ sources aligned", "handshake", "text-secondary") +
-        statTile("Hit rate", acc, accSub, "target", "text-secondary");
+        statTile("Served hit rate", acc, accSub, "target", "text-secondary");
 }
 
 // ── Skeleton loading cards ───────────────────────────────────────────
@@ -477,8 +483,7 @@ async function loadPicks() {
         feed.innerHTML = "";
         status.textContent = "";
         document.getElementById("stat-strip").innerHTML =
-          `<div class="col-span-full glass-card rounded-xl border border-outline-variant p-md text-center text-error">
-             ⚠️ Couldn't reach the prediction engine. Start it with: uvicorn api.server:app --port 8080</div>`;
+          ppErrorBox(err, "load today's picks", "loadPicks");
         console.error(err);
     }
 }
@@ -645,7 +650,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     DRAW_DISCLOSURE = d.disclosure || "";
                 } catch (e) {
                     document.getElementById("status").textContent =
-                        "Couldn't load draw picks.";
+                        ppErrorMessage(e, "load the draw list");
                     return;
                 }
             }
