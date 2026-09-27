@@ -175,6 +175,13 @@ generate predictions on demand.
                           was two franchises, Nets/Raiders/Rams/Chargers/Coyotes/Marlins/Guardians/
                           Commanders renamed or moved. Exactly 30/32/33/30 ids (NHL 33 = Arizona,
                           gone 2024). A month that fails leaves the file UNCHANGED — never a gap.
+- models/elo.py           Elo ratings for NBA/NFL/NHL/MLB — THE BASELINE any model for those sports
+                          must beat on held-out seasons (docs/basketball.md §8). Point-in-time by
+                          construction; keyed by ESPN franchise id; 538's margin-of-victory
+                          multiplier. K / home advantage / off-season revert tuned by grid search on
+                          training seasons ONLY, the last two complete seasons scored once. Writes
+                          data/sports_history/elo_params.json + elo_ratings_<feed>.csv. Not in the
+                          pipeline: nothing consumes it yet. `python models/elo.py` (~25 s).
 - models/sports.py        `matches.sport` values (football, basketball, american_football,
                           ice_hockey, baseball) and `sport_sql()`, the WHERE fragment that keeps
                           them apart. Rejects unknown sports so a typo can't silently filter
@@ -1500,6 +1507,17 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     | MLB | now (postseason next) | 38,799 games, 2010- |
     | NHL | 29 Sep 2026 (season opener) | 20,579 games, 2010-11- |
     | NBA | 22 Oct 2026 | 20,497 games, 2010-11- |
+    **Elo baseline BUILT (27 Sep 2026, `models/elo.py`)** — held-out seasons only:
+    | League | K | HFA | revert | held-out | Elo acc | log loss | home-always |
+    |---|---|---|---|---|---|---|---|
+    | NBA | 18 | 60 | 0.33 | 2024-25, 2025-26 (2,643 g) | 66.9% | 0.608 | 55.0% / 0.689 |
+    | NFL | 20 | 50 | 0.50 | 2024, 2025 (570 g) | 67.0% | 0.623 | 53.1% / 0.692 |
+    | NHL | 6 | 25 | 0.25 | 2024-25, 2025-26 (2,792 g) | 56.2% | 0.679 | 54.1% / 0.690 |
+    | MLB | 4 | 20 | 0.33 | 2025, 2026* (4,888 g) | 55.7% | 0.682 | 53.6% / 0.691 |
+    (*MLB 2026 was 2,411 of ~2,430 regular-season games in.) Every calibration
+    band within a few points of its claim. NBA/NFL ~67% matches published
+    538-style Elo; NHL/MLB ~56% is normal — single games there are close to a
+    coin flip. NOT compared with the bookmaker: the history has no odds.
     Next, per sport and in this order (docs/basketball.md §5 generalised):
     (1) in season, count how many upcoming games ESPN PRICES — no price, no pick
     (bug #7); (2) a sport-specific trainer on data/sports_history with 2-way

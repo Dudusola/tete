@@ -387,6 +387,20 @@ substance, and read the code of five against §7. The finding that matters:
 | `atticusdrex/nba-moneyline` | MIT | Features point-in-time (`expanding().sum().shift(1)`), but the train/test split is random (§7 rule 4). |
 | `yirgareminick/NBA-Betting-Model` | MIT | **Leaks.** `season_win_pct`/`season_avg_pts` are `shift(1).mean().over(team, season)` — a whole-season mean despite the comment "excluding current game" — and they are model inputs (§7 rule 1). |
 
+**Step (1) DONE 27 Sep 2026 — `models/elo.py`.** Tuned on 2011-12 to 2023-24,
+scored once on 2024-25 and 2025-26 (2,643 games): **66.9% accuracy, log loss
+0.608** against 55.0% / 0.689 for "home always wins", and calibrated to within
+half a point in every band (55->55.0, 65->65.1, 75->74.4, 85->85.1). K=18,
+home advantage 60 Elo points, one third reverted each off-season. That is the
+bar. All four leagues:
+
+| League | K | HFA | revert | held-out | Elo acc | log loss | home-always |
+|---|---|---|---|---|---|---|---|
+| NBA | 18 | 60 | 0.33 | 2024-25, 2025-26 (2,643 g) | 66.9% | 0.608 | 55.0% / 0.689 |
+| NFL | 20 | 50 | 0.50 | 2024, 2025 (570 g) | 67.0% | 0.623 | 53.1% / 0.692 |
+| NHL | 6 | 25 | 0.25 | 2024-25, 2025-26 (2,792 g) | 56.2% | 0.679 | 54.1% / 0.690 |
+| MLB | 4 | 20 | 0.33 | 2025, 2026* (4,888 g) | 55.7% | 0.682 | 53.6% / 0.691 |
+
 **Therefore the NBA plan:** (1) build 538-style Elo on
 `data/sports_history/nba.csv` as the baseline — cheap, leak-free, and the bar
 every later model must clear on log loss; (2) add rest days/back-to-backs;

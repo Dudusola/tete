@@ -1,0 +1,292 @@
+{
+  "nba": {
+    "feed": "nba",
+    "params": {
+      "k": 18,
+      "hfa": 60,
+      "revert": 0.33,
+      "mov": "nba538"
+    },
+    "seasons": {
+      "warmup": 2011,
+      "train": [
+        2012,
+        2024
+      ],
+      "test": [
+        2025,
+        2026
+      ]
+    },
+    "train": {
+      "n": 16543,
+      "log_loss": 0.6165,
+      "brier": 0.2141,
+      "accuracy": 0.6559
+    },
+    "test": {
+      "elo": {
+        "n": 2643,
+        "log_loss": 0.6077,
+        "brier": 0.21,
+        "accuracy": 0.6689
+      },
+      "home_always": {
+        "n": 2643,
+        "log_loss": 0.6894,
+        "brier": 0.2481,
+        "accuracy": 0.5501
+      },
+      "coin_flip": {
+        "n": 2643,
+        "log_loss": 0.6931,
+        "brier": 0.25,
+        "accuracy": 0.5
+      }
+    },
+    "home_rate_train": 0.5761,
+    "calibration_test": [
+      {
+        "band": "50-60%",
+        "n": 842,
+        "claimed": 0.55,
+        "actual": 0.55
+      },
+      {
+        "band": "60-70%",
+        "n": 809,
+        "claimed": 0.649,
+        "actual": 0.651
+      },
+      {
+        "band": "70-80%",
+        "n": 616,
+        "claimed": 0.747,
+        "actual": 0.744
+      },
+      {
+        "band": "80-100%",
+        "n": 376,
+        "claimed": 0.851,
+        "actual": 0.851
+      }
+    ],
+    "fitted_at": "2026-09-27 03:12 UTC"
+  },
+  "nfl": {
+    "feed": "nfl",
+    "params": {
+      "k": 20,
+      "hfa": 50,
+      "revert": 0.5,
+      "mov": "log"
+    },
+    "seasons": {
+      "warmup": 2010,
+      "train": [
+        2011,
+        2023
+      ],
+      "test": [
+        2024,
+        2025
+      ]
+    },
+    "train": {
+      "n": 3526,
+      "log_loss": 0.6314,
+      "brier": 0.2199,
+      "accuracy": 0.6409
+    },
+    "test": {
+      "elo": {
+        "n": 570,
+        "log_loss": 0.6226,
+        "brier": 0.2164,
+        "accuracy": 0.6696
+      },
+      "home_always": {
+        "n": 570,
+        "log_loss": 0.6916,
+        "brier": 0.2488,
+        "accuracy": 0.536
+      },
+      "coin_flip": {
+        "n": 570,
+        "log_loss": 0.6931,
+        "brier": 0.2496,
+        "accuracy": 0.5
+      }
+    },
+    "home_rate_train": 0.56,
+    "calibration_test": [
+      {
+        "band": "50-60%",
+        "n": 239,
+        "claimed": 0.549,
+        "actual": 0.598
+      },
+      {
+        "band": "60-70%",
+        "n": 172,
+        "claimed": 0.645,
+        "actual": 0.686
+      },
+      {
+        "band": "70-80%",
+        "n": 114,
+        "claimed": 0.744,
+        "actual": 0.711
+      },
+      {
+        "band": "80-100%",
+        "n": 44,
+        "claimed": 0.845,
+        "actual": 0.886
+      }
+    ],
+    "fitted_at": "2026-09-27 03:12 UTC"
+  },
+  "nhl": {
+    "feed": "nhl",
+    "params": {
+      "k": 6,
+      "hfa": 25,
+      "revert": 0.25,
+      "mov": "log"
+    },
+    "seasons": {
+      "warmup": 2011,
+      "train": [
+        2012,
+        2024
+      ],
+      "test": [
+        2025,
+        2026
+      ]
+    },
+    "train": {
+      "n": 16468,
+      "log_loss": 0.6715,
+      "brier": 0.2394,
+      "accuracy": 0.5828
+    },
+    "test": {
+      "elo": {
+        "n": 2792,
+        "log_loss": 0.6785,
+        "brier": 0.2428,
+        "accuracy": 0.5616
+      },
+      "home_always": {
+        "n": 2792,
+        "log_loss": 0.6896,
+        "brier": 0.2482,
+        "accuracy": 0.5419
+      },
+      "coin_flip": {
+        "n": 2792,
+        "log_loss": 0.6931,
+        "brier": 0.25,
+        "accuracy": 0.5
+      }
+    },
+    "home_rate_train": 0.5417,
+    "calibration_test": [
+      {
+        "band": "50-60%",
+        "n": 1944,
+        "claimed": 0.546,
+        "actual": 0.52
+      },
+      {
+        "band": "60-70%",
+        "n": 748,
+        "claimed": 0.638,
+        "actual": 0.65
+      },
+      {
+        "band": "70-80%",
+        "n": 99,
+        "claimed": 0.73,
+        "actual": 0.707
+      },
+      {
+        "band": "80-100%",
+        "n": 1,
+        "claimed": 0.809,
+        "actual": 1.0
+      }
+    ],
+    "fitted_at": "2026-09-27 03:12 UTC"
+  },
+  "mlb": {
+    "feed": "mlb",
+    "params": {
+      "k": 4,
+      "hfa": 20,
+      "revert": 0.33,
+      "mov": "log"
+    },
+    "seasons": {
+      "warmup": 2010,
+      "train": [
+        2011,
+        2024
+      ],
+      "test": [
+        2025,
+        2026
+      ]
+    },
+    "train": {
+      "n": 33007,
+      "log_loss": 0.6798,
+      "brier": 0.2434,
+      "accuracy": 0.5637
+    },
+    "test": {
+      "elo": {
+        "n": 4888,
+        "log_loss": 0.6818,
+        "brier": 0.2444,
+        "accuracy": 0.5573
+      },
+      "home_always": {
+        "n": 4888,
+        "log_loss": 0.6906,
+        "brier": 0.2487,
+        "accuracy": 0.5358
+      },
+      "coin_flip": {
+        "n": 4888,
+        "log_loss": 0.6931,
+        "brier": 0.25,
+        "accuracy": 0.5
+      }
+    },
+    "home_rate_train": 0.5321,
+    "calibration_test": [
+      {
+        "band": "50-60%",
+        "n": 3863,
+        "claimed": 0.544,
+        "actual": 0.537
+      },
+      {
+        "band": "60-70%",
+        "n": 937,
+        "claimed": 0.633,
+        "actual": 0.62
+      },
+      {
+        "band": "70-80%",
+        "n": 88,
+        "claimed": 0.721,
+        "actual": 0.784
+      }
+    ],
+    "fitted_at": "2026-09-27 03:13 UTC"
+  }
+}
