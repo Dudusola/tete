@@ -32,6 +32,7 @@ from db.database import get_connection
 # The ONE fixture matcher — see team_match() for why this file no longer has
 # its own. consensus.py owns it; dedupe_fixtures.py and build_slip use it too.
 from models.consensus import team_sim
+from models.sports import FOOTBALL, sport_sql
 
 TOKEN = os.getenv("FOOTBALL_DATA_TOKEN")
 BASE = "https://api.football-data.org/v4"
@@ -158,10 +159,14 @@ def dates_close(d1: str, d2: str) -> bool:
 def score_our_fixtures(api_results: list) -> int:
     """Match API results to our unfinished fixtures and record scores."""
     conn = get_connection()
-    ours = conn.execute("""
-        SELECT match_id, home_team, away_team, match_date
-        FROM matches
-        WHERE match_id NOT IN (SELECT match_id FROM results)
+    # Football only: the rows below are fuzzy-matched by team name against a
+    # FOOTBALL feed. NBA/NFL fixtures (scrapers/espn_ledger.py) must never
+    # reach a soccer matcher - see models/sports.py and results_espn.py.
+    ours = conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.match_date
+        FROM matches m
+        WHERE m.match_id NOT IN (SELECT match_id FROM results)
+          {sport_sql(FOOTBALL)}
     """).fetchall()
 
     inserted = 0

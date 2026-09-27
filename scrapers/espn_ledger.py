@@ -1,5 +1,6 @@
-"""espn_basketball.py - NBA fixtures, kickoff times, live state and FINAL SCORES
-from ESPN's public scoreboard API. No key, no Cloudflare.
+"""espn_ledger.py - fixtures, tip-off times, live state and FINAL SCORES for the
+sports that are not association football. ESPN's public scoreboard, no key,
+no Cloudflare.
 
 WHAT THIS IS FOR, AND WHAT IT DELIBERATELY IS NOT
 -------------------------------------------------
@@ -9,7 +10,7 @@ second — the rule bug #16 paid for.
 
 It therefore does four things and refuses a fifth:
 
-    1. inserts NBA fixtures into `matches` with sport='basketball'
+    1. inserts fixtures into `matches` under the right `sport`
     2. writes kickoff_utc + live_state (the half of kickoff_times.py that ports)
     3. records FINAL scores into `results` once ESPN marks a game completed
     4. distinguishes "the feed is empty" from "no games are scheduled"
@@ -46,10 +47,11 @@ it is bad data. Recording it as outcome='D' would quietly poison a ledger whose
 whole purpose is verification, so an equal-score "completed" game is logged and
 SKIPPED rather than stored.
 
-`over_2_5` and `btts` are written as NULL, not 0/1. They are football semantics:
-every NBA game clears 2.5 "goals" and both teams always score, so filling them
-would be recording two facts that are true by construction and mean nothing. A
-NULL says "this question does not apply to this sport"; a 1 says "we checked".
+`over_2_5` and `btts` are written as NULL, not 0/1. They are association
+football semantics: every NBA and NFL game clears 2.5 "goals" and both sides
+essentially always score, so filling them would record two facts that are true
+by construction and mean nothing. A NULL says "this question does not apply to
+this sport"; a 1 says "we checked".
 
 EMPTY IS NOT FAILURE, BUT A DEAD FEED IS
 ----------------------------------------
@@ -63,9 +65,10 @@ So this distinguishes the two, the way clubelo.py does:
     requests succeeded, 0 events  -> exit 0 (nothing is scheduled)
 
 Usage:
-    python scrapers/espn_basketball.py                # -7 to +3 days
-    python scrapers/espn_basketball.py --days-back 45 # backfill results
-    python scrapers/espn_basketball.py --dry-run
+    python scrapers/espn_ledger.py                     # every feed, -7..+3 days
+    python scrapers/espn_ledger.py --feed nba
+    python scrapers/espn_ledger.py --days-back 45      # backfill results
+    python scrapers/espn_ledger.py --dry-run
 """
 
 import argparse
@@ -76,44 +79,71 @@ from datetime import datetime, timedelta, timezone
 
 import requests
 from loguru import logger
+from typing import NamedTuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
-from models.sports import BASKETBALL
+from models.sports import AMERICAN_FOOTBALL, BASKETBALL
 
 # The sport is a PATH SEGMENT above the league slug, which is why the four
-# football ESPN scrapers could not simply be pointed at a new slug: they all
-# hardcode ".../sports/soccer/{league}/...". Same API shape, different sport.
-BASE = "https://site.api.espn.com/apis/site/v2/sports/basketball/{league}/scoreboard"
+# association-football ESPN scrapers could not simply be pointed at a new slug:
+# they all hardcode ".../sports/soccer/{league}/...". Same API shape.
+BASE = "https://site.api.espn.com/apis/site/v2/sports/{path}/{league}/scoreboard"
 
-# slug -> league label stored in `matches.league`. One entry today; the NBA is
-# the only basketball competition docs/basketball.md researched, and adding
-# WNBA/NCAA before the NBA path is proven would be widening an unvalidated
-# surface. `mens-college-basketball` and `wnba` are the slugs when it is time.
-LEAGUES = {"nba": "NBA"}
+
+class Feed(NamedTuple):
+    """One competition, and the three facts that differ between sports.
+
+    `espn_path` is stated, never derived from `sport`: ESPN calls the American
+    game "football" and association football "soccer", which is the opposite of
+    this schema's vocabulary (see models/sports.py). Deriving it would file NFL
+    games into the soccer ledger.
+    """
+    sport: str            # our matches.sport value
+    espn_path: str        # ESPN's URL segment
+    slug: str             # ESPN's league slug
+    label: str            # what goes in matches.league
+    draws_possible: bool  # see the docstring: a per-sport FACT, not a default
+
+
+# Deliberately narrow. docs/basketball.md researched the NBA and nothing else,
+# and every extra competition here is an unvalidated surface accumulating rows
+# nobody has checked. WNBA ("wnba"), college basketball
+# ("mens-college-basketball") and college football ("college-football") are the
+# slugs when there is a reason.
+FEEDS = {
+    # The NBA plays overtime until someone wins: a tie is impossible.
+    "nba": Feed(BASKETBALL, "basketball", "nba", "NBA", draws_possible=False),
+    # The NFL plays ONE overtime period and lets a level game stand as a tie,
+    # so a draw here is a real outcome and must be recorded, not discarded.
+    "nfl": Feed(AMERICAN_FOOTBALL, "football", "nfl", "NFL", draws_possible=True),
+}
 
 # ESPN returns one scoreboard per league per day, so a window is N requests.
 # Ten threads is what results_espn.py settled on (sequential took 18 minutes
 # there and blew the 15-minute step timeout).
 MAX_WORKERS = 10
 
-ID_PREFIX = "espnbb"
+# Namespaced per sport so a second writer for the same sport would be obvious,
+# and so two sports can never mint the same match_id from ESPN's ids (they are
+# unique within a sport, not across them).
+ID_PREFIX = {BASKETBALL: "espnbb", AMERICAN_FOOTBALL: "espnnfl"}
 
 
 def _fetch_day(job) -> dict | None:
-    slug, day, session = job
+    feed, day, session = job
     try:
-        resp = session.get(BASE.format(league=slug),
+        resp = session.get(BASE.format(path=feed.espn_path, league=feed.slug),
                            params={"dates": day}, timeout=20)
         resp.raise_for_status()
         return resp.json()
     except (requests.RequestException, ValueError) as e:
-        logger.warning(f"ESPN basketball {slug} {day}: {e}")
+        logger.warning(f"ESPN {feed.espn_path}/{feed.slug} {day}: {e}")
         return None
 
 
-def fetch_window(days_back: int, days_ahead: int) -> tuple[list, int]:
-    """(events, successful_requests) across LEAGUES for the date window.
+def fetch_window(feeds: list, days_back: int, days_ahead: int) -> tuple[list, int]:
+    """(events, successful_requests) across `feeds` for the date window.
 
     The second element is what separates "feed down" from "off-season" — see
     the module docstring. Callers must check it before treating [] as failure.
@@ -121,18 +151,18 @@ def fetch_window(days_back: int, days_ahead: int) -> tuple[list, int]:
     days = [(datetime.now() + timedelta(days=d)).strftime("%Y%m%d")
             for d in range(-days_back, days_ahead + 1)]
     session = requests.Session()
-    jobs = [(slug, day, session) for slug in LEAGUES for day in days]
+    jobs = [(feed, day, session) for feed in feeds for day in days]
 
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
         responses = list(pool.map(_fetch_day, jobs))
 
     events, ok = [], 0
-    for (slug, day, _), data in zip(jobs, responses):
+    for (feed, day, _), data in zip(jobs, responses):
         if data is None:
             continue
         ok += 1
         for ev in data.get("events", []):
-            parsed = _parse_event(ev, slug)
+            parsed = _parse_event(ev, feed)
             if parsed:
                 events.append(parsed)
 
@@ -146,7 +176,7 @@ def fetch_window(days_back: int, days_ahead: int) -> tuple[list, int]:
     return uniq, ok
 
 
-def _parse_event(ev: dict, slug: str) -> dict | None:
+def _parse_event(ev: dict, feed: Feed) -> dict | None:
     """One ESPN event -> our row shape, or None if it is unusable."""
     event_id = ev.get("id")
     if not event_id:
@@ -171,9 +201,11 @@ def _parse_event(ev: dict, slug: str) -> dict | None:
 
     kickoff_utc = (ev.get("date") or "").replace("T", " ").replace("Z", "")[:16]
     return {
-        "match_id": f"{ID_PREFIX}_{event_id}",
-        "league": LEAGUES.get(slug, slug),
-        "espn_league": slug,
+        "match_id": f"{ID_PREFIX[feed.sport]}_{event_id}",
+        "sport": feed.sport,
+        "draws_possible": feed.draws_possible,
+        "league": feed.label,
+        "espn_league": feed.slug,
         "home_team": teams["home"][0],
         "away_team": teams["away"][0],
         "match_date": (ev.get("date") or "")[:10],
@@ -208,7 +240,7 @@ def store(events: list, dry_run: bool = False) -> dict:
              kickoff_time, status, kickoff_utc, live_state, live_checked_at,
              espn_league)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, [e["match_id"], BASKETBALL, e["league"], e["home_team"],
+        """, [e["match_id"], e["sport"], e["league"], e["home_team"],
               e["away_team"], e["match_date"],
               (e["kickoff_utc"] or " ")[11:16] or None,
               "finished" if e["completed"] else "upcoming",
@@ -236,18 +268,20 @@ def store(events: list, dry_run: bool = False) -> dict:
         if hs is None or as_ is None:
             logger.warning(f"  completed but no score: {e['match_id']}")
             continue
-        if hs == as_:
-            # Not a draw -- overtime makes one impossible. Bad data, and
-            # recording it would put a fake outcome in the ledger (bug #1).
+        if hs == as_ and not e["draws_possible"]:
+            # This sport plays overtime until someone wins, so an equal final
+            # score is bad data, not a draw. Recording it would put a fake
+            # outcome in the ledger (bug #1).
             counts["ties_skipped"] += 1
-            logger.warning(f"  equal final score on a completed NBA game, "
+            logger.warning(f"  equal final score where a draw is impossible, "
                            f"skipped: {e['match_id']} {hs}-{as_}")
             continue
+        outcome = "D" if hs == as_ else ("H" if hs > as_ else "A")
         cur = conn.execute("""
             INSERT OR IGNORE INTO results
             (match_id, home_goals, away_goals, outcome, over_2_5, btts)
             VALUES (?, ?, ?, ?, NULL, NULL)
-        """, [e["match_id"], hs, as_, "H" if hs > as_ else "A"])
+        """, [e["match_id"], hs, as_, outcome])
         if cur.rowcount:
             counts["results"] += 1
             logger.info(f"  scored: {e['home_team']} {hs}-{as_} "
@@ -257,31 +291,41 @@ def store(events: list, dry_run: bool = False) -> dict:
     return counts
 
 
-def run(days_back: int = 7, days_ahead: int = 3, dry_run: bool = False) -> int:
-    events, ok_requests = fetch_window(days_back, days_ahead)
+def run(feed_names: list | None = None, days_back: int = 7,
+        days_ahead: int = 3, dry_run: bool = False) -> int:
+    names = feed_names or sorted(FEEDS)
+    feeds = [FEEDS[n] for n in names]
+    events, ok_requests = fetch_window(feeds, days_back, days_ahead)
 
     if ok_requests == 0:
-        logger.error("Every ESPN basketball request failed - feed unreachable.")
+        logger.error(f"Every ESPN request failed for {', '.join(names)} "
+                     f"- feed unreachable.")
         return 1
 
     if not events:
         # Correct and expected for most of the year. See the module docstring:
         # failing here would make the pipeline red all summer.
-        logger.info(f"ESPN basketball reachable ({ok_requests} responses), "
-                    f"0 games scheduled in the window - off-season or rest day.")
+        logger.info(f"ESPN reachable ({ok_requests} responses) for "
+                    f"{', '.join(names)}, 0 games scheduled in the window "
+                    f"- off-season or rest day.")
         return 0
 
     counts = store(events, dry_run=dry_run)
     logger.success(
-        f"NBA: {len(events)} events -> {counts['fixtures']} new fixtures, "
-        f"{counts['updated']} refreshed, {counts['results']} finals recorded"
-        + (f", {counts['ties_skipped']} ties SKIPPED" if counts["ties_skipped"] else "")
+        f"{'+'.join(n.upper() for n in names)}: {len(events)} events -> "
+        f"{counts['fixtures']} new fixtures, {counts['updated']} refreshed, "
+        f"{counts['results']} finals recorded"
+        + (f", {counts['ties_skipped']} impossible ties SKIPPED"
+           if counts["ties_skipped"] else "")
     )
     return 0
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="NBA fixtures + results from ESPN")
+    ap = argparse.ArgumentParser(
+        description="Fixtures + results from ESPN for non-soccer sports")
+    ap.add_argument("--feed", action="append", choices=sorted(FEEDS),
+                    help="which competition (repeatable; default: all)")
     ap.add_argument("--days-back", type=int, default=7,
                     help="how far back to look for finals (default 7)")
     ap.add_argument("--days-ahead", type=int, default=3,
@@ -289,7 +333,7 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true",
                     help="print what would be written, touch nothing")
     args = ap.parse_args()
-    return run(args.days_back, args.days_ahead, args.dry_run)
+    return run(args.feed, args.days_back, args.days_ahead, args.dry_run)
 
 
 if __name__ == "__main__":
