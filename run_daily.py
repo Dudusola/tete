@@ -464,7 +464,7 @@ def run_pipeline() -> list:
     # on an empty schedule (off-season) and 1 only when every ESPN request
     # failed, so a red here means the feed is really down, not "no games".
     # Kept OUT of result_sources: those grade football picks, this does not.
-    run_step("Non-soccer ledger (ESPN: NFL, NBA, NHL)",
+    run_step("Non-soccer ledger (ESPN: NFL, NBA, NHL, MLB)",
              ["scrapers/espn_ledger.py"], DEGRADED)
 
     # OPTIONAL: nothing trains on data/sports_history yet - it is stockpiled

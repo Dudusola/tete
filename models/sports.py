@@ -66,10 +66,12 @@ BASKETBALL = "basketball"
 AMERICAN_FOOTBALL = "american_football"
 # "hockey" alone is field hockey in most of the world; be explicit.
 ICE_HOCKEY = "ice_hockey"
+BASEBALL = "baseball"
 
 # Every sport that may legally appear in `matches.sport`. A value outside this
 # set is a bug in whatever wrote the row, not a new sport to be tolerated.
-SPORTS = frozenset({FOOTBALL, BASKETBALL, AMERICAN_FOOTBALL, ICE_HOCKEY})
+SPORTS = frozenset({FOOTBALL, BASKETBALL, AMERICAN_FOOTBALL, ICE_HOCKEY,
+                    BASEBALL})
 
 
 def sport_sql(sport: str, alias: str = "m") -> str:

@@ -1,5 +1,5 @@
 """sports_history.py - historical results for the non-soccer ledgers (NBA, NFL,
-NHL), downloaded once and then kept current, so the training data is already
+NHL, MLB), downloaded once and then kept current, so the training data is already
 sitting in the repo on the day a model for those sports is built.
 
 WHERE IT WRITES, AND WHY NOT data/historical/
