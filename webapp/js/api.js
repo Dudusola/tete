@@ -82,13 +82,70 @@ const API_BASE = (function () {
         font-size:14px; box-shadow:0 4px 16px rgba(0,0,0,0.3); opacity:0; transition:opacity .25s;
         pointer-events:none; max-width:85vw; text-align:center; }
       #pp-toast.show { opacity:1; }
-      @media (min-width:768px) { #pp-toast { bottom:24px; } }`;
+      @media (min-width:768px) { #pp-toast { bottom:24px; } }
+      /* Keyboard focus, every page. The browser default was too faint to find
+         (Sept 2026 critique). Brand green on light, lime on dark; offset so it
+         never merges with a card or input border. :focus-visible = keyboard
+         only, so taps and clicks show nothing. */
+      :where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
+        outline:2px solid #416900; outline-offset:2px; }
+      html.dark :where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
+        outline-color:#91db2a; }`;
     const style = document.createElement("style");
     style.textContent = DARK_CSS;
     document.head.appendChild(style);
 
     const saved = localStorage.getItem("pp-theme");
     if (saved === "dark") document.documentElement.classList.add("dark");
+
+    // ── Icons and screen readers ─────────────────────────────────────────────
+    //
+    // Material Symbols draws icons from LIGATURES: the element's text is the
+    // icon's name. A screen reader reads that text, so "✓ WON" was announced
+    // "check_circle WON" and the theme button "dark_mode". Two rules, applied to
+    // every page, including cards rendered later by JavaScript:
+    //   * an icon next to real text is decoration -> aria-hidden
+    //   * an icon that IS the whole control (icon-only button/link) keeps the
+    //     control reachable but gets a real name: its title, else a plain word.
+    // An explicit aria-label written in a page always wins; this only fills gaps.
+    const ICON_NAMES = {
+        close: "Close", info: "More information", expand_more: "Expand",
+        expand_less: "Collapse", dark_mode: "Switch to dark mode",
+        light_mode: "Switch to light mode", menu: "Menu", delete: "Delete",
+        push_pin: "Pin", refresh: "Refresh", content_copy: "Copy",
+        search: "Search", arrow_back: "Back",
+    };
+    function labelIcons(root) {
+        root.querySelectorAll(".material-symbols-outlined:not([data-pp-a11y])").forEach(icon => {
+            icon.setAttribute("data-pp-a11y", "1");
+            const glyph = (icon.textContent || "").trim();
+            const control = icon.matches("button, a") ? icon : icon.closest("button, a");
+            if (icon.matches("button, a")) {
+                // The icon element is itself the control: name it, cannot hide it.
+                if (!icon.hasAttribute("aria-label")) {
+                    icon.setAttribute("aria-label", icon.title || ICON_NAMES[glyph] || glyph.replace(/_/g, " "));
+                }
+                return;
+            }
+            icon.setAttribute("aria-hidden", "true");
+            if (control && !control.hasAttribute("aria-label")) {
+                const rest = (control.textContent || "").replace(glyph, "").trim();
+                if (!rest) {
+                    control.setAttribute("aria-label", control.title || ICON_NAMES[glyph] || glyph.replace(/_/g, " "));
+                }
+            }
+        });
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+        labelIcons(document);
+        // Cards, chips and lists are rendered after load; label them as they land.
+        let pending = false;
+        new MutationObserver(() => {
+            if (pending) return;
+            pending = true;
+            requestAnimationFrame(() => { pending = false; labelIcons(document); });
+        }).observe(document.body, { childList: true, subtree: true });
+    });
 
     // Keep the phone status bar / PWA titlebar color in sync with the theme
     function syncThemeColor() {

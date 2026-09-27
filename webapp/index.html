@@ -472,8 +472,23 @@ async function loadPicks() {
         renderStarted(data.started || []);
         renderStatStrip(ALL_PICKS, stats);
         if (ALL_PICKS.length === 0) {
-            feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
-              No HIGH or MEDIUM picks right now. The model is sitting today's fixtures out — no bet is also a decision.</div>`;
+            /* Two different empties, and the old message conflated them. "The
+               model is sitting today's fixtures out" is only true if TODAY's
+               run happened and chose nothing. Before today's run lands - every
+               morning - it was a false statement about a decision nobody had
+               made yet. Compared on the LAGOS calendar (UTC+1, no DST): that is
+               the users' "today". */
+            const lagosDay = d => new Date(d.getTime() + 3600e3).toISOString().slice(0, 10);
+            const ran = UPDATED_AT ? new Date(UPDATED_AT.replace(" ", "T") + "Z") : null;
+            const ranToday = ran && !isNaN(ran) && lagosDay(ran) === lagosDay(new Date());
+            const ago = timeAgo(UPDATED_AT);
+            feed.innerHTML = ranToday
+                ? `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                     No HIGH or MEDIUM picks today. The model checked today's fixtures and is sitting them out — no bet is also a decision.</div>`
+                : `<div class="col-span-full text-center py-xl">
+                     <p class="text-body-lg font-semibold text-primary">Today's picks haven't been published yet.</p>
+                     <p class="text-body-md text-on-surface-variant mt-xs">The daily run hasn't finished${ago ? ` — the last one was ${ago}` : ""}. Check back shortly; nothing on this page is a pick for today until it does.</p>
+                   </div>`;
             status.textContent = "";
             return;
         }
