@@ -43,15 +43,22 @@
 </header>
 
 <!-- Booking-code decoder (SportyBet) -->
-<div class="bg-surface rounded-xl p-md mb-md border border-outline-variant shadow-sm">
-  <div class="flex items-center gap-xs mb-sm flex-wrap">
+<!-- Collapsed by default. Decoding and the slip tools used to sit ABOVE the
+     page's main task (building a slip from today's fixtures), pushing the
+     fixture list several screens down on a phone. Everything is kept; it
+     just waits behind one native, keyboard-accessible disclosure. -->
+<details id="code-tools" class="group bg-surface rounded-xl mb-md border border-outline-variant shadow-sm">
+  <summary class="flex items-center gap-xs flex-wrap p-md cursor-pointer list-none rounded-xl [&::-webkit-details-marker]:hidden">
     <span class="material-symbols-outlined text-secondary text-[20px]">confirmation_number</span>
-    <span class="text-body-lg font-semibold text-primary">Paste a booking code</span>
+    <span class="text-body-lg font-semibold text-primary">Have a booking code?</span>
+    <span class="text-label-sm text-on-surface-variant">Decode, trim, split, convert or merge it</span>
     <!-- Kept honest while the feature is on trial: it grades slips using a
          model whose HIGH tier is still unproven, so it must not read as
          settled advice. -->
     <span class="text-label-sm bg-surface-container-high text-on-surface-variant px-sm py-[2px] rounded-full normal-case">beta</span>
-  </div>
+    <span class="material-symbols-outlined text-on-surface-variant ml-auto transition-transform group-open:rotate-180">expand_more</span>
+  </summary>
+  <div class="px-md pb-md">
   <p class="text-label-sm text-on-surface-variant mb-sm">
     We'll show our model's view of each leg, and the final score where the match
     has finished. Coverage depends on the leagues our sources list — you'll see
@@ -135,7 +142,8 @@
     </div>
     <div id="merge-result" class="mt-sm"></div>
   </div>
-</div>
+  </div>
+</details>
 <!-- Search + market filter. The fixture cards below cap at the 6 highest
      probabilities, which is nearly always Double Chance and the safe Over/Under
      lines — so without a filter the other ~15 markets derive_markets produces
@@ -148,13 +156,13 @@
     <option value="">All markets</option>
   </select>
 </div>
-<div id="fixture-list" class="space-y-sm max-h-[70vh] overflow-y-auto pr-1">
+<div id="fixture-list" class="space-y-sm lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1">
 <div class="text-on-surface-variant">Loading fixtures…</div>
 </div>
 </section>
 
 <!-- RIGHT: the slip being built -->
-<section class="lg:sticky lg:top-24 self-start w-full">
+<section id="slip-panel" class="lg:sticky lg:top-24 self-start w-full scroll-mt-lg">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
 <div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
 <h2 class="text-body-lg text-primary font-semibold">Your Slip</h2>
@@ -200,6 +208,11 @@
 </button>
 </section>
 </main>
+<a id="slip-jump" href="#slip-panel"
+   class="hidden lg:!hidden fixed left-1/2 -translate-x-1/2 bottom-[88px] z-40 inline-flex items-center gap-xs px-md py-sm rounded-full bg-primary text-on-primary text-label-sm font-bold shadow-lg">
+  <span class="material-symbols-outlined text-[18px]">receipt_long</span>Your slip · <span id="slip-jump-n">0 legs</span>
+  <span class="material-symbols-outlined text-[18px]">arrow_downward</span>
+</a>
 
 <!-- Mobile Nav -->
 <nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface-container-lowest border-t border-outline-variant shadow-lg pb-safe">
@@ -337,7 +350,26 @@ function removeLeg(mid) {
     renderFixtures(document.getElementById("search").value);
 }
 
+/* On a phone the slip sits below the whole fixture list. A small bar above
+   the bottom nav says how many legs are in it and jumps there; it hides when
+   the slip is empty or already on screen. Desktop keeps the side panel. */
+function syncSlipJump() {
+    const bar = document.getElementById("slip-jump");
+    if (!bar) return;
+    document.getElementById("slip-jump-n").textContent = `${SLIP.length} ${SLIP.length === 1 ? "leg" : "legs"}`;
+    bar.classList.toggle("hidden", !SLIP.length || window.__ppSlipVisible === true);
+}
+if ("IntersectionObserver" in window) {
+    document.addEventListener("DOMContentLoaded", () => {
+        const panel = document.getElementById("slip-panel");
+        if (!panel) return;
+        new IntersectionObserver(([e]) => { window.__ppSlipVisible = e.isIntersecting; syncSlipJump(); })
+            .observe(panel);
+    });
+}
+
 function renderSlip() {
+    syncSlipJump();
     const box = document.getElementById("slip-legs");
     document.getElementById("leg-count").textContent = `${SLIP.length} leg${SLIP.length===1?"":"s"}`;
     // Nothing to book with an empty slip, and a live button that errors is worse
