@@ -79,8 +79,8 @@ jobs:
             echo "No new results tonight."
           else
             git commit -m "ledger: evening results $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git pull --rebase --no-edit || {
-              echo "::error::Ledger conflict — another writer touched the DB."
+            git pull --rebase --autostash --no-edit || {
+              echo "::error::git pull --rebase failed - read the git output above for the reason. If it names db/sports_predictor.db, two runs wrote the ledger; otherwise it is a worktree or network problem (bug #14: an unstaged file once caused this and was misreported as a second writer)."
               exit 1
             }
             git push

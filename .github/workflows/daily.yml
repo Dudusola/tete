@@ -181,7 +181,7 @@ jobs:
             # --autostash so any remaining stray worktree change (a log, a
             # scratch file) cannot block the pull the way it did on 10 Aug.
             git pull --rebase --autostash --no-edit || {
-              echo "::error::Ledger conflict — another writer touched the DB."
+              echo "::error::git pull --rebase failed - read the git output above for the reason. If it names db/sports_predictor.db, two runs wrote the ledger; otherwise it is a worktree or network problem (bug #14: an unstaged file once caused this and was misreported as a second writer)."
               exit 1
             }
             git push
