@@ -964,6 +964,28 @@ def get_fixtures():
     return {"count": len(fixtures), "fixtures": fixtures}
 
 
+@app.post("/api/results/lookup")
+def results_lookup(match_ids: List[str] = Body(..., embed=True)):
+    """Final scores for a list of matches - grades a user's "My Record".
+
+    Tracked picks live in Supabase (per-user, never in the committed ledger),
+    but the RESULTS they are graded against must be the same ones the public
+    track record uses, so the page asks here instead of scoring anything
+    itself. Public data only: final scores, no predictions, no user data.
+    """
+    ids = [str(m) for m in match_ids][:300]
+    if not ids:
+        return {"results": {}}
+    conn = get_connection()
+    rows = conn.execute(f"""
+        SELECT match_id, home_goals, away_goals, outcome FROM results
+        WHERE match_id IN ({",".join("?" * len(ids))})
+    """, ids).fetchall()
+    conn.close()
+    return {"results": {r["match_id"]: {"home_goals": r["home_goals"], "away_goals": r["away_goals"],
+                                        "outcome": r["outcome"]} for r in rows}}
+
+
 @app.post("/api/slip/check")
 def check_slip(legs: List[dict] = Body(..., embed=True)):
     """Score a user-assembled slip.

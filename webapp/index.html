@@ -138,6 +138,7 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 
 <script src="config.js?v=2"></script>
 <script src="js/api.js?v=37"></script>
+<script src="js/auth.js?v=1"></script>
 <script>
 // HIGH -> green badge, MEDIUM -> blue badge
 function badgeClasses(conf) {
@@ -271,6 +272,12 @@ function renderCard(p) {
         : `<div class="${badgeClasses(conf)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${conf}</div>`}
       ${consensusBadge(p.consensus)}
       ${p.consensus_adj === "boosted" ? `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Raised to HIGH because both sources back the model's pick"><span class="material-symbols-outlined text-[14px]">arrow_upward</span>consensus boost</span>` : ""}
+      ${!isDraw && !started && ["Home Win", "Away Win", "Draw"].includes(p.best_bet)
+        ? `<button type="button" class="pp-track-btn inline-flex items-center gap-xs px-sm py-base rounded-full text-label-sm font-bold border border-outline-variant text-on-surface-variant hover:border-secondary"
+                  data-track="${escapeHtml(p.match_id)}" data-sel="${escapeHtml(p.best_bet)}" aria-pressed="false"
+                  title="Add this pick to your own record (My Record)">
+             <span class="material-symbols-outlined text-[14px]" aria-hidden="true">bookmark_add</span><span class="pp-track-label">Track</span></button>`
+        : ""}
       ${p.consensus_adj === "demoted" ? `<span class="inline-flex items-center gap-xs bg-error-container text-on-error-container px-sm py-base rounded-full text-label-sm font-bold" title="Lowered to MEDIUM because both sources back a different outcome"><span class="material-symbols-outlined text-[14px]">arrow_downward</span>tier lowered</span>` : ""}
     </div>
   </div>
@@ -450,10 +457,43 @@ function renderFeed() {
           No ${CURRENT_TIER === "ALL" ? "" : CURRENT_TIER.toLowerCase() + " "}picks in this view.</div>`;
     } else {
         feed.innerHTML = shown.map(renderCard).join("");
+        syncTrackButtons();
     }
     const ago = timeAgo(UPDATED_AT);
     status.textContent = `${shown.length} of ${ALL_PICKS.length} shown${ago ? ` • updated ${ago}` : ""}`;
 }
+
+/* Track buttons -> the signed-in user's own record (js/auth.js, Supabase).
+   One delegated handler for the whole feed, because cards are re-rendered by
+   the tier/league filters. Signed out, the button goes to the sign-in page
+   rather than failing silently. */
+function syncTrackButtons() {
+    if (!window.PPAuth) return;
+    document.querySelectorAll(".pp-track-btn").forEach(b => {
+        const on = PPAuth.isTracked(b.dataset.track, b.dataset.sel);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.querySelector(".pp-track-label").textContent = on ? "Tracking" : "Track";
+    });
+}
+document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".pp-track-btn");
+    if (!b || !window.PPAuth) return;
+    await PPAuth.ready();
+    if (!PPAuth.user()) { location.href = "account.html?next=index.html"; return; }
+    const pick = ALL_PICKS.find(p => p.match_id === b.dataset.track);
+    b.disabled = true;
+    try {
+        if (PPAuth.isTracked(b.dataset.track, b.dataset.sel)) await PPAuth.untrack(b.dataset.track, b.dataset.sel);
+        else if (pick) await PPAuth.track(pick);
+    } catch (err) {
+        console.error(err);
+        showToast("Couldn't update your record — try again.");
+    } finally {
+        b.disabled = false;
+        syncTrackButtons();
+    }
+});
+if (window.PPAuth) PPAuth.onChange(syncTrackButtons);
 
 async function loadPicks() {
     const feed = document.getElementById("picks-feed");
@@ -482,7 +522,13 @@ async function loadPicks() {
             const ran = UPDATED_AT ? new Date(UPDATED_AT.replace(" ", "T") + "Z") : null;
             const ranToday = ran && !isNaN(ran) && lagosDay(ran) === lagosDay(new Date());
             const ago = timeAgo(UPDATED_AT);
-            feed.innerHTML = ranToday
+            // Third case: today's picks existed but have all kicked off - true
+            // every evening, and "sitting them out" would deny picks we made.
+            const startedToday = (data.started || []).length > 0;
+            feed.innerHTML = ranToday && startedToday
+                ? `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                     All of today's picks have kicked off — see <strong>Recently kicked off</strong> below. Tomorrow's arrive at about 07:00 Lagos time.</div>`
+                : ranToday
                 ? `<div class="col-span-full text-center text-on-surface-variant py-xl">
                      No HIGH or MEDIUM picks today. The model checked today's fixtures and is sitting them out — no bet is also a decision.</div>`
                 : `<div class="col-span-full text-center py-xl">
