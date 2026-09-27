@@ -83,6 +83,22 @@ const API_BASE = (function () {
         pointer-events:none; max-width:85vw; text-align:center; }
       #pp-toast.show { opacity:1; }
       @media (min-width:768px) { #pp-toast { bottom:24px; } }
+      /* Lime is the HIGH-confidence and primary-action colour. The active tab
+         wore it as a filled pill, which made navigation the loudest thing on
+         every screen. The tab keeps a pill (shape, not colour alone) in a
+         neutral tone, the green icon/label and the top rule. */
+      nav[class*="md:hidden"] a.pp-nav-on { background-color:#e6e8ea !important; color:#416900 !important; box-shadow:none !important; }
+      html.dark nav[class*="md:hidden"] a.pp-nav-on { background-color:#272a2c !important; color:#91db2a !important; }
+      /* Selected chips/controls are ink-on-light (bg-primary). Dark mode never
+         remapped bg-primary, so a selected chip was black on near-black. */
+      html.dark .bg-primary.text-on-primary { background-color:#e1e3e5 !important; color:#111416 !important; }
+      /* Browser surfaces carry the palette too. */
+      ::selection { background:#acf847; color:#102000; }
+      .text-data-tabular, .font-data-tabular, .tabular-nums { font-variant-numeric: tabular-nums; }
+      /* Icon ligatures: until the Material Symbols font arrives the raw names
+         ("analytics", "receipt_long") render as words on slow connections.
+         Hidden (space kept) until the font is ready; see the loader below. */
+      html:not(.pp-icons-ready) .material-symbols-outlined { color:transparent !important; overflow:hidden; }
       /* Keyboard focus, every page. The browser default was too faint to find
          (Sept 2026 critique). Brand green on light, lime on dark; offset so it
          never merges with a card or input border. :focus-visible = keyboard
@@ -94,6 +110,14 @@ const API_BASE = (function () {
     const style = document.createElement("style");
     style.textContent = DARK_CSS;
     document.head.appendChild(style);
+
+    if (document.fonts && document.fonts.load) {
+        document.fonts.load('24px "Material Symbols Outlined"')
+            .then(() => document.documentElement.classList.add("pp-icons-ready"))
+            .catch(() => {});
+    } else {
+        document.documentElement.classList.add("pp-icons-ready");
+    }
 
     const saved = localStorage.getItem("pp-theme");
     if (saved === "dark") document.documentElement.classList.add("dark");
@@ -415,7 +439,10 @@ function prettyLeague(s) {
     if (LEAGUE_CODES[s]) return LEAGUE_CODES[s];
     const cleaned = (s || "").replace(/[-_]+/g, " ").replace(/\s+/g, " ").trim();
     if (!cleaned) return "Football";
-    return cleaned.replace(/\b[a-z]/g, c => c.toUpperCase());
+    // Word starts only. \b treats accented letters as non-word characters, so
+    // the old /\b[a-z]/ turned "Fútbol" into "FúTbol" and "División" into
+    // "DivisióN" - and it ran on names the API had already prettified.
+    return cleaned.replace(/(^|\s)(\p{Ll})/gu, (m, sp, c) => sp + c.toUpperCase());
 }
 
 /* ── Shared text helpers ──────────────────────────────────────────────

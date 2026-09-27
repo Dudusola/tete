@@ -72,7 +72,7 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 </header>
 
 <!-- Summary stat strip -->
-<div id="stat-strip" class="grid grid-cols-2 md:grid-cols-4 gap-sm md:gap-md mb-lg"></div>
+<div id="stat-strip" class="mb-lg"></div>
 
 <!-- Tier filter chips + status -->
 <div class="flex flex-wrap items-center justify-between gap-sm mb-md">
@@ -260,13 +260,12 @@ function renderCard(p) {
 
     return `
 <article class="glass-card rounded-xl border border-outline-variant p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group${started ? " opacity-60" : ""}">
-  <div class="absolute left-0 top-0 bottom-0 w-[2px] bg-secondary-container opacity-0 group-hover:opacity-100 transition-opacity"></div>
-  <div class="flex justify-between items-start mb-sm">
-    <div>
+  <div class="flex justify-between items-start gap-sm mb-sm">
+    <div class="min-w-0 flex-1">
       <span class="text-label-sm text-on-tertiary-container uppercase tracking-wider">${meta}</span>
       <h2 class="text-headline-md font-headline-md text-primary mt-base">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
     </div>
-    <div class="flex flex-col items-end gap-xs">
+    <div class="flex flex-col items-end gap-xs shrink-0">
       ${isDraw
         ? `<div class="bg-tertiary-container text-on-tertiary-container px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs" title="How evenly the bookmaker prices the two sides — this is what ranks the list, not the model">${escapeHtml(p.draw_lean.tier)}</div>`
         : `<div class="${badgeClasses(conf)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${conf}</div>`}
@@ -304,37 +303,28 @@ function renderCard(p) {
     </div>
   </div>
   ${marketCheck(p)}
-  <div class="flex gap-xs mb-md text-label-sm text-on-surface-variant">
-    <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">H ${homePct}%</span>
-    <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">D ${drawPct}%</span>
-    <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">A ${awayPct}%</span>
-  </div>
   <div class="border-t border-outline-variant pt-sm">
-    <button class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary focus:outline-none" onclick="this.nextElementSibling.classList.toggle('hidden')">
-      <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> AI Analysis</span>
-      <span class="material-symbols-outlined text-[18px]">expand_more</span>
+    <button type="button" aria-expanded="false" class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary rounded"
+            onclick="const o = this.nextElementSibling.classList.toggle('hidden'); this.setAttribute('aria-expanded', o ? 'false' : 'true'); this.lastElementChild.style.transform = o ? '' : 'rotate(180deg)';">
+      <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> Details &amp; AI analysis</span>
+      <span class="material-symbols-outlined text-[18px] transition-transform">expand_more</span>
     </button>
-    <div class="hidden mt-sm text-body-md text-on-surface-variant leading-relaxed">${analysis}</div>
+    <div class="hidden mt-sm">
+      <div class="text-label-sm text-on-surface-variant mb-xs">Model's chances for each result</div>
+      <div class="flex gap-xs mb-sm text-label-sm text-on-surface-variant tabular-nums">
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">Home ${homePct}%</span>
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">Draw ${drawPct}%</span>
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">Away ${awayPct}%</span>
+      </div>
+      <div class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${analysis}</div>
+    </div>
   </div>
 </article>`;
 }
 
-// ── Summary stat strip ───────────────────────────────────────────────
-function statTile(label, value, sub, icon, accent) {
-    return `
-    <div class="glass-card rounded-xl border border-outline-variant p-md flex flex-col justify-between">
-      <div class="flex items-center justify-between">
-        <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">${label}</span>
-        <span class="material-symbols-outlined text-[18px] ${accent || "text-on-surface-variant"}">${icon}</span>
-      </div>
-      <div class="text-headline-md font-headline-md font-bold text-primary mt-base">${value}</div>
-      <div class="text-label-sm text-on-surface-variant">${sub}</div>
-    </div>`;
-}
-
+// ── Summary line ──────────────────────────────────────────────────
 function renderStatStrip(picks, stats) {
     const high = picks.filter(p => p.confidence === "HIGH").length;
-    const agree = picks.filter(p => p.consensus && p.consensus.agree).length;
     // stats.accuracy is HIGH+MEDIUM only (the picks we serve), which is the
     // flattering subset. The tile used to show it bare as "Hit rate"; it now
     // says which picks it counts and puts the every-prediction figure beside
@@ -344,11 +334,21 @@ function renderStatStrip(picks, stats) {
         ? ` · all picks ${stats.all_tiers.accuracy}%` : "";
     const accSub = stats && stats.scored_picks
         ? `${stats.correct}/${stats.scored_picks} High+Medium${all}` : "building";
+    /* One sentence, not four tiles. The tiles filled a phone's whole first
+       screen before a single pick, and "Sources agree: 0" was noise most days
+       (consensus still shows on each card when it exists). The record claim
+       keeps its denominator and the every-prediction figure, and leads to the
+       page that proves it. */
+    const n = picks.length;
+    const recordLine = stats && stats.scored_picks
+        ? ` Picks we serve have won <strong class="text-primary tabular-nums">${acc}</strong>
+             <span class="tabular-nums">(${stats.correct} of ${stats.scored_picks} graded${all ? `;${all.replace(" · ", " ")}` : ""})</span>.
+             <a href="record.html" class="text-secondary font-semibold underline underline-offset-2 whitespace-nowrap">See the full record</a>`
+        : "";
     document.getElementById("stat-strip").innerHTML =
-        statTile("Today", picks.length, "model picks", "today", "text-secondary") +
-        statTile("High conf.", high, "≥65% probability", "verified", "text-secondary") +
-        statTile("Sources agree", agree, "2+ sources aligned", "handshake", "text-secondary") +
-        statTile("Served hit rate", acc, accSub, "target", "text-secondary");
+        `<p class="text-body-md text-on-surface-variant max-w-prose">
+           <strong class="text-primary">${n} ${n === 1 ? "pick" : "picks"} today</strong>${high ? `, ${high} with high confidence` : ""}.${recordLine}
+         </p>`;
 }
 
 // ── Skeleton loading cards ───────────────────────────────────────────
@@ -374,10 +374,11 @@ let UPDATED_AT = null;
 function paintTierChips() {
     document.querySelectorAll(".tier-chip").forEach(c => {
         const on = c.dataset.tier === CURRENT_TIER;
-        c.classList.toggle("bg-secondary-container", on);
-        c.classList.toggle("text-on-secondary-container", on);
-        c.classList.toggle("border-secondary-container", on);
+        c.classList.toggle("bg-primary", on);
+        c.classList.toggle("text-on-primary", on);
+        c.classList.toggle("border-primary", on);
         c.classList.toggle("text-on-surface-variant", !on);
+        c.setAttribute("aria-pressed", on ? "true" : "false");
     });
 }
 
@@ -407,10 +408,11 @@ function buildLeagueChips() {
 function paintLeagueChips() {
     document.querySelectorAll(".league-chip").forEach(c => {
         const on = c.dataset.league === CURRENT_LEAGUE;
-        c.classList.toggle("bg-secondary-container", on);
-        c.classList.toggle("text-on-secondary-container", on);
-        c.classList.toggle("border-secondary-container", on);
+        c.classList.toggle("bg-primary", on);
+        c.classList.toggle("text-on-primary", on);
+        c.classList.toggle("border-primary", on);
         c.classList.toggle("text-on-surface-variant", !on);
+        c.setAttribute("aria-pressed", on ? "true" : "false");
     });
 }
 
