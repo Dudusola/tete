@@ -287,7 +287,8 @@ GET / ; GET /api/picks ; GET /api/picks/all ; GET /api/picks/draws ; GET /api/sl
 GET /api/consensus ; GET /api/stats ; GET /api/stats/tiers ;
 GET /api/stats/picks?tier= (drill-down) ; GET /api/stats/trend (weekly hit
 rate, for the Record chart) ; GET /api/fixtures (for slip-checker) ;
-GET /api/leagues ; POST /api/slip/check (score a user-assembled slip).
+GET /api/leagues ; POST /api/slip/check (score a user-assembled slip) ;
+POST /api/results/lookup {match_ids} (final scores - grades a user's My Record).
 Booking: POST /api/booking/decode | generate | convert | merge | split |
 optimize ; GET /api/booking/providers (authoritative list of who we can read
 from vs create on — they are NOT the same set). CORS allow_origins=["*"].
@@ -1509,7 +1510,22 @@ unknown until the honest ledger matures (`db/edge_report.py`).
        sends fail quietly and nobody notices, which is exactly the failure
        pattern behind bugs #5, #8 and #9. Log delivery counts, and treat a drop
        to zero as an alert, not as "nobody used it today".
-8. **User accounts + per-user records — DESIGNED, DEFERRED (Aug 2026).**
+8. **User accounts + per-user records — BUILT 28 Sep 2026 (PR #36).** Supabase
+   project `vtltrjsjhfdhlrqrswvt` (Boss's account). Google sign-in ONLY: Supabase's
+   built-in email delivers only to the project's own team members (2/hour), so
+   magic links would have failed for every tester. `webapp/js/auth.js` (every
+   page; publishable key is public by design) + `webapp/account.html` (My
+   Record: tracked picks graded via /api/results/lookup from the SAME results as
+   the public record, optional naira stakes + P/L, model record beside it, delete
+   account). Schema + row-level security + `delete_my_account()`:
+   `db/supabase/001_tracked_picks.sql`. GOTCHA: new Supabase projects do not
+   auto-grant tables to the API roles — without `grant ... to authenticated`
+   even signed-in users get "permission denied". Legal pages required by
+   Google's consent screen: `webapp/privacy.html`, `webapp/terms.html`
+   (contact potentialproteam@gmail.com). NEVER put user data in
+   db/sports_predictor.db. The design notes below still hold.
+
+   **Original design notes (Aug 2026):** DESIGNED, DEFERRED.
    Asked for as "every user has login details and their own record". Deferred
    for the same reason as web push: it is a LAUNCH feature, and the tier
    question isn't settled. Building auth now means maintaining it while the
