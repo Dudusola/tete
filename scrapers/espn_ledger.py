@@ -137,6 +137,25 @@ FEEDS = {
 # picks must not be diluted by games nobody should bet on.
 PRESEASON = 1
 
+# ESPN's competition.type for games that COUNT. Everything else is an
+# exhibition: ALLSTAR (NBA/NHL All-Star, NFL Pro Bowl), QRR (the 2025 4 Nations
+# Face-Off, national teams). Surveyed across 2016-2025 on 27 Sept 2026. An
+# ALLOW-list, not a block-list, on purpose: a new exhibition format arriving
+# under a type we have never seen is skipped (and logged) rather than silently
+# graded as a real game between invented teams like "Team LeBron".
+#   STD regular season and NBA play-in   CC   NBA Cup championship
+#   RD16 / QTR / SEMI / FINAL            playoff rounds
+#   QUALIFY  NHL 2020 bubble qualifying round: real, bet-on playoff games,
+#            caught by this allow-list on its first run.
+COUNTING_TYPES = frozenset({"STD", "CC", "RD16", "QTR", "SEMI", "FINAL",
+                            "QUALIFY"})
+
+# ...but the type is not reliable on its own: the 2023 NHL All-Star games
+# ("Pacific at Central") are typed SEMI, exactly like a conference final. So
+# the event's own notes are checked too. Lower-cased substrings.
+EXHIBITION_NOTES = ("all-star", "all star", "pro bowl", "rising stars",
+                    "face-off", "skills challenge")
+
 # ESPN returns one scoreboard per league per day, so a window is N requests.
 # Ten threads is what results_espn.py settled on (sequential took 18 minutes
 # there and blew the 15-minute step timeout).
@@ -204,6 +223,16 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
         return None
     comp = (ev.get("competitions") or [{}])[0]
     status = (comp.get("status") or {}).get("type", {})
+    ctype = (comp.get("type") or {}).get("abbreviation")
+    if ctype not in COUNTING_TYPES:
+        if ctype not in ("ALLSTAR", "QRR"):
+            logger.warning(f"{feed.slug} event {event_id}: unknown competition "
+                           f"type {ctype!r} - skipped; add it to "
+                           f"COUNTING_TYPES if these games count")
+        return None
+    notes = " ".join((n.get("headline") or "") for n in comp.get("notes") or []).lower()
+    if any(word in notes for word in EXHIBITION_NOTES):
+        return None
 
     teams, periods = {}, {}
     for c in comp.get("competitors", []):
@@ -246,6 +275,12 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
             decided_in = "SO"
         else:
             decided_in = "OT"
+        # A game only goes past regulation if regulation ended LEVEL. ESPN's
+        # period split is occasionally wrong (6 of 20,625 NHL games since
+        # 2010, e.g. NJD 5-2 OTT "OT" with periods summing to 5-2 in
+        # regulation), and a wrong regulation score is worse than none.
+        if decided_in != "REG" and reg_home != reg_away:
+            decided_in = reg_home = reg_away = None
 
     kickoff_utc = (ev.get("date") or "").replace("T", " ").replace("Z", "")[:16]
     return {
