@@ -370,3 +370,26 @@ Its arbitrage finder is correct maths (sum of 1/best odds < 1) but of little
 use here: SportyBet and MSport both price off Betradar, so they rarely
 disagree, and bookmakers restrict accounts that arbitrage. Licence: a GPL-2.0
 file sits in its `bb/` subfolder and none at the root — ideas only.
+
+---
+
+## 8. NBA reference search — what exists and what to use (27 Sep 2026)
+
+Searched GitHub (141 repos across eight queries), shortlisted on licence and
+substance, and read the code of five against §7. The finding that matters:
+**nothing public beats a well-built Elo by much, and one licensed Elo exists.**
+
+| Repo | Licence | Verdict |
+|---|---|---|
+| `nicidob/nba_elo` | MIT | **Use.** FiveThirtyEight's NBA Elo reimplemented (K=20, home advantage 100 Elo points, margin-of-victory multiplier `((mov+3)^0.8)/(7.5+0.006*elo_diff)`, season carry-over toward the mean), plus a logistic-regression Elo. Point-in-time by construction: a rating only ever uses games already played. |
+| `luke-lite/NBA-Prediction-Modeling` | none | Evidence, not code: on 12k games **plain Elo 65.3% beat every ML model (best 63.5%)**. |
+| `cmunch1/nba-prediction` | none | Method is sound (`rolling(..., closed="left")`, latest season held out, log loss + calibration curves, league-average-relative features). Honest: 61.5% vs home-always 58% vs a public model's 65.6%. Ideas only. |
+| `atticusdrex/nba-moneyline` | MIT | Features point-in-time (`expanding().sum().shift(1)`), but the train/test split is random (§7 rule 4). |
+| `yirgareminick/NBA-Betting-Model` | MIT | **Leaks.** `season_win_pct`/`season_avg_pts` are `shift(1).mean().over(team, season)` — a whole-season mean despite the comment "excluding current game" — and they are model inputs (§7 rule 1). |
+
+**Therefore the NBA plan:** (1) build 538-style Elo on
+`data/sports_history/nba.csv` as the baseline — cheap, leak-free, and the bar
+every later model must clear on log loss; (2) add rest days/back-to-backs;
+(3) only then try ML, and keep it only if it beats Elo on a held-out season AND
+the market comparison in §7 rule 6. The same Elo code works for the NFL, NHL and
+MLB histories with different K and home-advantage values.

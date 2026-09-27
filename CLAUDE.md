@@ -75,6 +75,7 @@ generate predictions on demand.
 - Dedup DB:             `python db/dedupe_fixtures.py` (dry run) then `--apply`
 - Score results:        `python scrapers/results_api.py` (API, reliable) and
                         `python scrapers/results.py` (Forebet scrape; `--headed` if Cloudflare-blocked)
+- Closing-line value:   `python db/clv_report.py` (does the price move toward our picks?)
 - Calibration check:    `python db/calibration_health.py` (tiers, bands, sign test, eras — run it,
                         don't re-derive item 4 by hand)
 - Non-soccer ledger:    `python scrapers/espn_ledger.py [--feed nfl|nba|nhl|mlb] [--dry-run]`
@@ -101,6 +102,20 @@ generate predictions on demand.
                           Baseline on 11 Aug: mean gap -1.0 pts, 0 disagreements of 15+ pts — i.e.
                           we currently agree with the market almost exactly, so no edge is
                           demonstrated yet either way.
+                          Since 27 Sep also records book_source + book_observed_at (WHICH feed,
+                          WHEN observed): a stored ESPN row can be days older than the pick.
+- scrapers/closing_snapshot.py  The SAME market's price just before kickoff (close_odds/close_prob/
+                          close_at/close_mins_before), hourly via `.github/workflows/closing.yml`,
+                          overwritten each run so the last pre-kickoff observation stays.
+                          Closing-line value = close_prob - book_prob: if the price keeps moving
+                          TOWARD our picks, the market is agreeing with us after the fact — the
+                          standard edge test, and it needs no match result, so it answers weeks
+                          before edge_report.py can. MUST run before kickoff: ESPN removes odds from
+                          finished games (probed), so a missed hour is a close gone for good.
+                          Reuses kickoff_times' fetcher + team matcher (bug #17) with a 3h kickoff
+                          guard. Read with db/clv_report.py, which scores only picks whose open and
+                          close came from the SAME feed (across two books "movement" is just their
+                          disagreement) and lists pre-27-Sep picks (no book_source) separately.
 - scrapers/clubelo.py     THE independent opinion. Elo ratings from api.clubelo.com (free, no key,
                           not behind Cloudflare). GET /Fixtures returns a goal-difference distribution
                           per fixture; summing it gives real H/D/A. Every OTHER source here is derived
@@ -1194,6 +1209,7 @@ unknown until the honest ledger matures (`db/edge_report.py`).
   |---|---|
   | Pipeline (fixtures -> predictions -> Telegram -> bot feed -> ledger commit) | `daily.yml`, cron 08:50 UTC |
   | Evening results sweep | `results.yml`, cron 22:00 UTC |
+  | Closing prices (CLV) | `closing.yml`, hourly at :20 (~0.6 min/run) |
   | API redeploy | Render, on every push to main |
   | Web app deploy + cache-bust | `deploy-webapp.yml`, on any push touching `webapp/` |
   The only human step left is a one-time pair of Cloudflare secrets; until they
@@ -1539,6 +1555,27 @@ unknown until the honest ledger matures (`db/edge_report.py`).
       favourite scores, so it demonstrates nothing. Skip.
     - `abzdel/NBA_Over_Under_Prediction_App` — CC0 but a plain linear regression
       its own author says not to bet on. Skip.
+    - `whisdev` re-checked in code: NO training code at all — a TypeScript port
+      of kyleskom's live pipeline loading kyleskom's pre-trained models
+      (`XGBoost_68.9%_ML...`, and a totals model literally named `50.1%_UO`).
+
+    **NBA search, 27 Sep 2026** (141 repos across eight GitHub queries, five
+    audited in code). Summary in docs/basketball.md §8:
+    - `nicidob/nba_elo` — **MIT, the one to use.** Reimplements FiveThirtyEight's
+      NBA Elo (K=20, home advantage 100, margin-of-victory multiplier, season
+      carry-over) — the standard public benchmark — plus a logistic-regression
+      version. Build it on data/sports_history/nba.csv as the NBA BASELINE.
+    - `luke-lite/NBA-Prediction-Modeling` — no licence, but the key evidence:
+      plain Elo 65.3% beat every ML model (best 63.5%) on 12k games.
+    - `cmunch1/nba-prediction` (310 stars) — no licence. Sound: rolling
+      features `closed="left"`, latest season held out, log loss + calibration,
+      honest result 61.5% vs home 58% vs a public model's 65.6%.
+    - `atticusdrex/nba-moneyline` — MIT. Point-in-time features
+      (`expanding().shift(1)`) but a RANDOM train/test split.
+    - `yirgareminick/NBA-Betting-Model` — MIT, active, but LEAKS:
+      `season_win_pct` etc. are `shift(1).mean().over(team, season)` — a
+      WHOLE-SEASON mean, commented "excluding current game" — and are model
+      inputs. Do not trust its numbers.
     **Ideas worth building, from the audit:** (a) CLOSING-LINE VALUE — snapshot
     the price again near kickoff and compare with `book_prob` at pick time.
     CLV needs no result, so it tests "do we beat the market?" far faster and

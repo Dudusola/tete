@@ -1,0 +1,77 @@
+# Closing prices — the market's price for each pick just before kickoff.
+#
+# WHY: closing-line value (does the price move toward our picks after we make
+# them?) is the fastest honest test of an edge, and it needs no match result.
+# ESPN removes odds from finished games, so the close can only be captured
+# BEFORE kickoff: every hour this does not run is closes lost for good. See
+# scrapers/closing_snapshot.py and db/clv_report.py.
+#
+# Deliberately tiny: no scraping of fixtures, no predictions, no Playwright.
+# It only writes close_* columns on predictions that already exist, so it can
+# never change a pick.
+
+name: Closing prices
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Every hour at :20. The script looks 75 minutes ahead, so GitHub's cron
+    # lag (often 10+ min) cannot leave a kickoff between two runs.
+    - cron: '20 * * * *'
+
+# Same group as every other ledger writer: one writer at a time.
+concurrency:
+  group: daily-pipeline
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  closing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install requests loguru python-dotenv
+
+      - name: Apply DB migrations
+        # The close_* columns may not exist yet if this runs before the next
+        # daily pipeline has migrated the ledger.
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python db/database.py
+
+      - name: Snapshot closing prices
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python scrapers/closing_snapshot.py
+
+      - name: Commit the updated ledger
+        if: always()
+        run: |
+          git config user.name  "potentialpro-bot"
+          git config user.email "actions@github.com"
+          git add -f db/sports_predictor.db
+          if git diff --cached --quiet; then
+            echo "No picks near kickoff this hour."
+          else
+            git commit -m "ledger: closing prices $(date -u +'%Y-%m-%d %H:%M UTC')"
+            # --autostash: bug #14 was a stray worktree change making the rebase
+            # refuse. And the message names what failed, not a guessed cause.
+            git pull --rebase --autostash --no-edit || {
+              echo "::error::git pull --rebase failed; see the log above for the actual reason."
+              exit 1
+            }
+            git push
+          fi

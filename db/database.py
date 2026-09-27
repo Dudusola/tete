@@ -197,6 +197,24 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # already exists
 
+    # CLOSING-LINE VALUE (27 Sep 2026). book_odds says what the market thought
+    # when we picked; these say what it thought just before kickoff, from the
+    # SAME feed. If prices keep moving TOWARD our picks, the market is agreeing
+    # with us after the fact — evidence of an edge that needs no match result,
+    # so it arrives weeks sooner than graded outcomes do.
+    #   book_source / book_observed_at  which feed, and WHEN the pick-time
+    #       price was observed (a stored ESPN row can be days older than the
+    #       pick; without the timestamp "movement" has no known horizon).
+    #   close_*  the latest pre-kickoff observation, overwritten by every
+    #       snapshot run until kickoff (scrapers/closing_snapshot.py).
+    for col in ("book_source TEXT", "book_observed_at TEXT",
+                "close_odds REAL", "close_prob REAL", "close_source TEXT",
+                "close_at TEXT", "close_mins_before INTEGER"):
+        try:
+            cursor.execute(f"ALTER TABLE model_predictions ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # already exists
+
     conn.commit()
     conn.close()
     logger.success("✅ Database initialized")
