@@ -189,6 +189,14 @@ generate predictions on demand.
                           training seasons ONLY, the last two complete seasons scored once. Writes
                           data/sports_history/elo_params.json + elo_ratings_<feed>.csv. Not in the
                           pipeline: nothing consumes it yet. `python models/elo.py` (~25 s).
+- models/elo_shadow.py    SHADOW Elo predictions for NFL/NBA/NHL/MLB into `shadow_predictions`, a
+                          table NOTHING serves (no endpoint, page, bot or stats query reads it), with
+                          the margin-free market probability beside each. Daily step (DEGRADED) +
+                          hourly in closing.yml, updated until kickoff. Reverts ratings for a new
+                          season the history file has not reached yet. Read with
+                          `python db/shadow_report.py` (Elo vs market log loss, paired 95% CI,
+                          graded on the FINAL result; NFL ties excluded). The evidence clock for
+                          serving any non-soccer sport (docs/basketball.md sections 5 and 7).
 - models/sports.py        `matches.sport` values (football, basketball, american_football,
                           ice_hockey, baseball) and `sport_sql()`, the WHERE fragment that keeps
                           them apart. Rejects unknown sports so a typo can't silently filter
@@ -1257,6 +1265,7 @@ unknown until the honest ledger matures (`db/edge_report.py`).
   |---|---|
   | Pipeline (fixtures -> predictions -> Telegram -> bot feed -> ledger commit) | `daily.yml`, dispatched 06:00 UTC by the Worker cron; GitHub cron 08:50 UTC as backup (guard job skips it once today ran) |
   | Worker (bot + the cron above) | `deploy-worker.yml`, on any push touching `worker/` |
+  | API keep-warm (Render free tier sleeps after ~15 min) | Worker cron `*/10 * * * *` pings /healthz |
   | Evening results sweep | `results.yml`, cron 22:00 UTC |
   | Closing prices (CLV) | `closing.yml`, hourly at :20 (~0.6 min/run) |
   | API redeploy | Render, on every push to main |

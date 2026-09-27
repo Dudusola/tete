@@ -473,6 +473,13 @@ def run_pipeline() -> list:
     run_step("Non-soccer history CSVs (ESPN)",
              ["scrapers/sports_history.py"], OPTIONAL)
 
+    # DEGRADED: shadow Elo predictions for NFL/NBA/NHL/MLB - written ONLY to
+    # shadow_predictions, which nothing serves. It is the evidence clock for
+    # "does Elo beat the market?" (db/shadow_report.py); a missed day is a day
+    # of pre-game predictions that cannot be reconstructed afterwards.
+    run_step("Shadow Elo predictions (never served)",
+             ["models/elo_shadow.py"], DEGRADED)
+
     # 3. Merge cross-source duplicate fixtures BEFORE predicting, so the same
     #    real match never gets two predictions/picks
     # DEGRADED, not CRITICAL, and the distinction is the whole lesson of this
