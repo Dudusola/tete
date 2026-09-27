@@ -1,0 +1,76 @@
+# Deploy the Telegram/cron Worker (worker/) automatically.
+#
+# Until 27 Sep 2026 the Worker was deployed by hand with `wrangler deploy`
+# from Boss's laptop, whose wrangler login had expired. It now deploys from
+# here with the same Cloudflare secrets deploy-webapp.yml uses
+# (CLOUDFLARE_API_TOKEN from the "Edit Cloudflare Workers" template +
+# CLOUDFLARE_ACCOUNT_ID).
+#
+# It also installs the Worker secret DISPATCH_TOKEN (the cron's permission to
+# start daily.yml) from the GitHub secret WORKER_DISPATCH_TOKEN. The bot's
+# other secrets (BOT_TOKEN, GITHUB_TOKEN, WEBHOOK_SECRET) are already on the
+# Worker and are left untouched - deploying code does not remove secrets.
+#
+# ONE-TIME SETUP for the cron: a fine-grained PAT with
+#   Repository access: Dudusola/tete  |  Permissions: Actions -> Read and write
+# then, in a terminal (paste at the prompt; never in a chat, never piped):
+#   gh secret set WORKER_DISPATCH_TOKEN --repo Dudusola/tete
+# Without it the Worker still deploys; the cron just logs that it has no token
+# and GitHub's own (late) schedule keeps running the pipeline.
+
+name: Deploy worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'worker/**'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check Cloudflare credentials
+        id: creds
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          DISPATCH: ${{ secrets.WORKER_DISPATCH_TOKEN }}
+        run: |
+          if [ -z "$CF_TOKEN" ] || [ -z "$CF_ACCOUNT" ]; then
+            echo "::notice::Cloudflare secrets missing - skipping worker deploy."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+          if [ -n "$DISPATCH" ]; then echo "dispatch=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::WORKER_DISPATCH_TOKEN not set - the Worker cron will not be able to start daily.yml. See the header of this file."
+            echo "dispatch=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy (with DISPATCH_TOKEN)
+        if: steps.creds.outputs.ok == 'true' && steps.creds.outputs.dispatch == 'true'
+        uses: cloudflare/wrangler-action@v3
+        env:
+          DISPATCH_TOKEN: ${{ secrets.WORKER_DISPATCH_TOKEN }}
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker
+          secrets: |
+            DISPATCH_TOKEN
+
+      - name: Deploy (code only)
+        if: steps.creds.outputs.ok == 'true' && steps.creds.outputs.dispatch != 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          workingDirectory: worker

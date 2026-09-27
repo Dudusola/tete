@@ -14,6 +14,17 @@ name: Daily pipeline
 
 on:
   workflow_dispatch:
+    inputs:
+      trigger:
+        description: "Who started this run (manual runs always go ahead)"
+        required: false
+        default: manual
+  # PRIMARY TRIGGER since 27 Sep 2026: the Cloudflare Worker's cron at 06:00
+  # UTC (worker/wrangler.toml), which calls workflow_dispatch with
+  # trigger=worker-cron. The schedule below is now the BACKUP: GitHub fired it
+  # 4-6 hours late every day 19-26 Sep, so picks reached users mid-afternoon.
+  # The guard job skips it when the Worker already produced today's run.
+  #
   # LIVE since 6 Aug 2026. Moved to a 10:00 Africa/Lagos slot on 23 Aug 2026
   # (was '0 11 * * *' = 12:00 Lagos, itself chosen because 07:30 runs were
   # Cloudflare-blocked — that reason is now moot, see PP_SKIP_FOREBET below).
@@ -40,7 +51,37 @@ permissions:
   contents: write   # to commit the updated DB back
 
 jobs:
+  # One pipeline per day. The late GitHub schedule (and any duplicate Worker
+  # call) must not run a second one: it would re-predict with moved odds AFTER
+  # people have seen the morning card, and send Telegram twice. Manual runs
+  # (trigger=manual) always go ahead - a human asked for it.
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 50
+      - id: check
+        env:
+          EVENT: ${{ github.event_name }}
+          TRIGGER: ${{ inputs.trigger }}
+        run: |
+          today=$(date -u +%Y-%m-%d)
+          if [ "$EVENT" = "workflow_dispatch" ] && [ "${TRIGGER:-manual}" = "manual" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          if git log --since="${today}T00:00:00Z" --format=%s | grep -q "^ledger: automated run ${today}"; then
+            echo "::notice::Today's pipeline already ran - ${EVENT}/${TRIGGER:-schedule} run skipped."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
   pipeline:
+    needs: guard
+    if: needs.guard.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
 
