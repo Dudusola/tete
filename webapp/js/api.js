@@ -837,6 +837,7 @@ const PotentialProAPI = {
     scoredPicks: (tier)      => apiGet(`/api/stats/picks${tier ? `?tier=${tier}` : ""}`),
     fixtures:    ()          => apiGet("/api/fixtures"),
     checkSlip:   (legs)      => apiPost("/api/slip/check", {legs}),
+    resultsFor:  (matchIds)  => apiPost("/api/results/lookup", {match_ids: matchIds}),
     decodeCode:  (provider, code) => apiPost("/api/booking/decode", {provider, code}),
     // Slip tools. convert and merge existed in the API for weeks with no way
     // to reach them from the app — built, shipped, and invisible.
