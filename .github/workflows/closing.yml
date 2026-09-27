@@ -57,6 +57,17 @@ jobs:
           PYTHONUTF8: '1'
         run: python scrapers/closing_snapshot.py
 
+      - name: Non-soccer lines, live state and finals (NFL/NBA/NHL/MLB)
+        # Stores each moneyline CHANGE in market_lines, so every game keeps
+        # its opening and closing price (ESPN deletes odds once a game is
+        # final). Also refreshes live_state and records finals. A narrow
+        # window keeps it to ~16 requests.
+        continue-on-error: true
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python scrapers/espn_ledger.py --days-back 1 --days-ahead 2
+
       - name: Commit the updated ledger
         if: always()
         run: |

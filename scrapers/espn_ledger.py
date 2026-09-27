@@ -15,9 +15,16 @@ It therefore does four things and refuses a fifth:
     3. records FINAL scores into `results` once ESPN marks a game completed
     4. distinguishes "the feed is empty" from "no games are scheduled"
 
-    NOT: odds. NOT: predictions. NOT: markets.
+    5. (27 Sep 2026) records every pre-game MONEYLINE change into
+       `market_lines` - its own table, never scraped_predictions (see below)
 
-**No odds on purpose.** ESPN does carry an NBA moneyline (probed 17 Sept 2026,
+    NOT: predictions. NOT: markets derived from them.
+
+**Odds go to market_lines, never scraped_predictions** (changed 27 Sep 2026,
+when recording started so Elo can later be tested against the market - ESPN
+deletes odds once a game is final, so unrecorded lines are gone for good).
+The original reasoning below still explains why they must stay OUT of the
+football odds path. ESPN does carry an NBA moneyline (probed 17 Sept 2026,
 `docs/basketball.md` §4a) but a 2-way market is a different shape from a 3-way
 one all the way up: `_extract_odds` gates on `if h and d and a`, the feature
 vector is `odds_home/draw/away`, and `odds_is_market` assumes that triple. The
@@ -84,6 +91,7 @@ from typing import NamedTuple
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.sports import AMERICAN_FOOTBALL, BASEBALL, BASKETBALL, ICE_HOCKEY
+from scrapers.kickoff_times import _american_to_decimal
 
 # The sport is a PATH SEGMENT above the league slug, which is why the four
 # association-football ESPN scrapers could not simply be pointed at a new slug:
@@ -304,6 +312,7 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
 
     kickoff_utc = (ev.get("date") or "").replace("T", " ").replace("Z", "")[:16]
     return {
+        "line": _moneyline(comp),
         "match_id": f"{ID_PREFIX[feed.sport]}_{event_id}",
         "sport": feed.sport,
         "draws_possible": feed.draws_possible,
@@ -327,9 +336,66 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
     }
 
 
+def _moneyline(comp: dict) -> dict | None:
+    """ESPN's moneyline for one competition as decimal odds, or None.
+
+    Same shape in all four sports (probed 27 Sep 2026): odds[].moneyline.
+    {home,away,draw}.{open,close}.odds in American format, where 'close' is
+    the CURRENT price until the game starts. DraftKings throughout. Draw is
+    absent for 2-way markets and kept NULL - never invented (bug #7).
+    """
+    for o in comp.get("odds") or []:
+        if not isinstance(o, dict):
+            continue          # ESPN puts nulls in this list
+        ml = o.get("moneyline") or {}
+
+        def price(side, when):
+            leg = ml.get(side) or {}
+            dec = _american_to_decimal((leg.get(when) or {}).get("odds"))
+            return round(dec, 3) if dec else None
+        home, away = price("home", "close"), price("away", "close")
+        if not (home and away):
+            continue
+        return {"provider": (o.get("provider") or {}).get("name"),
+                "home": home, "away": away, "draw": price("draw", "close"),
+                "open_home": price("home", "open"),
+                "open_away": price("away", "open"),
+                "open_draw": price("draw", "open")}
+    return None
+
+
+def _record_line(conn, e: dict, now: datetime) -> bool:
+    """Append a price observation if it differs from the last one stored.
+
+    Only BEFORE the game: an in-play price is a different market. Unchanged
+    prices are skipped so hourly runs do not bloat the table.
+    """
+    line = e.get("line")
+    if not line or e["live_state"] != "pre" or not e["kickoff_utc"]:
+        return False
+    last = conn.execute("""
+        SELECT odds_home, odds_away, odds_draw FROM market_lines
+        WHERE match_id = ? AND market = 'moneyline' ORDER BY id DESC LIMIT 1
+    """, [e["match_id"]]).fetchone()
+    if last and (last[0], last[1], last[2]) == (line["home"], line["away"], line["draw"]):
+        return False
+    kickoff = datetime.strptime(e["kickoff_utc"], "%Y-%m-%d %H:%M")
+    conn.execute("""
+        INSERT INTO market_lines
+        (match_id, source, provider, market, observed_at, mins_before,
+         odds_home, odds_away, odds_draw, open_home, open_away, open_draw)
+        VALUES (?, 'espn', ?, 'moneyline', ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [e["match_id"], line["provider"], now.strftime("%Y-%m-%d %H:%M:%S"),
+          int((kickoff - now).total_seconds() // 60),
+          line["home"], line["away"], line["draw"],
+          line["open_home"], line["open_away"], line["open_draw"]])
+    return True
+
+
 def store(events: list, dry_run: bool = False) -> dict:
     """Upsert fixtures, then record finals. Returns counts for the caller."""
-    counts = {"fixtures": 0, "updated": 0, "results": 0, "ties_skipped": 0}
+    counts = {"fixtures": 0, "updated": 0, "results": 0, "ties_skipped": 0,
+              "lines": 0}
     if not events:
         return counts
     conn = get_connection()
@@ -337,7 +403,7 @@ def store(events: list, dry_run: bool = False) -> dict:
         if dry_run:
             logger.info(f"  [dry-run] {e['match_date']} {e['home_team']} v "
                         f"{e['away_team']} ({e['live_state']}) "
-                        f"{e['home_score']}-{e['away_score']}")
+                        f"{e['home_score']}-{e['away_score']} line={e.get('line')}")
             continue
 
         cur = conn.execute("""
@@ -367,6 +433,9 @@ def store(events: list, dry_run: bool = False) -> dict:
                   datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
                   1 if e["completed"] else 0, e["match_id"]])
             counts["updated"] += 1
+
+        if _record_line(conn, e, datetime.now(timezone.utc).replace(tzinfo=None)):
+            counts["lines"] += 1
 
         if not e["completed"]:
             continue
@@ -430,7 +499,8 @@ def run(feed_names: list | None = None, days_back: int = 7,
     logger.success(
         f"{'+'.join(n.upper() for n in names)}: {len(events)} events -> "
         f"{counts['fixtures']} new fixtures, {counts['updated']} refreshed, "
-        f"{counts['results']} finals recorded"
+        f"{counts['results']} finals recorded, {counts['lines']} price "
+        f"changes stored"
         + (f", {counts['ties_skipped']} impossible ties SKIPPED"
            if counts["ties_skipped"] else "")
     )

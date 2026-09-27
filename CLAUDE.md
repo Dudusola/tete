@@ -161,7 +161,14 @@ generate predictions on demand.
                           differ: ESPN path (ESPN calls American football "football" and soccer
                           "soccer" — never derive the path from our sport name), draws_possible
                           (NFL yes; NBA/NHL/MLB no, so a level final is bad data and SKIPPED),
-                          reg_periods (4/4/3/9), home_may_skip_last (MLB). Exits 0 on an empty
+                          reg_periods (4/4/3/9), home_may_skip_last (MLB). Since 27 Sep 2026 it also
+                          appends every pre-game MONEYLINE change to `market_lines` (DraftKings via
+                          ESPN; open + current; full game incl. OT - grade on the FINAL score), daily
+                          in the pipeline AND hourly in closing.yml, so each game keeps its opening
+                          and closing price. Its own table on purpose: scraped_predictions is
+                          football's 3-way feature path (bug #7). This is what lets Elo be tested
+                          against the market later — ESPN deletes odds once a game is final.
+                          Exits 0 on an empty
                           schedule (off-season), 1 only if every request failed. `_parse_event` is
                           also the parser for sports_history.py — see bug #31 for what it filters.
 - scrapers/sports_history.py  Historical results for the four non-soccer leagues into
