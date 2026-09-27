@@ -60,6 +60,7 @@ from loguru import logger
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from models.consensus import team_sim
+from models.sports import FOOTBALL, sport_sql
 
 FIXTURES_URL = "http://api.clubelo.com/Fixtures"
 HEADERS = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -139,10 +140,14 @@ def attach(days: int = 5) -> tuple:
 
     conn = get_connection()
     horizon = (datetime.now() + timedelta(days=days)).strftime("%Y-%m-%d")
-    ours = conn.execute("""
-        SELECT match_id, home_team, away_team, match_date
-        FROM matches
-        WHERE match_date >= date('now') AND match_date <= ?
+    # Football only: the rows below are fuzzy-matched by team name against a
+    # FOOTBALL feed. NBA/NFL fixtures (scrapers/espn_ledger.py) must never
+    # reach a soccer matcher - see models/sports.py and results_espn.py.
+    ours = conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.match_date
+        FROM matches m
+        WHERE m.match_date >= date('now') AND m.match_date <= ?
+          {sport_sql(FOOTBALL)}
     """, [horizon]).fetchall()
 
     matched = 0

@@ -40,6 +40,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 # multi-word names whose distinguishing words disagree. It is already trusted
 # for consensus and slip building; there is no reason for a second opinion here.
 from models.consensus import same_teams, _dates_close
+from models.sports import FOOTBALL, sport_sql
 
 
 def same_fixture(m1, m2):
@@ -98,14 +99,20 @@ def run(apply=False):
     conn.row_factory = sqlite3.Row
     cur = conn.cursor()
 
-    matches = [dict(r) for r in cur.execute("""
+    matches = [dict(r) for r in cur.execute(f"""
         -- `league` is read by _best_league(). It was NOT selected here, so
         -- _best_league raised KeyError on the FIRST cluster and the whole
         -- script exited 1 — on every run since that helper was added. The
         -- pipeline step is required=False, so the run stayed green while no
         -- deduping happened at all (verified across 6 consecutive cloud runs).
-        SELECT match_id, home_team, away_team, match_date, league, created_at
-        FROM matches ORDER BY created_at ASC, id ASC
+        --
+        -- Football only. A merge here DELETES a row, and NBA/NFL fixtures carry
+        -- ESPN's exact event id (scrapers/espn_ledger.py) - they cannot have a
+        -- cross-source duplicate, only a false one.
+        SELECT m.match_id, m.home_team, m.away_team, m.match_date, m.league,
+               m.created_at
+        FROM matches m WHERE 1=1 {sport_sql(FOOTBALL)}
+        ORDER BY m.created_at ASC, m.id ASC
     """).fetchall()]
 
     # Compare only fixtures whose dates are within a day of each other, by
