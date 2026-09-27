@@ -18,6 +18,18 @@
  *   GITHUB_TOKEN     fine-grained PAT, read-only Contents on the repo
  *   WEBHOOK_SECRET   random string; Telegram echoes it back in a header so we
  *                    can reject forged requests (the URL alone is not a secret)
+ *   DISPATCH_TOKEN   fine-grained PAT, Actions: Read and write on the repo.
+ *                    Used ONLY by the cron below to start daily.yml. Separate
+ *                    from GITHUB_TOKEN on purpose: the bot's token stays
+ *                    read-only. Set via the deploy-worker.yml workflow.
+ *
+ * CRON (wrangler.toml [triggers]): starts the daily pipeline on time.
+ *   GitHub's own schedule for daily.yml ('50 8 * * *') was firing 4-6 HOURS
+ *   late every day (19-26 Sep 2026: 12:41-15:20 UTC), so the day's picks and
+ *   the Telegram push arrived mid-afternoon Lagos, after many kickoffs.
+ *   Cloudflare cron triggers fire on time, so this asks GitHub to run the
+ *   workflow NOW (workflow_dispatch). GitHub's schedule stays as a backup;
+ *   daily.yml's guard job skips it if this already produced today's run.
  *
  * VARS (plain config, safe to commit — see wrangler.toml):
  *   REPO             "owner/name"
@@ -300,7 +312,41 @@ async function handleCommand(env, chatId, text) {
   );
 }
 
+/* Start daily.yml via workflow_dispatch. GitHub answers 204 on success.
+   Never throws: a failed trigger is logged, and GitHub's own (late) schedule
+   still runs the pipeline that day, so this degrades to the old behaviour
+   rather than to no pipeline at all. */
+async function triggerDailyPipeline(env) {
+  if (!env.DISPATCH_TOKEN) {
+    console.log("cron: DISPATCH_TOKEN not set - leaving it to GitHub's schedule");
+    return;
+  }
+  const url = `https://api.github.com/repos/${env.REPO}/actions/workflows/daily.yml/dispatches`;
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.DISPATCH_TOKEN}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+        "User-Agent": "potentialpro-worker",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ ref: "main", inputs: { trigger: "worker-cron" } }),
+    });
+    console.log(res.status === 204
+      ? "cron: daily.yml dispatched"
+      : `cron: dispatch FAILED ${res.status} ${await res.text()}`);
+  } catch (err) {
+    console.log(`cron: dispatch error ${err}`);
+  }
+}
+
 export default {
+  async scheduled(controller, env, ctx) {
+    ctx.waitUntil(triggerDailyPipeline(env));
+  },
+
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
       return new Response("PotentialPro webhook is up.", { status: 200 });

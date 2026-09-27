@@ -12,3 +12,10 @@ REPO = "Dudusola/tete"
 FEED_PATH = "feed/bot_feed.json"
 # The bot calls the real API for /slip rather than rebuilding build_slip in JS.
 API_BASE = "https://potentialpro-api.onrender.com"
+
+# Starts the daily pipeline ON TIME. 06:00 UTC = 07:00 Lagos: picks and the
+# Telegram push land before the first European kickoff (11:30 UTC) instead of
+# mid-afternoon. See triggerDailyPipeline in index.js for why GitHub's own
+# schedule could not do this.
+[triggers]
+crons = ["0 6 * * *"]
