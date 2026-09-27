@@ -141,6 +141,33 @@ def load_picks(conn, tiers=None, era=None) -> list:
     return out
 
 
+def tier_calibration(conn, tiers=("HIGH", "MEDIUM")) -> list:
+    """Per-tier calibration as data, for the Record page (/api/stats).
+
+    Same picks and same Wilson interval as the printed report, so the page and
+    `python db/calibration_health.py` cannot disagree. `claim` is the mean
+    probability the model stated for the tier's graded picks; `verdict` uses
+    the report's wording rules, including "too few" below MIN_BAND_N.
+    """
+    picks = load_picks(conn, list(tiers))
+    out = []
+    for name in tiers:
+        got = [p for p in picks if p["confidence"] == name]
+        if not got:
+            continue
+        wins, n = sum(g["won"] for g in got), len(got)
+        claim = sum(g["prob"] for g in got) / n
+        p, lo, hi = wilson(wins, n)
+        verdict = ("too_few" if n < MIN_BAND_N else
+                   "under_confident" if claim < lo else
+                   "over_confident" if claim > hi else "within_noise")
+        out.append({"tier": name, "n": n, "won": wins,
+                    "actual": round(p * 100, 1), "claim": round(claim * 100, 1),
+                    "lo": round(lo * 100, 1), "hi": round(hi * 100, 1),
+                    "verdict": verdict})
+    return out
+
+
 def _row(label, wins, n, claim=None, note_width=0):
     p, lo, hi = wilson(wins, n)
     claim_s = f"{claim*100:5.1f}%" if claim is not None else "    - "

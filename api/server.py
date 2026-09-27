@@ -42,6 +42,7 @@ from models.sports import FOOTBALL, sport_sql
 from scrapers.booking_codes import attach_sporty_odds
 from models.leagues import pretty_league
 from models.gradeability import overall_coverage
+from db.calibration_health import tier_calibration
 from models.draws import rank_draws, DISCLOSURE as DRAW_DISCLOSURE
 from models.live_scores import attach as attach_live_scores
 from models.consensus import (build_consensus, _same_match, _sim,
@@ -749,6 +750,11 @@ def get_stats():
     # a random sample (bug #8: the missing half was mostly losses). Publishing
     # the accuracy without the coverage is how that went unnoticed for weeks.
     coverage = overall_coverage(conn)
+    # Does a stated probability mean what it says? Per served tier: the mean
+    # probability the model stated, how often those picks won, and the 95%
+    # interval. Computed by db/calibration_health.py - the same function the
+    # command-line report uses - so the Record page and the script agree.
+    calibration = tier_calibration(conn)
     conn.close()
 
     total = row["total"] or 0
@@ -779,6 +785,8 @@ def get_stats():
         "ceiling_pct": round((all_total - draws) / all_total * 100, 1) if all_total else None,
         # {eligible, graded, pct, ungraded, untracked_leagues, untracked_picks}
         "coverage": coverage,
+        # [{tier, n, won, actual, claim, lo, hi, verdict}] for HIGH and MEDIUM
+        "calibration": calibration,
     }
 
 
@@ -816,12 +824,18 @@ def get_stats_trend(weeks: int = Query(8, ge=2, le=26)):
     """).fetchall()
     conn.close()
 
+    # The week containing today is still being played: a 36-pick Monday-to-
+    # Saturday slice at 33% is not a collapse, and the page must say so rather
+    # than draw it like a finished week. Python's %W numbers weeks exactly as
+    # SQLite's strftime('%W') does (Monday-first), so the keys compare.
+    current_week = datetime.now(timezone.utc).strftime("%Y-%W")
     out = []
     for r in rows:
         total = r["total"] or 0
         if not total:
             continue
         out.append({
+            "in_progress": r["wk"] == current_week,
             "week": r["wk"],
             "starting": r["starting"],
             "total": total,
