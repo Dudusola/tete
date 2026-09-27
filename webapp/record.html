@@ -70,14 +70,13 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      the flattering one, which is not what a credibility page is for. The
      served-picks figure is still here, one line down, because it is the
      honest measure of what we actually publish as bets. -->
-<span class="text-label-sm text-on-primary-container uppercase tracking-widest mb-xs relative z-10">Hit rate — every prediction</span>
 <!-- White, not the lime success colour: this figure sits BELOW the ~53-55% a
      bookmaker's favourite gets, and painting it as a win contradicted the
      sentence underneath. The lime glow behind it went for the same reason. -->
 <div class="text-display-lg font-display-lg text-on-primary relative z-10 flex items-baseline">
 <span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
 </div>
-<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10 max-w-xl">All tiers incl. LOW, scored against real full-time results. A bookmaker's favourite wins about 53–55%, so this number alone is not an edge — the calibration below is where the value claim lives.</p>
+<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10 max-w-xl"><span class="text-on-primary font-semibold">of every prediction won</span> — all tiers including LOW, scored against real full-time results. A bookmaker's favourite wins about 53–55%, so this number alone is not an edge — the calibration below is where the value claim lives.</p>
 <!-- primary-fixed-dim, not on-primary-container: the latter renders ~4:1 on
      this dark hero, and the whole point of this line is that it be read. -->
 <p id="all-tiers-line" class="text-label-sm text-primary-fixed-dim mt-xs relative z-10"></p>
@@ -95,7 +94,8 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      so ~24% of matches are losses it structurally cannot avoid. Populated from
      /api/stats, hidden until the numbers arrive so it can never show stale or
      invented figures. -->
-<p id="draw-ceiling" class="hidden mt-lg p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+<div class="grid md:grid-cols-2 gap-md mt-lg items-start">
+<p id="draw-ceiling" class="hidden p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
 
 <!-- Grading coverage — the error bar on every figure above. A hit rate only
      describes the picks we could verify, and the unverifiable ones are not a
@@ -103,7 +103,8 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      (bug #8) the HIGH tier fell from 57% to 38%, because what was missing was
      mostly losses. Publishing the rate without the coverage is how that hid.
      A credibility page has to state what it did NOT check. -->
-<p id="coverage-note" class="hidden mt-md p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+<p id="coverage-note" class="hidden p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+</div>
 
 <!-- Weekly trend. A lifetime percentage hides everything that matters —
      whether calibration is improving, whether a change helped, whether a good
@@ -171,7 +172,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 
 <section class="mt-xl mb-8">
 <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm text-center text-on-surface-variant text-body-md">
-<span id="record-note">Your track record grows automatically as scored matches accumulate. Early samples are small — accuracy stabilises over time.</span>
+<span id="record-note">Updated automatically every evening as results come in. Every graded pick is counted — the losses as well as the wins.</span>
 </div>
 </section>
 </main>
@@ -252,21 +253,20 @@ function tierCard(tier, d) {
     return `
 <button type="button" data-tier="${tier}" aria-expanded="false" aria-controls="drilldown" ${clickable ? "" : "disabled"}
         class="tier-card pp-focus w-full text-left bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm relative overflow-hidden transition-all hover:shadow-md ${s.border} group ${clickable ? 'cursor-pointer' : 'opacity-80 cursor-default'}">
-  <div class="absolute left-0 top-0 bottom-0 w-1 ${s.bar} group-hover:w-2 transition-all"></div>
-  <div class="flex justify-between items-start mb-4 ml-2">
+  <div class="flex justify-between items-start mb-4">
     <span class="inline-flex items-center px-2 py-1 rounded-sm ${s.badge} text-label-sm uppercase tracking-wide">
       <span class="material-symbols-outlined text-[16px] mr-1 icon-fill" aria-hidden="true">${s.icon}</span>${tier}
     </span>
     <span class="block text-headline-md font-headline-md text-primary">${accLabel}</span>
   </div>
-  <div class="flex justify-between text-data-tabular font-data-tabular text-on-surface-variant mb-xs ml-2">
+  <div class="flex justify-between text-data-tabular font-data-tabular text-on-surface-variant mb-xs">
     <span>Picks: ${total}</span>
     <span>Correct: <span class="text-primary font-semibold">${correct}</span></span>
   </div>
-  <div class="w-full h-base bg-surface-container rounded-full overflow-hidden ml-2">
+  <div class="w-full h-base bg-surface-container rounded-full overflow-hidden">
     <div class="h-full ${s.bar} rounded-full" style="width:${acc != null ? acc : 0}%"></div>
   </div>
-  ${clickable ? `<div class="text-label-sm text-secondary font-bold mt-2 ml-2 flex items-center gap-1">View scored picks<span class="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span></div>` : ''}
+  ${clickable ? `<div class="text-label-sm text-secondary font-bold mt-2 flex items-center gap-1">View scored picks<span class="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span></div>` : ''}
 </button>`;
 }
 
@@ -414,8 +414,9 @@ async function loadRecord() {
         const at = overall.all_tiers || {};
         document.getElementById("overall-rate").textContent =
             at.accuracy != null ? at.accuracy.toFixed(1) : "0";
-        document.getElementById("total-picks").textContent = at.scored_picks || 0;
-        document.getElementById("total-correct").textContent = at.correct || 0;
+        const fmt = v => (v || 0).toLocaleString("en");
+        document.getElementById("total-picks").textContent = fmt(at.scored_picks);
+        document.getElementById("total-correct").textContent = fmt(at.correct);
 
         const allLine = document.getElementById("all-tiers-line");
         if (allLine && overall.scored_picks) {
@@ -432,7 +433,7 @@ async function loadRecord() {
             ceil.innerHTML =
                 `<strong class="text-primary">Why ${overall.ceiling_pct}% is the ceiling.</strong> ` +
                 `The model always backs a home or away win — it has never rated a draw as the ` +
-                `most likely result. ${overall.draws} of ${at.scored_picks} scored matches ` +
+                `most likely result. ${overall.draws} of ${(at.scored_picks || 0).toLocaleString("en")} scored matches ` +
                 `(${overall.draw_pct}%) ended level, and each one counts as a loss it could not ` +
                 `avoid. So the best achievable hit rate on this ledger is ${overall.ceiling_pct}%, ` +
                 `not 100%.`;
@@ -457,7 +458,7 @@ async function loadRecord() {
             }
             covEl.innerHTML =
                 `<strong class="text-primary">${cov.pct}% of the ledger was actually checked.</strong> ` +
-                `${cov.graded} of ${cov.eligible} predictions old enough to have a result ` +
+                `${cov.graded.toLocaleString("en")} of ${cov.eligible.toLocaleString("en")} predictions old enough to have a result ` +
                 `have been graded against a real full-time score. The remaining ` +
                 `${cov.ungraded} are not counted in any number on this page — neither as ` +
                 `wins nor losses.${extra} ` +
