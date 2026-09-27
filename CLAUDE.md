@@ -285,7 +285,11 @@ Payload notes worth knowing before adding a consumer:
   `book_probability` / `market_gap` (the bookmaker check), `consensus`, and a
   `started` list whose legs get `live_score` / `live_detail` / `live_final`.
 - /api/stats returns the SERVED (HIGH+MEDIUM) figures in its top-level keys
-  and everything else under `all_tiers`, plus `draws` / `ceiling_pct`.
+  and everything else under `all_tiers`, plus `draws` / `ceiling_pct`, and
+  `calibration` ([{tier, n, won, actual, claim, lo, hi, verdict}] from
+  db/calibration_health.tier_calibration — the SAME function the CLI report
+  uses, so record.html and the script cannot disagree). /api/stats/trend
+  flags the current, unfinished week with `in_progress`.
 
 ## The model
 Random Forest (scikit-learn), **70,916 matches / 102 CSV files**, feature matrix

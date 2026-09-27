@@ -17,6 +17,21 @@
 .tooltip-wrap{position:relative;display:inline-flex;}
 .tooltip-box{visibility:hidden;opacity:0;transition:opacity .15s;position:absolute;right:0;top:130%;width:260px;z-index:60;background:#131b2e;color:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:13px;line-height:1.4;}
 .tooltip-wrap:hover .tooltip-box, .tooltip-box.show{visibility:visible;opacity:1;}
+/* Keyboard focus. The critique found the default ring too faint to see; this
+   one is the brand green on light and the lime on dark, offset so it never
+   blends into a card border. :focus-visible = keyboard only, no ring on tap. */
+.pp-focus:focus-visible{outline:2px solid #416900;outline-offset:3px;}
+html.dark .pp-focus:focus-visible{outline-color:#91db2a;}
+/* Calibration scale: 40%..90% mapped to 0..100% of the track. */
+.cal-track{position:relative;height:28px;}
+.cal-axis{position:absolute;left:0;right:0;top:13px;height:2px;}
+.cal-band{position:absolute;top:8px;height:12px;border-radius:4px;}
+.cal-tick{position:absolute;top:2px;width:2px;height:24px;margin-left:-1px;}
+.cal-dot{position:absolute;top:8px;width:12px;height:12px;margin-left:-6px;border-radius:9999px;border:2px solid #fff;}
+html.dark .cal-dot{border-color:#1d2022;}
+/* bg-primary is black and api.js's dark overrides only remap TEXT-primary,
+   so the stated-probability tick vanished on the dark card. */
+html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important;}
 </style>
 </head>
 <body class="bg-surface text-on-surface min-h-screen pb-24 md:pt-16" style="font-family:'Inter',sans-serif;">
@@ -42,13 +57,13 @@
      no heading at all — and on mobile it was centred while every other page's
      title is left-aligned. Now it is an ordinary header like the other four:
      visible at every width, aligned the same way. -->
-<main class="max-w-container-max mx-auto md:px-lg pt-md md:pt-xl">
-<header class="px-gutter md:px-0 pt-md mb-lg md:mb-xl">
+<main class="max-w-container-max mx-auto px-gutter md:px-lg pt-md md:pt-xl">
+<header class="pt-md mb-lg md:mb-xl">
 <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Track Record</h1>
 <p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">Every pick we published, scored against real full-time results.</p>
 </header>
 <!-- Hero -->
-<section class="mt-gutter mx-gutter md:mx-0 p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-center text-center">
+<section class="mt-gutter p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-center text-center">
 <!-- The HEADLINE is every prediction we have made, LOW included. It was
      HIGH+MEDIUM (a friendlier 60.0% vs 57.1%) under the words "Overall Hit
      Rate" — leading with the subset means the biggest number on the page is
@@ -62,7 +77,7 @@
 <div class="text-display-lg font-display-lg text-on-primary relative z-10 flex items-baseline">
 <span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
 </div>
-<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10">All tiers incl. LOW, scored against real full-time results</p>
+<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10 max-w-xl">All tiers incl. LOW, scored against real full-time results. A bookmaker's favourite wins about 53–55%, so this number alone is not an edge — the calibration below is where the value claim lives.</p>
 <!-- primary-fixed-dim, not on-primary-container: the latter renders ~4:1 on
      this dark hero, and the whole point of this line is that it be read. -->
 <p id="all-tiers-line" class="text-label-sm text-primary-fixed-dim mt-xs relative z-10"></p>
@@ -80,7 +95,7 @@
      so ~24% of matches are losses it structurally cannot avoid. Populated from
      /api/stats, hidden until the numbers arrive so it can never show stale or
      invented figures. -->
-<p id="draw-ceiling" class="hidden mt-lg mx-gutter md:mx-0 p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+<p id="draw-ceiling" class="hidden mt-lg p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
 
 <!-- Grading coverage — the error bar on every figure above. A hit rate only
      describes the picks we could verify, and the unverifiable ones are not a
@@ -88,7 +103,7 @@
      (bug #8) the HIGH tier fell from 57% to 38%, because what was missing was
      mostly losses. Publishing the rate without the coverage is how that hid.
      A credibility page has to state what it did NOT check. -->
-<p id="coverage-note" class="hidden mt-md mx-gutter md:mx-0 p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+<p id="coverage-note" class="hidden mt-md p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
 
 <!-- Weekly trend. A lifetime percentage hides everything that matters —
      whether calibration is improving, whether a change helped, whether a good
@@ -96,7 +111,21 @@
      names it. Colour comes from the same tokens as the rest of the page, so
      dark mode is handled by the existing overrides rather than a second
      palette. -->
-<section id="trend-section" class="hidden mt-xl px-gutter md:px-0">
+<!-- Calibration. The strongest honest claim this product can make is not a hit
+     rate but that its probabilities MEAN what they say: when a served pick is
+     stated at ~75% it should win ~75% of the time. Served per tier from
+     db/calibration_health.py via /api/stats, the same function the CLI report
+     uses, so this can never disagree with it. Hidden until the numbers arrive. -->
+<section id="calibration-section" class="hidden mt-xl p-md md:p-lg bg-surface-container-lowest border border-outline-variant rounded-xl">
+  <h2 class="text-body-lg md:text-headline-md font-semibold text-primary">Does a stated probability mean what it says?</h2>
+  <p class="text-body-md text-on-surface-variant mt-xs">Every graded pick we serve, by tier.
+    <span class="whitespace-nowrap"><span class="cal-tick-key inline-block w-[2px] h-3 bg-primary align-middle" aria-hidden="true"></span> the chance the model stated, on average;</span>
+    <span class="whitespace-nowrap"><span class="inline-block w-2.5 h-2.5 rounded-full bg-secondary align-middle" aria-hidden="true"></span> how often those picks actually won;</span>
+    <span class="whitespace-nowrap"><span class="inline-block w-4 h-2.5 rounded-sm bg-secondary-container align-middle" aria-hidden="true"></span> the 95% range</span> the true rate could sit in, given how many picks there are.</p>
+  <div id="calibration-rows" class="mt-md"></div>
+  <p id="calibration-note" class="text-label-sm text-on-surface-variant mt-sm"></p>
+</section>
+<section id="trend-section" class="hidden mt-xl">
   <div class="flex items-baseline justify-between mb-md">
     <h2 class="text-body-lg font-semibold text-primary">Week by week</h2>
     <span class="text-label-sm text-on-surface-variant">hit rate, all tiers</span>
@@ -106,12 +135,12 @@
   <p id="trend-note" class="text-label-sm text-on-surface-variant mt-sm"></p>
 </section>
 
-<section class="mt-xl px-gutter md:px-0">
+<section class="mt-xl">
 <div class="flex items-center justify-between mb-md">
 <h2 class="text-body-lg font-semibold text-primary">Performance by Tier</h2>
 <span class="tooltip-wrap">
-  <button id="info-btn" class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer">info</button>
-  <span class="tooltip-box" id="info-tip">
+  <button id="info-btn" type="button" aria-label="About confidence tiers" aria-expanded="false" aria-controls="info-tip" class="pp-focus rounded-full material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer">info</button>
+  <span class="tooltip-box" id="info-tip" role="tooltip">
     <!-- Bands are filled in from /api/stats/tiers by renderTierBands(), NOT
          written here. They used to be prose — "MEDIUM — 55–65%" — and stayed
          that way for a day after the engine moved the bar to 60%, publishing
@@ -130,17 +159,17 @@
 </section>
 
 <!-- Drill-down panel -->
-<section id="drilldown" class="mt-lg px-gutter md:px-0 hidden">
+<section id="drilldown" class="mt-lg hidden" aria-live="polite">
 <div class="bg-surface-container-lowest border border-outline-variant rounded-xl shadow-sm overflow-hidden">
 <div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
 <h3 class="text-body-lg text-primary font-semibold" id="drill-title">Picks</h3>
-<button id="drill-close" class="material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer">close</button>
+<button id="drill-close" type="button" aria-label="Close list" class="pp-focus rounded-full material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer">close</button>
 </div>
 <div id="drill-list" class="divide-y divide-surface-container-high max-h-[420px] overflow-y-auto"></div>
 </div>
 </section>
 
-<section class="mt-xl px-gutter md:px-0 mb-8">
+<section class="mt-xl mb-8">
 <div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm text-center text-on-surface-variant text-body-md">
 <span id="record-note">Your track record grows automatically as scored matches accumulate. Early samples are small — accuracy stabilises over time.</span>
 </div>
@@ -215,12 +244,17 @@ function tierCard(tier, d) {
     const correct = d ? d.correct : 0;
     const accLabel = acc != null ? `${acc}%` : "—";
     const clickable = total > 0;
+    /* A <button>, not a <div>: the div was clickable with a mouse and
+       unreachable from a keyboard, and a screen reader announced nothing
+       interactive at all. aria-expanded tells it whether this tier's list is
+       the one open below. */
     return `
-<div data-tier="${tier}" class="tier-card bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm relative overflow-hidden transition-all hover:shadow-md ${s.border} group ${clickable ? 'cursor-pointer' : 'opacity-80'}">
+<button type="button" data-tier="${tier}" aria-expanded="false" aria-controls="drilldown" ${clickable ? "" : "disabled"}
+        class="tier-card pp-focus w-full text-left bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm relative overflow-hidden transition-all hover:shadow-md ${s.border} group ${clickable ? 'cursor-pointer' : 'opacity-80 cursor-default'}">
   <div class="absolute left-0 top-0 bottom-0 w-1 ${s.bar} group-hover:w-2 transition-all"></div>
   <div class="flex justify-between items-start mb-4 ml-2">
     <span class="inline-flex items-center px-2 py-1 rounded-sm ${s.badge} text-label-sm uppercase tracking-wide">
-      <span class="material-symbols-outlined text-[16px] mr-1 icon-fill">${s.icon}</span>${tier}
+      <span class="material-symbols-outlined text-[16px] mr-1 icon-fill" aria-hidden="true">${s.icon}</span>${tier}
     </span>
     <span class="block text-headline-md font-headline-md text-primary">${accLabel}</span>
   </div>
@@ -231,8 +265,8 @@ function tierCard(tier, d) {
   <div class="w-full h-base bg-surface-container rounded-full overflow-hidden ml-2">
     <div class="h-full ${s.bar} rounded-full" style="width:${acc != null ? acc : 0}%"></div>
   </div>
-  ${clickable ? `<div class="text-label-sm text-secondary mt-2 ml-2 flex items-center gap-1"><span class="material-symbols-outlined text-[14px]">touch_app</span>Tap to see picks</div>` : ''}
-</div>`;
+  ${clickable ? `<div class="text-label-sm text-secondary font-bold mt-2 ml-2 flex items-center gap-1">View scored picks<span class="material-symbols-outlined text-[16px]" aria-hidden="true">chevron_right</span></div>` : ''}
+</button>`;
 }
 
 function renderDrillRow(p) {
@@ -245,7 +279,7 @@ function renderDrillRow(p) {
     <div class="text-label-sm text-on-surface-variant">${escapeHtml(prettyLeague(p.league))} • ${escapeHtml(p.match_date)} • Pick: ${escapeHtml(p.best_bet)} • FT ${score}</div>
   </div>
   <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-bold ${won ? 'bg-secondary-container text-on-secondary-container' : 'bg-error-container text-on-error-container'}">
-    <span class="material-symbols-outlined text-[16px]">${won ? 'check_circle' : 'cancel'}</span>${won ? 'WON' : 'LOST'}
+    <span class="material-symbols-outlined text-[16px]" aria-hidden="true">${won ? 'check_circle' : 'cancel'}</span>${won ? 'WON' : 'LOST'}
   </span>
 </div>`;
 }
@@ -255,6 +289,8 @@ async function openDrill(tier) {
     const list = document.getElementById("drill-list");
     const title = document.getElementById("drill-title");
     title.textContent = `${tier} tier — scored picks`;
+    document.querySelectorAll(".tier-card").forEach(c =>
+        c.setAttribute("aria-expanded", c.dataset.tier === tier ? "true" : "false"));
     list.innerHTML = `<div class="p-md text-on-surface-variant">Loading…</div>`;
     panel.classList.remove("hidden");
     panel.scrollIntoView({behavior:"smooth", block:"nearest"});
@@ -302,22 +338,66 @@ async function renderTrend() {
     const top = Math.max(80, ...weeks.map(w => w.accuracy));   // zero baseline
     chart.innerHTML = weeks.map(w => {
         const h = Math.max(3, Math.round(w.accuracy / top * TRACK));
-        const thin = w.total < THIN;
+        // The week still being played is drawn like a thin one AND dashed:
+        // 36 picks at 33% on a Saturday is an unfinished week, not a collapse.
+        const live = !!w.in_progress;
+        const thin = w.total < THIN || live;
         return `<div class="flex-1 flex flex-col justify-end items-center"
                      title="${escapeHtml(w.starting)} — ${w.correct}/${w.total} correct (${w.accuracy}%)">
           <span class="text-label-sm ${thin ? "text-on-surface-variant" : "text-primary font-bold"} mb-1">${Math.round(w.accuracy)}</span>
-          <div class="w-full rounded-t ${thin ? "bg-outline-variant" : "bg-secondary"}"
+          <div class="w-full rounded-t ${live ? "bg-surface-container-high border border-dashed border-outline" : thin ? "bg-outline-variant" : "bg-secondary"}"
                style="height:${h}px"></div>
         </div>`;
     }).join("");
     labels.innerHTML = weeks.map(w =>
         `<div class="flex-1 text-center text-label-sm text-on-surface-variant">
-           ${escapeHtml((w.starting || "").slice(5))}<br><span class="opacity-70">n=${w.total}</span>
+           ${escapeHtml((w.starting || "").slice(5))}<br><span class="opacity-70">${w.in_progress ? `${w.total} so far` : `n=${w.total}`}</span>
          </div>`).join("");
-    const thinCount = weeks.filter(w => w.total < THIN).length;
-    note.textContent = thinCount
-        ? `Faded bars are weeks with fewer than ${THIN} graded picks — too few to read as a trend.`
-        : "";
+    const thinCount = weeks.filter(w => w.total < THIN && !w.in_progress).length;
+    const live = weeks.find(w => w.in_progress);
+    note.textContent = [
+        live ? `The dashed bar is the current week — ${live.total} graded picks so far; it is not finished.` : "",
+        thinCount ? `Faded bars are weeks with fewer than ${THIN} graded picks — too few to read as a trend.` : "",
+    ].filter(Boolean).join(" ");
+    section.classList.remove("hidden");
+}
+
+/* Calibration rows. Scale 40..90%: every served tier's numbers live in that
+   window, and a 0..100 axis would squeeze the interval into a sliver. The
+   verdict words come from the SAME rule the CLI report prints. The readout is
+   plain text, so nothing here depends on seeing the markers or their colour. */
+const CAL_LO = 40, CAL_HI = 90;
+const calX = v => `${Math.min(100, Math.max(0, (v - CAL_LO) / (CAL_HI - CAL_LO) * 100))}%`;
+const CAL_VERDICT = {
+    within_noise:    "within noise — the stated chance holds up",
+    under_confident: "wins MORE often than stated",
+    over_confident:  "wins LESS often than stated",
+    too_few:         "too few picks to judge yet",
+};
+function renderCalibration(rows) {
+    const section = document.getElementById("calibration-section");
+    if (!section || !rows || !rows.length) return;
+    const ticks = [40, 50, 60, 70, 80, 90].map(v =>
+        `<span class="absolute text-label-sm text-on-surface-variant -translate-x-1/2" style="left:${calX(v)}">${v}%</span>`).join("");
+    const axis = `<div class="hidden md:grid md:grid-cols-[120px_1fr_280px] gap-md" aria-hidden="true">
+        <span></span><div class="relative h-4">${ticks}</div><span></span></div>`;
+    document.getElementById("calibration-rows").innerHTML = axis + rows.map(r => `
+      <div class="grid grid-cols-1 md:grid-cols-[120px_1fr_280px] gap-xs md:gap-md items-center py-sm border-b border-outline-variant last:border-0">
+        <div><span class="text-label-sm font-bold text-primary">${escapeHtml(r.tier)}</span>
+             <span class="text-label-sm text-on-surface-variant md:block">${r.n} graded</span></div>
+        <div class="cal-track" aria-hidden="true">
+          <div class="cal-axis bg-outline-variant"></div>
+          <div class="cal-band bg-secondary-container" style="left:${calX(r.lo)};width:calc(${calX(r.hi)} - ${calX(r.lo)})"></div>
+          <div class="cal-tick bg-primary" style="left:${calX(r.claim)}"></div>
+          <div class="cal-dot bg-secondary" style="left:${calX(r.actual)}"></div>
+        </div>
+        <div><div class="text-body-md text-primary">Said ${r.claim}% · won ${r.actual}%</div>
+             <div class="text-label-sm text-on-surface-variant">95% range ${r.lo}–${r.hi} — ${CAL_VERDICT[r.verdict] || r.verdict}</div></div>
+      </div>`).join("");
+    const n = rows.reduce((a, r) => a + r.n, 0);
+    document.getElementById("calibration-note").textContent =
+        `LOW is never served, so it is not shown. Measured on ${n} graded picks and ` +
+        `recalculated as every new result is recorded.`;
     section.classList.remove("hidden");
 }
 
@@ -332,7 +412,7 @@ async function loadRecord() {
         // supporting line: still prominent, no longer the biggest number.
         const at = overall.all_tiers || {};
         document.getElementById("overall-rate").textContent =
-            at.accuracy != null ? Math.round(at.accuracy) : "0";
+            at.accuracy != null ? at.accuracy.toFixed(1) : "0";
         document.getElementById("total-picks").textContent = at.scored_picks || 0;
         document.getElementById("total-correct").textContent = at.correct || 0;
 
@@ -384,6 +464,7 @@ async function loadRecord() {
             covEl.classList.remove("hidden");
         }
 
+        renderCalibration(overall.calibration);
         renderTrend();
 
         const container = document.getElementById("tier-cards");
@@ -409,12 +490,18 @@ async function loadRecord() {
 
 document.addEventListener("DOMContentLoaded", () => {
     loadRecord();
-    document.getElementById("drill-close").addEventListener("click", () =>
-        document.getElementById("drilldown").classList.add("hidden"));
+    document.getElementById("drill-close").addEventListener("click", () => {
+        document.getElementById("drilldown").classList.add("hidden");
+        document.querySelectorAll(".tier-card[aria-expanded='true']").forEach(c => {
+            c.setAttribute("aria-expanded", "false");
+            c.focus();                          // return focus to where the user was
+        });
+    });
     // Tap toggle for tooltip (mobile - no hover)
     document.getElementById("info-btn").addEventListener("click", (e) => {
         e.stopPropagation();
-        document.getElementById("info-tip").classList.toggle("show");
+        const shown = document.getElementById("info-tip").classList.toggle("show");
+        e.currentTarget.setAttribute("aria-expanded", shown ? "true" : "false");
     });
     document.addEventListener("click", () =>
         document.getElementById("info-tip").classList.remove("show"));
