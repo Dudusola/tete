@@ -23,7 +23,7 @@ generate predictions on demand.
 ## Where it runs (LIVE since 6 Aug 2026 — nothing depends on Boss's laptop)
 | Piece | Host | URL / entry point |
 |---|---|---|
-| Daily pipeline | GitHub Actions | `.github/workflows/daily.yml`, 08:50 UTC ≈ 10:00 Lagos |
+| Daily pipeline | GitHub Actions | `.github/workflows/daily.yml`, started 06:00 UTC by the Worker cron (GitHub's own 08:50 cron is a backup) |
 | API (the real FastAPI) | Render free tier | https://potentialpro-api.onrender.com (`/docs`, `/healthz`) |
 | Web app (PWA) | Cloudflare Pages | https://potentialpro.pages.dev |
 | Telegram bot (interactive) | Cloudflare Worker | https://potentialpro-bot.potentialpro.workers.dev |
@@ -250,7 +250,11 @@ generate predictions on demand.
                           index.html (Picks), slip.html (Builder), record.html (Track Record),
                           consensus.html, checker.html (Slip Checker). js/api.js = fetch glue. logo.png in header.
                           Picks page has a summary stat strip, tier filter chips (All/High/Medium),
-                          skeleton loaders, and per-card "Expected: H–A" scoreline. Dark mode lives in
+                          skeleton loaders, and per-card "Expected: H–A" scoreline. ACCESSIBILITY lives in
+                          api.js too (27 Sep 2026): a :focus-visible outline on every control, and
+                          labelIcons() + a MutationObserver that aria-hide decorative Material icons
+                          (their ligature text was read aloud: "check_circle WON") and name icon-only
+                          controls. A page's own aria-label always wins. Dark mode lives in
                           js/api.js: it injects !important overrides remapping the Material tokens to a
                           dark palette under html.dark (covers accent/error/border tokens too — keep new
                           token classes in that list) + a .theme-toggle button injected in-flow into the
@@ -811,7 +815,15 @@ unknown until the honest ledger matures (`db/edge_report.py`).
       fixtures (no hardcoded list to go stale). **A cap with no affordance to
       lift it is indistinguishable from the data not existing.**
 
-25. **Over/Under and BTTS have silently vanished from the product** (found
+25. **FIXED 26 Aug 2026 (commit 452c876) — this entry was stale until 27 Sep.**
+    derive_markets no longer reads the predicted scoreline at all: the split
+    comes from the 1X2 probabilities and the TOTAL from models/goals_model.py
+    (attack/defence rates fitted on ~98k matches), so Over/Under 1.5/2.5/3.5,
+    BTTS and Result & Goals are priced on EVERY priced fixture. Verified 27 Sep:
+    a scoreline-less fixture yields all five goals families with per-fixture
+    probabilities. The history below is kept for the reasoning.
+
+    **Over/Under and BTTS have silently vanished from the product** (found
     24 Aug 2026 — NOT yet fixed, and not a regression to revert). `/api/fixtures`
     now returns only 4 market families: Match Result, Double Chance, Draw No Bet,
     Handicap. Over/Under, BTTS and Result & Goals are gated on
@@ -930,6 +942,24 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     stacking rf_v3 on top now would make it impossible to attribute either
     change. Watch rf_v2 first — that ordering is the whole reason the era
     comparison in item 4 was possible.
+
+    **TRIED 27 Sep 2026 — the proposed fix does not work as written, and was NOT
+    shipped.** What the analysis above missed: `train.py` DROPS every row where
+    either team has fewer than FORM_WINDOW (5) games (`home_matches_played >=
+    FORM_WINDOW`). So a `has_form_history` feature alone would be a constant in
+    training — the forest has never seen a thin-history row at all, while
+    serving predicts clubs with one game. The real candidate is: train on rows
+    with >=1 game AND add `home_form_n`/`away_form_n` (games in window, capped at
+    5). Measured against rf_v2 on the SAME date cutoff and the SAME 14,592 test
+    rows: overall acc 51.0% vs 51.0%, log loss 1.0000 vs 1.0002; HIGH (>=65%)
+    said 73.9%->won 74.7% vs said 73.7%->won 74.7%; thin rows are only 210 of
+    the test set (1.4%) and the new features took 0.2% of importance.
+    **No measurable gain, so no new model era.** The production thin-history
+    teams exist mostly through OUR OWN recorded results (not the CSVs), a
+    distribution the historical data cannot teach. Don't re-run this experiment
+    expecting a different answer; the next lever, if thin-MEDIUM keeps missing
+    its claim in form_depth_health.py, is a serve-side rule, measured on the
+    ledger.
 
 28. **The AI analysis was generic because the prompt made generic the only
     possible answer** (fixed 24 Aug 2026). Boss's words: "is there a way we can
@@ -1225,7 +1255,8 @@ unknown until the honest ledger matures (`db/edge_report.py`).
 - **Everything is now hands-off — what runs itself, and when.**
   | What | Trigger |
   |---|---|
-  | Pipeline (fixtures -> predictions -> Telegram -> bot feed -> ledger commit) | `daily.yml`, cron 08:50 UTC |
+  | Pipeline (fixtures -> predictions -> Telegram -> bot feed -> ledger commit) | `daily.yml`, dispatched 06:00 UTC by the Worker cron; GitHub cron 08:50 UTC as backup (guard job skips it once today ran) |
+  | Worker (bot + the cron above) | `deploy-worker.yml`, on any push touching `worker/` |
   | Evening results sweep | `results.yml`, cron 22:00 UTC |
   | Closing prices (CLV) | `closing.yml`, hourly at :20 (~0.6 min/run) |
   | API redeploy | Render, on every push to main |
