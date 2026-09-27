@@ -83,7 +83,7 @@ from typing import NamedTuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
-from models.sports import AMERICAN_FOOTBALL, BASKETBALL, ICE_HOCKEY
+from models.sports import AMERICAN_FOOTBALL, BASEBALL, BASKETBALL, ICE_HOCKEY
 
 # The sport is a PATH SEGMENT above the league slug, which is why the four
 # association-football ESPN scrapers could not simply be pointed at a new slug:
@@ -105,6 +105,10 @@ class Feed(NamedTuple):
     label: str            # what goes in matches.league
     draws_possible: bool  # see the docstring: a per-sport FACT, not a default
     reg_periods: int      # periods in regulation; any linescore past this is OT/SO
+    # Baseball: a home side leading after the top of the 9th does not bat, so
+    # its line is ONE inning shorter than the away side's (46% of MLB games,
+    # July 2025). Anywhere else, unequal lines mean bad data.
+    home_may_skip_last: bool = False
 
 
 # Deliberately narrow. docs/basketball.md researched the NBA and nothing else,
@@ -128,6 +132,12 @@ FEEDS = {
     # why decided_in / reg_*_goals exist. Playoff OT is sudden death, no SO.
     "nhl": Feed(ICE_HOCKEY, "hockey", "nhl", "NHL",
                 draws_possible=False, reg_periods=3),
+    # Extra innings until someone wins, so no draws; decided_in 'OT' means
+    # extra innings. A rain-shortened game (fewer than 9 innings, official
+    # after 5) has no regulation split and keeps NULL regulation fields.
+    # The rare historical "tie" (suspended, never resumed) is skipped.
+    "mlb": Feed(BASEBALL, "baseball", "mlb", "MLB",
+                draws_possible=False, reg_periods=9, home_may_skip_last=True),
 }
 
 # ESPN's season.type: 1 preseason, 2 regular season, 3 postseason. Preseason is
@@ -165,7 +175,7 @@ MAX_WORKERS = 10
 # and so two sports can never mint the same match_id from ESPN's ids (they are
 # unique within a sport, not across them).
 ID_PREFIX = {BASKETBALL: "espnbb", AMERICAN_FOOTBALL: "espnnfl",
-             ICE_HOCKEY: "espnnhl"}
+             ICE_HOCKEY: "espnnhl", BASEBALL: "espnmlb"}
 
 
 def _fetch_day(job) -> dict | None:
@@ -225,7 +235,10 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
     status = (comp.get("status") or {}).get("type", {})
     ctype = (comp.get("type") or {}).get("abbreviation")
     if ctype not in COUNTING_TYPES:
-        if ctype not in ("ALLSTAR", "QRR"):
+        # Known non-counting types, skipped quietly. EXH is not an exhibition
+        # in MLB: it is the PLACEHOLDER for a rained-out playoff game (2014
+        # ALCS G3, 2016 ALDS G3); the game that was played has its own id.
+        if ctype not in ("ALLSTAR", "QRR", "EXH"):
             logger.warning(f"{feed.slug} event {event_id}: unknown competition "
                            f"type {ctype!r} - skipped; add it to "
                            f"COUNTING_TYPES if these games count")
@@ -265,11 +278,18 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
     decided_in = reg_home = reg_away = None
     hl, al = periods.get("home"), periods.get("away")
     fh, fa = teams["home"][1], teams["away"][1]
-    if (status.get("completed") and hl and al and len(hl) == len(al)
-            and len(hl) >= feed.reg_periods and sum(hl) == fh and sum(al) == fa):
+    # Home skipped its last half-inning: only legitimate in regulation (in
+    # extras the away side batted last from level, so home cannot be ahead
+    # without batting) and only when home is winning.
+    skipped = (feed.home_may_skip_last and hl and al
+               and len(hl) == len(al) - 1 == feed.reg_periods - 1
+               and fh is not None and fa is not None and fh > fa)
+    if (status.get("completed") and hl and al
+            and (len(hl) == len(al) or skipped)
+            and len(al) >= feed.reg_periods and sum(hl) == fh and sum(al) == fa):
         reg_home = sum(hl[:feed.reg_periods])
         reg_away = sum(al[:feed.reg_periods])
-        if len(hl) == feed.reg_periods:
+        if len(al) == feed.reg_periods:
             decided_in = "REG"
         elif (status.get("shortDetail") or "").upper().endswith("/SO"):
             decided_in = "SO"
