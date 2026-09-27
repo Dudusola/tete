@@ -1491,27 +1491,61 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     serving; (4) only then SportyBet market ids — and use the FULL-GAME ids, not
     the regulation ones (the trap below; `results.decided_in` exists for it).
 
-    **Reference repos reviewed 27 Sep 2026** (Boss supplied them). Licence
-    decides what we may take — no licence means ideas only:
-    - `gschwaeb/NHL_Game_Prediction` — **CC0, reusable.** Frames the goal as
-      beating the moneyline's implied probability, not a coin flip. Features:
-      starting-goalie quality (GSAx, HD SV%), 5v5 xGF%, Elo, back-to-back
-      (hurts the HOME side more). Data: Natural Stat Trick (scrape) + NHL API.
-      2021, unmaintained.
-    - `skrt0215/gridiron-prophet` — **MIT, reusable with attribution.** NFL
-      win-prob + spread models, injury weighting, logs picks BEFORE games and
-      grades after (our rule). Only 4 seasons of data; odds via The Odds API.
-    - `gmalbert/hockey-predictions` — no licence, ideas only. Active. Pulls NHL
-      odds from ESPN (verify ourselves at step 1); goalie/xG from api.nhle.com.
-    - `gmalbert/baseball-predictions` — no licence. Ideas: starting-pitcher
-      matchup, park factors, bullpen workload, rest; Retrosheet for history.
-    - `nealmick/Sports-Betting-ML-Tools-NBA` — no licence, commercial
-      (FireBet.ai). Idea only: player-availability adjustment.
+    **Reference repos reviewed 27 Sep 2026** (Boss supplied them), then the
+    CODE of the promising ones audited against docs/basketball.md §7 — the
+    READMEs overstated several. Licence decides what we may take; no licence
+    means ideas only:
+    - `gschwaeb/NHL_Game_Prediction` — **CC0. The soundest method of the lot.**
+      Rolling features all `.rolling(n).sum().shift()` (point-in-time), trains
+      2017-20 and tests the unseen 2021 season, scores LOG LOSS against a
+      home-win baseline AND against the bookmaker's implied odds — and admits
+      the market won (0.6529 vs 0.6555). Profit test bets vs the closing line
+      incl. vig (a hard bar); +2.04% ROI on one season is noise, not claimed
+      as more. One leak: a game's goalie is whoever played >=28.5 min OF THAT
+      GAME, so a pulled starter is replaced by the reliever — outcome leaks
+      in. Use the announced starter instead. Features: goalie GSAx/HD SV%,
+      5v5 xGF%, Elo, back-to-back. 2021, unmaintained.
+    - `skrt0215/gridiron-prophet` — MIT. **Downgraded on audit.** The base RF is
+      clean (pre-game cumulative stats, chronological split) but weak. The
+      served "predicted spread" is HAND-WEIGHTED — `(p-0.5)*20 + record*8 +
+      history*5 + points*0.3 + injuries*0.3 + 2.5`, never fitted — so its
+      "3+ point edge vs DraftKings" is uncalibrated. Its weekly "spread
+      accuracy" compares abs(predicted margin) to abs(actual margin), so it is
+      direction-blind. Worth taking: `roi_tracker.py`'s ATS grading is
+      correct (cover margin, pushes, -110), and picks are logged pre-game.
+    - `gmalbert/hockey-predictions` — no licence. Training features are
+      point-in-time (`compute_team_stats_up_to`, strict `< date`) with
+      isotonic calibration and log loss/Brier — good. But the test split is
+      RANDOM, and train/serve differ: PP%/PK% are "simplified" estimates from
+      goals in training but real NHL-API figures at serve time (bug #7's
+      shape). Ideas: rest advantage; ESPN as an NHL odds source (verify).
+    - `gmalbert/baseball-predictions` — no licence. **Two codebases in one.**
+      `src/features/asof.py` + `src/evaluation/walk_forward.py` +
+      `src/models/training.py` are the best evaluation framework seen:
+      as-of joins that RAISE on a future observation, purged chronological
+      train/calibration/test folds with an embargo day, metrics against a
+      constant AND the market's own probability, hashed model manifests. But
+      the models the site serves bypass it: `src/models/features.py` joins
+      "same-season ... full-season aggregates" (its own docstring) — WPct,
+      RS/G, starter ERA for the whole season, including the game itself. Its
+      published results are inflated by exactly §7 rule 1. Copy the
+      framework's IDEAS, not its model numbers. `clv.py` defines CLV as
+      open-vs-close line movement.
+    - `nealmick/Sports-Betting-ML-Tools-NBA` — GPL-2.0 file in a subfolder,
+      none at root. Methodology inflated by end-of-season averages and
+      box-score lineups; full write-up is docs/basketball.md §7.
     - `whisdev/NBA-prediction-sports-betting` — no licence; same "~69%" pitch as
       kyleskom's repo below. 69% is roughly what always backing the NBA
       favourite scores, so it demonstrates nothing. Skip.
     - `abzdel/NBA_Over_Under_Prediction_App` — CC0 but a plain linear regression
       its own author says not to bet on. Skip.
+    **Ideas worth building, from the audit:** (a) CLOSING-LINE VALUE — snapshot
+    the price again near kickoff and compare with `book_prob` at pick time.
+    CLV needs no result, so it tests "do we beat the market?" far faster and
+    with less noise than waiting for graded outcomes; it applies to FOOTBALL
+    today. (b) Report model log loss against the market's log loss on the
+    same picks (gschwaeb's test). (c) As-of assertions in any new feature
+    builder (baseball's `point_in_time_join`), per §7 rule 1.
     Features we can already build from data/sports_history: rest days and
     back-to-backs (dates), home advantage (neutral_site), Elo from results.
     Goalie / starting pitcher need a new source (api-web.nhle.com,
