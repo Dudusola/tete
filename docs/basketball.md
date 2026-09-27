@@ -1,6 +1,11 @@
 # Basketball as the second sport — groundwork, 11 Aug 2026
 
-> Status: **RESEARCH ONLY. Nothing built, nothing wired into the pipeline.**
+> Status (27 Sep 2026): **the LEDGER and the TRAINING HISTORY exist; no model,
+> odds, markets or picks.** `scrapers/espn_ledger.py` records NBA (and NFL, NHL,
+> MLB) fixtures and finals daily; `data/sports_history/nba.csv` holds 20,497
+> games since 2010-11. Before building the model, read §7.
+>
+> Original status (11 Aug): **RESEARCH ONLY. Nothing built, nothing wired into the pipeline.**
 > The decision in CLAUDE.md stands — the second sport waits until football is
 > validated. This file exists so that when that day comes, the unknowns are
 > already answered and the traps are already found. Everything below was
@@ -212,12 +217,17 @@ the least risky; the plumbing is what actually decides whether this works.
 1. ~~**Probe ESPN NBA odds**~~ **DONE 17 Sept 2026 — moneyline present (§4a).**
    Replaced by: re-probe a mid-season week and COUNT moneyline coverage, and
    write a basketball odds extractor rather than reusing the 3-way one.
-2. Results + kickoffs: port `results_espn.py` / `kickoff_times.py` with the NBA
-   slug. This starts building a gradeable ledger BEFORE any prediction exists,
+2. ~~Results + kickoffs~~ **DONE 23-27 Sept 2026** as `scrapers/espn_ledger.py`
+   (one ledger for NBA/NFL/NHL/MLB, results joined on ESPN's event id, with
+   `results.decided_in` + regulation scores for §2). Original note: port
+   `results_espn.py` / `kickoff_times.py` with the NBA slug. This starts building a gradeable ledger BEFORE any prediction exists,
    which is the right way round — coverage first, claims second (bug #16).
    Note the odds half of `kickoff_times.py` does NOT port (§4a catch 1); the
    kickoff/live-state half does.
-3. Build the training set from ESPN history (~18k games).
+3. ~~Build the training set from ESPN history~~ **DONE 27 Sept 2026:**
+   `data/sports_history/nba.csv`, 20,497 games, preseason and All-Star games
+   excluded, franchise ids stored. Results only — every FEATURE built from it
+   must pass §7.
 4. Model: RF or XGBoost, moneyline first, totals as a SEPARATE model.
    Include days-rest. Keep `MODEL_VERSION` eras separable from football's.
 5. Booking codes: markets 219/223/225 only, with a test that asserts no
@@ -270,3 +280,93 @@ That reason has now been served rather than abandoned: the ledger got its time.
 Point 6 of §5 is what carries the principle forward — **per-sport track records,
 never blended** — because the moment basketball ships, football's 1,347-pick
 record is the thing a blended number would put at risk.
+
+---
+
+## 7. Leakage checklist — read BEFORE writing the trainer (27 Sep 2026)
+
+Written after reading the full codebase of
+`nealmick/Sports-Betting-ML-Tools-NBA` (the FireBet.ai tool Boss found). Its
+idea is sound — predict both SCORES, derive the margin, and only bet where the
+model disagrees with the spread by N+ points. Its published results are not,
+because the pipeline makes almost every leakage mistake available, and each one
+INFLATES the numbers rather than breaking anything visibly. Each item below is
+one of its mistakes, restated as a rule. They apply to every non-soccer sport,
+not just basketball, and most are also the lessons of football's bugs #7 and #18.
+
+1. **Point-in-time features only.** Every feature for a game on date D is
+   computed from games strictly BEFORE D. Never season averages or
+   end-of-season aggregates. *Their mistake:* player features were each
+   player's FULL-SEASON average, so a November game was predicted using how
+   good the player turned out to be by April.
+   **Enforce it with a test, not a promise:** build a game's features from the
+   full history, then again from the history truncated at D, and assert they
+   are identical. Run it on a random sample of games in CI.
+
+2. **Availability as it was known BEFORE tip-off.** Injury or lineup
+   information may only come from a snapshot taken at pick time, the way
+   `market_snapshot.py` snapshots the price. *Their mistake:* the "top 7
+   players" were taken from the BOX SCORE of the game being predicted, so the
+   model knew who had actually played. If there is no pre-game snapshot,
+   leave availability out rather than reconstruct it afterwards.
+
+3. **One feature builder for training and serving.** The same function builds
+   both, so what the model learns on is what it sees live. *Their mistake:*
+   training used the box-score lineup and serving used the roster — the
+   train/serve mismatch that is football's bug #7. Assert the feature column
+   list at serve time equals the one saved with the model.
+
+4. **Split by DATE, never at random.** The test set is a later period in full
+   (e.g. the last season), with no same-season aggregate shared across the
+   split. `models/train.py` already does a time-aware 80/20; copy that.
+   *Their mistake:* the test set was a random half of 2021-22 games, with the
+   other half in training — and both halves shared the same season averages,
+   so the test mostly measured memory. Inside training, `test_size=0.0001`
+   meant no validation at all.
+
+5. **No hardcoded seasons or dates on the serving path.** *Their mistake:*
+   live predictions loaded `2022SeasonAverages` long after 2022. Derive the
+   current season from the date, and fail loudly when its data is missing
+   (bug #10's "right today, wrong in six weeks").
+
+6. **Beat the MARKET, not a coin.** The baseline is "always back the
+   favourite", roughly 65-68% in the NBA — so a claimed "69% accuracy"
+   demonstrates nothing on its own. Report results the way
+   `db/edge_report.py` does for football: grouped by how far we disagreed with
+   the de-vigged market price at pick time, with 95% intervals, compared with
+   what the market implied. Not against a flat -110.
+
+7. **Classification metrics for probabilities.** Log loss or Brier score, plus
+   calibration by probability band (`db/calibration_health.py` shape).
+   *Their mistake:* Keras `accuracy` on a regression model, which is
+   meaningless.
+
+8. **Retrain on a schedule, never per game.** Each retrain gets a new
+   `MODEL_VERSION` so the eras stay separable in the ledger. *Their mistake:*
+   a "retrain" button nudged the weights after every single result, which
+   chases noise and makes the model's history unrecoverable.
+
+9. **Snapshot the price at pick time, or the edge question cannot be
+   answered.** Odds move and cannot be backfilled (`market_snapshot.py`). A
+   pick with no stored price is a pick whose edge is unknowable.
+
+10. **Regulation vs full game (§2).** Grade and book full-game markets
+    (219/223/225) against the final, and never let a regulation market
+    (1/11/18) reach a basketball leg. `results.decided_in` and
+    `reg_*_goals` exist so any regulation grading can be done honestly.
+
+11. **Only games that count.** Preseason, All-Star and other exhibitions are
+    already excluded by `espn_ledger._parse_event` (CLAUDE.md bug #31). A new
+    data source must reuse that parser or reproduce its filters.
+
+Safe to use freely, because they are genuinely known in advance: rest days
+and back-to-backs (the schedule is published months ahead), home/away and
+`neutral_site`, and Elo or form built only from earlier results.
+
+What IS worth taking from that repo: predicting both scores gives win
+probability, spread and total from one model — a reasonable alternative to
+separate moneyline and totals models, **provided every input passes 1-5.**
+Its arbitrage finder is correct maths (sum of 1/best odds < 1) but of little
+use here: SportyBet and MSport both price off Betradar, so they rarely
+disagree, and bookmakers restrict accounts that arbitrage. Licence: a GPL-2.0
+file sits in its `bb/` subfolder and none at the root — ideas only.
