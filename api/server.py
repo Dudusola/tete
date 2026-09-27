@@ -679,16 +679,20 @@ def get_consensus():
     multi = [c for c in consensus if len(c["sources"]) >= 2]
 
     live = sorted({s for c in consensus for s in c["sources"]})
+    # Diagnosis text is shown to users verbatim: name sources, not slugs.
+    label = {"espn": "ESPN", "predictz": "PredictZ", "forebet": "Forebet",
+             "apifootball": "API-Football", "clubelo": "ClubElo"}
+    named = [label.get(s, s) for s in live]
     if len(live) < 2:
         diagnosis = ("Only one source is currently publishing usable "
-                     "percentages" + (f" ({live[0]})" if live else "") +
+                     "percentages" + (f" ({named[0]})" if live else "") +
                      ". Consensus needs at least two to compare.")
     elif not multi:
-        diagnosis = (f"{len(live)} sources are live ({', '.join(live)}) but "
+        diagnosis = (f"{len(live)} sources are live ({', '.join(named)}) but "
                      "they cover different fixtures, so none can be "
                      "cross-checked yet.")
     elif not agreed:
-        diagnosis = (f"{len(multi)} fixture(s) have two or more sources, but "
+        diagnosis = (f"{len(multi)} {'fixture has' if len(multi) == 1 else 'fixtures have'} two or more sources, but "
                      "the sources disagree on every one.")
     else:
         diagnosis = None

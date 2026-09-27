@@ -35,10 +35,7 @@
 
 <main class="max-w-container-max mx-auto px-md md:px-lg pt-md pb-xl">
 <header class="mb-lg pt-md md:pt-xl">
-<div class="flex items-center gap-sm mb-xs">
-<span class="material-symbols-outlined icon-fill text-secondary text-[32px]">groups</span>
-<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Where sources agree</h1>
-</div>
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary mb-xs">Where sources agree</h1>
 <!-- This used to promise "independent prediction sources" and call agreement
      "a stronger signal", above a verified tick on every card. Most live
      sources read bookmaker odds, so their agreement is one market seen twice.
@@ -50,7 +47,7 @@ Fixtures where every source we have points to the same result. Agreement is only
 </header>
 
 <!-- Summary strip -->
-<div id="summary" class="mb-lg flex flex-wrap gap-md text-body-md text-on-surface-variant"></div>
+<div id="summary" class="mb-lg flex flex-wrap gap-x-lg gap-y-xs text-body-md text-on-surface-variant"></div>
 
 <!-- Cards -->
 <div id="consensus-grid" class="grid grid-cols-1 lg:grid-cols-2 gap-md md:gap-lg">
@@ -135,13 +132,11 @@ async function loadConsensus() {
     try {
         const data = await PotentialProAPI.consensus();
         summary.innerHTML = `
-            <span><strong class="text-primary">${data.total_fixtures}</strong> upcoming ${data.total_fixtures === 1 ? "fixture" : "fixtures"}</span>
-            <span>•</span>
-            <span><strong class="text-primary">${data.covered_by_multiple}</strong> covered by 2+ sources</span>
-            <span>•</span>
-            <span><strong class="text-secondary">${data.agreed_count}</strong> with full agreement</span>`;
+            <span><strong class="text-primary tabular-nums">${data.total_fixtures}</strong> upcoming ${data.total_fixtures === 1 ? "fixture" : "fixtures"}</span>
+            <span><strong class="text-primary tabular-nums">${data.covered_by_multiple}</strong> covered by 2+ sources</span>
+            <span><strong class="text-primary tabular-nums">${data.agreed_count}</strong> with full agreement</span>`;
         if (data.sources && data.sources.length) {
-            summary.innerHTML += `<span>•</span><span>sources live: <strong class="text-primary">${
+            summary.innerHTML += `<span>Sources live: <strong class="text-primary">${
                 data.sources.map(s => escapeHtml(SOURCE_NAME[s] || s)).join(", ")}</strong></span>`;
         }
         if (!data.agreed_picks || data.agreed_picks.length === 0) {
