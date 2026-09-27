@@ -458,13 +458,13 @@ def run_pipeline() -> list:
         logger.error("❌ EVERY results source failed - nothing will be graded today")
         degraded_failures.append("all results sources")
 
-    # DEGRADED: fixtures + finals for the non-soccer ledgers (NFL now, NBA from
-    # late October). Ledger time cannot be backfilled past ESPN's window, which
+    # DEGRADED: fixtures + finals for the non-soccer ledgers (NFL now, NHL
+    # from early October, NBA from late October). Ledger time cannot be backfilled past ESPN's window, which
     # is why it runs before any prediction for these sports exists. It exits 0
     # on an empty schedule (off-season) and 1 only when every ESPN request
     # failed, so a red here means the feed is really down, not "no games".
     # Kept OUT of result_sources: those grade football picks, this does not.
-    run_step("Non-soccer ledger (ESPN: NFL, NBA)",
+    run_step("Non-soccer ledger (ESPN: NFL, NBA, NHL)",
              ["scrapers/espn_ledger.py"], DEGRADED)
 
     # 3. Merge cross-source duplicate fixtures BEFORE predicting, so the same

@@ -180,6 +180,23 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # already exists
 
+    # HOW a non-soccer game was decided, and the score when regulation ended.
+    #
+    # ESPN's final score includes overtime and, in the NHL, the shootout (the
+    # winner is credited one goal: NYI @ NSH "Final/SO" 2-1 was 1-1 after
+    # regulation). Bookmakers' basic 1X2 for these sports settles on
+    # REGULATION only (docs/basketball.md §2), where that game was a DRAW.
+    # Grading a regulation market off the final score is bug #1's shape —
+    # silent, and wrong only on the games that went to extra time. So the
+    # ledger records both. decided_in: 'REG' | 'OT' | 'SO'; NULL = unknown or
+    # not applicable (association football, where 90' is already regulation).
+    for col in ("decided_in TEXT", "reg_home_goals INTEGER",
+                "reg_away_goals INTEGER"):
+        try:
+            cursor.execute(f"ALTER TABLE results ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # already exists
+
     conn.commit()
     conn.close()
     logger.success("✅ Database initialized")

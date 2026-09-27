@@ -83,7 +83,7 @@ from typing import NamedTuple
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
-from models.sports import AMERICAN_FOOTBALL, BASKETBALL
+from models.sports import AMERICAN_FOOTBALL, BASKETBALL, ICE_HOCKEY
 
 # The sport is a PATH SEGMENT above the league slug, which is why the four
 # association-football ESPN scrapers could not simply be pointed at a new slug:
@@ -104,6 +104,7 @@ class Feed(NamedTuple):
     slug: str             # ESPN's league slug
     label: str            # what goes in matches.league
     draws_possible: bool  # see the docstring: a per-sport FACT, not a default
+    reg_periods: int      # periods in regulation; any linescore past this is OT/SO
 
 
 # Deliberately narrow. docs/basketball.md researched the NBA and nothing else,
@@ -113,11 +114,28 @@ class Feed(NamedTuple):
 # slugs when there is a reason.
 FEEDS = {
     # The NBA plays overtime until someone wins: a tie is impossible.
-    "nba": Feed(BASKETBALL, "basketball", "nba", "NBA", draws_possible=False),
+    "nba": Feed(BASKETBALL, "basketball", "nba", "NBA",
+                draws_possible=False, reg_periods=4),
     # The NFL plays ONE overtime period and lets a level game stand as a tie,
     # so a draw here is a real outcome and must be recorded, not discarded.
-    "nfl": Feed(AMERICAN_FOOTBALL, "football", "nfl", "NFL", draws_possible=True),
+    "nfl": Feed(AMERICAN_FOOTBALL, "football", "nfl", "NFL",
+                draws_possible=True, reg_periods=4),
+    # Regular season: 3 periods, 5-min OT, then a shootout, so the FINAL can
+    # never be level. But ESPN credits the shootout winner one goal (probed:
+    # NYI @ NSH "Final/SO" 2-1, linescores 0-1-0-0-1 v 0-1-0-0-0), so a game
+    # that was 1-1 after regulation - a DRAW on a regulation 1X2 - reads as a
+    # home win. Roughly one NHL game in five goes past regulation, which is
+    # why decided_in / reg_*_goals exist. Playoff OT is sudden death, no SO.
+    "nhl": Feed(ICE_HOCKEY, "hockey", "nhl", "NHL",
+                draws_possible=False, reg_periods=3),
 }
+
+# ESPN's season.type: 1 preseason, 2 regular season, 3 postseason. Preseason is
+# skipped for every sport: split squads and prospects, results that say nothing
+# about the teams that will play in October (14 NHL preseason games were in the
+# feed on 26 Sept 2026, and NFL preseason fills August). A ledger that grades
+# picks must not be diluted by games nobody should bet on.
+PRESEASON = 1
 
 # ESPN returns one scoreboard per league per day, so a window is N requests.
 # Ten threads is what results_espn.py settled on (sequential took 18 minutes
@@ -127,7 +145,8 @@ MAX_WORKERS = 10
 # Namespaced per sport so a second writer for the same sport would be obvious,
 # and so two sports can never mint the same match_id from ESPN's ids (they are
 # unique within a sport, not across them).
-ID_PREFIX = {BASKETBALL: "espnbb", AMERICAN_FOOTBALL: "espnnfl"}
+ID_PREFIX = {BASKETBALL: "espnbb", AMERICAN_FOOTBALL: "espnnfl",
+             ICE_HOCKEY: "espnnhl"}
 
 
 def _fetch_day(job) -> dict | None:
@@ -181,10 +200,12 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
     event_id = ev.get("id")
     if not event_id:
         return None
+    if (ev.get("season") or {}).get("type") == PRESEASON:
+        return None
     comp = (ev.get("competitions") or [{}])[0]
     status = (comp.get("status") or {}).get("type", {})
 
-    teams = {}
+    teams, periods = {}, {}
     for c in comp.get("competitors", []):
         side = c.get("homeAway")
         name = ((c.get("team") or {}).get("displayName") or "").strip()
@@ -196,8 +217,35 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
         except (TypeError, ValueError):
             score = None
         teams[side] = (name, score)
+        # Per-period scores. Only the first `reg_periods` are regulation;
+        # anything after is overtime or (NHL) the shootout "period".
+        lines = []
+        for ls in c.get("linescores") or []:
+            try:
+                lines.append(int(ls.get("value")))
+            except (TypeError, ValueError):
+                lines = None
+                break
+        periods[side] = lines
     if set(teams) != {"home", "away"}:
         return None
+
+    # How it was decided, and the score at the end of regulation. Left NULL
+    # rather than guessed whenever the linescores are missing or do not add up
+    # to the final - a wrong regulation score is worse than none (bug #1).
+    decided_in = reg_home = reg_away = None
+    hl, al = periods.get("home"), periods.get("away")
+    fh, fa = teams["home"][1], teams["away"][1]
+    if (status.get("completed") and hl and al and len(hl) == len(al)
+            and len(hl) >= feed.reg_periods and sum(hl) == fh and sum(al) == fa):
+        reg_home = sum(hl[:feed.reg_periods])
+        reg_away = sum(al[:feed.reg_periods])
+        if len(hl) == feed.reg_periods:
+            decided_in = "REG"
+        elif (status.get("shortDetail") or "").upper().endswith("/SO"):
+            decided_in = "SO"
+        else:
+            decided_in = "OT"
 
     kickoff_utc = (ev.get("date") or "").replace("T", " ").replace("Z", "")[:16]
     return {
@@ -218,6 +266,9 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
         "completed": bool(status.get("completed")),
         "home_score": teams["home"][1],
         "away_score": teams["away"][1],
+        "decided_in": decided_in,
+        "reg_home": reg_home,
+        "reg_away": reg_away,
     }
 
 
@@ -279,9 +330,19 @@ def store(events: list, dry_run: bool = False) -> dict:
         outcome = "D" if hs == as_ else ("H" if hs > as_ else "A")
         cur = conn.execute("""
             INSERT OR IGNORE INTO results
-            (match_id, home_goals, away_goals, outcome, over_2_5, btts)
-            VALUES (?, ?, ?, ?, NULL, NULL)
-        """, [e["match_id"], hs, as_, outcome])
+            (match_id, home_goals, away_goals, outcome, over_2_5, btts,
+             decided_in, reg_home_goals, reg_away_goals)
+            VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, ?)
+        """, [e["match_id"], hs, as_, outcome,
+              e["decided_in"], e["reg_home"], e["reg_away"]])
+        if not cur.rowcount and e["decided_in"]:
+            # Finals recorded before these columns existed: fill them in once,
+            # never overwrite a value already there.
+            conn.execute("""
+                UPDATE results SET decided_in = ?, reg_home_goals = ?,
+                                   reg_away_goals = ?
+                 WHERE match_id = ? AND decided_in IS NULL
+            """, [e["decided_in"], e["reg_home"], e["reg_away"], e["match_id"]])
         if cur.rowcount:
             counts["results"] += 1
             logger.info(f"  scored: {e['home_team']} {hs}-{as_} "
