@@ -197,6 +197,34 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # already exists
 
+    # Bookmaker lines for the NON-SOCCER ledgers (27 Sep 2026), one row per
+    # OBSERVED price, so opening, movement and close are all kept. A separate
+    # table on purpose: scraped_predictions is football's 3-way odds shape and
+    # feeds model features; a 2-way moneyline there would be read as football
+    # odds (bug #7's shape). ESPN deletes odds once a game is final, so these
+    # rows are the ONLY way to later ask "does Elo (models/elo.py) beat the
+    # market?" - every game played before recording started is lost to it.
+    #   market     'moneyline' = full game INCLUDING overtime/shootout, the
+    #              US standard (DraftKings via ESPN). Grade it on the FINAL
+    #              score, never regulation (docs/basketball.md section 2).
+    #   open_*     ESPN's opening price, as quoted alongside the current one.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS market_lines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id TEXT NOT NULL,
+            source TEXT NOT NULL,
+            provider TEXT,
+            market TEXT NOT NULL,
+            observed_at TEXT NOT NULL,
+            mins_before INTEGER,
+            odds_home REAL, odds_away REAL, odds_draw REAL,
+            open_home REAL, open_away REAL, open_draw REAL,
+            FOREIGN KEY (match_id) REFERENCES matches(match_id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_market_lines_match "
+                   "ON market_lines(match_id, id)")
+
     # CLOSING-LINE VALUE (27 Sep 2026). book_odds says what the market thought
     # when we picked; these say what it thought just before kickoff, from the
     # SAME feed. If prices keep moving TOWARD our picks, the market is agreeing
