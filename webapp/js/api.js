@@ -503,21 +503,260 @@ function ppSkeleton(heightPx) {
     return `<div class="pp-skel" style="height:${heightPx}px"></div>`;
 }
 
+/* ── Two vocabularies that must never share words ─────────────────────────
+   HIGH / MEDIUM / LOW are CONFIDENCE tiers everywhere a user sees them (Picks,
+   Record): HIGH is the likeliest. The Builder's risk setting runs the other
+   way -- its "HIGH" is the least likely -- and the API still calls it
+   risk=LOW|MEDIUM|HIGH. Shown as "High Risk" next to a HIGH tier badge, a
+   first-timer picks it believing it is the best tier. So risk is only ever
+   DISPLAYED through this map; the API values are untouched. */
+const PP_RISK_LABEL = {LOW: "Safer", MEDIUM: "Balanced", HIGH: "Longer odds"};
+const ppRiskLabel = r => PP_RISK_LABEL[String(r || "").toUpperCase()] || r || "";
+
+/* ── Booking-code result, shared by the Builder and the Checker ────────────
+   This is the moment someone stakes money, so it has to say exactly what the
+   code contains. It used to show a green success box reading "(3 legs)" with
+   the skipped legs as a grey footnote underneath, and the page's hit chance
+   still described the FULL slip. Someone copying the code bet a different
+   accumulator from the one we had scored.
+
+   Now a partial booking is headed "3 of 6 legs booked", lists the missing
+   legs at body size ABOVE the code, and gives the model's estimate for the
+   legs that are actually in the code. `legs` is the slip as the page holds it
+   ({home_team, away_team, market, selection, probability}); `d` is the
+   /api/booking/generate response, whose mapped[].leg echoes what we sent. */
+function ppBookingResult(d, providerName, legs) {
+    const mapped = d.mapped || [];
+    const unmapped = d.unmapped || [];
+    const total = mapped.length + unmapped.length;
+    const esc = escapeHtml;
+    const same = (a, b) => a.home_team === b.home_team && a.away_team === b.away_team &&
+        a.market === b.market && a.selection === b.selection;
+    const probOf = legList => {
+        let p = 1;
+        for (const leg of legList) {
+            const own = (legs || []).find(l => same(l, leg));
+            if (!own || own.probability == null) return null;
+            p *= own.probability;
+        }
+        return p;
+    };
+    const pct = p => (p * 100).toFixed(1) + "%";
+    const legName = l => esc(`${l.home_team || "?"} vs ${l.away_team || "?"}`);
+    const copyBtn = `<button type="button" class="pp-copy-code shrink-0 bg-surface text-primary border border-outline-variant rounded-lg px-md py-sm text-label-sm font-bold"
+        data-code="${esc(d.code)}" data-provider="${esc(providerName)}">Copy</button>`;
+    const codeRow = `
+      <div class="flex items-center justify-between gap-sm">
+        <div class="text-headline-md font-headline-md font-bold tracking-widest">${esc(d.code)}</div>
+        ${copyBtn}
+      </div>`;
+    const hint = `<p class="text-label-sm text-on-surface-variant mt-xs">Paste it in the ${esc(providerName)} app under “Load Booking Code”. Odds may shift before kickoff.</p>`;
+
+    if (!unmapped.length) {
+        return `
+    <div class="rounded-lg p-sm bg-secondary-container text-on-secondary-container" role="status">
+      <div class="text-label-sm">${esc(providerName)} code · all ${mapped.length} ${mapped.length === 1 ? "leg" : "legs"} booked</div>
+      ${codeRow}
+    </div>${hint}`;
+    }
+
+    const booked = probOf(mapped.map(m => m.leg));
+    const full = probOf([...mapped.map(m => m.leg), ...unmapped]);
+    const estimate = booked == null ? "" : `
+      <p class="text-body-md mt-sm">Model's estimate for the ${mapped.length} booked ${mapped.length === 1 ? "leg" : "legs"}:
+        <strong>${pct(booked)}</strong>${full == null ? "" : ` <span class="text-on-surface-variant">(the full slip was ${pct(full)})</span>`}</p>`;
+    return `
+    <div class="rounded-lg p-sm bg-surface-container-low border border-outline text-on-surface" role="status">
+      <div class="flex items-center gap-xs text-body-md font-semibold text-primary">
+        <span class="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+        ${mapped.length} of ${total} legs booked. This code is a different slip.
+      </div>
+      <p class="text-body-md text-on-surface-variant mt-xs">Not listed on ${esc(providerName)}, so not in the code:</p>
+      <ul class="text-body-md mt-xs space-y-1">
+        ${unmapped.map(u => `<li>${legName(u)} <span class="text-on-surface-variant">· ${esc(u.market || "")}${u.selection ? ": " + esc(u.selection) : ""}</span></li>`).join("")}
+      </ul>${estimate}
+      <div class="mt-sm pt-sm border-t border-outline-variant">${codeRow}</div>
+    </div>${hint}`;
+}
+
+/* The same honesty for codes the Checker's tools MINT from other codes
+   (Convert to another bookmaker, Merge several). Those responses carry no
+   model probabilities and name dropped legs only as "Home v Away" strings, so
+   this is ppBookingResult without the estimate. Convert used to show a green
+   chip with "N leg(s) couldn't be carried over" as a footnote: the exact
+   pattern the booking result was rewritten to stop. */
+function ppCodeResult(code, providerName, carried, missing) {
+    const esc = escapeHtml;
+    missing = missing || [];
+    const total = carried + missing.length;
+    const codeRow = `
+      <div class="flex items-center justify-between gap-sm">
+        <div class="text-headline-md font-headline-md font-bold tracking-widest">${esc(code)}</div>
+        <button type="button" class="pp-copy-code shrink-0 bg-surface text-primary border border-outline-variant rounded-lg px-md py-sm text-label-sm font-bold"
+          data-code="${esc(code)}" data-provider="${esc(providerName)}">Copy</button>
+      </div>`;
+    if (!missing.length) {
+        return `
+    <div class="rounded-lg p-sm bg-secondary-container text-on-secondary-container" role="status">
+      <div class="text-label-sm">${esc(providerName)} code · all ${carried} ${carried === 1 ? "leg" : "legs"} carried over</div>
+      ${codeRow}
+    </div>`;
+    }
+    return `
+    <div class="rounded-lg p-sm bg-surface-container-low border border-outline text-on-surface" role="status">
+      <div class="flex items-center gap-xs text-body-md font-semibold text-primary">
+        <span class="material-symbols-outlined text-[20px]" aria-hidden="true">warning</span>
+        ${carried} of ${total} legs carried over. This code is a different slip.
+      </div>
+      <p class="text-body-md text-on-surface-variant mt-xs">Couldn't be matched on ${esc(providerName)}, so not in the code:</p>
+      <ul class="text-body-md mt-xs space-y-1">${missing.map(m => `<li>${esc(m)}</li>`).join("")}</ul>
+      <div class="mt-sm pt-sm border-t border-outline-variant">${codeRow}</div>
+    </div>`;
+}
+
+// One delegated handler for every Copy button ppBookingResult renders, so the
+// code never has to be spliced into an inline onclick string.
+document.addEventListener("click", e => {
+    const btn = e.target.closest && e.target.closest(".pp-copy-code");
+    if (!btn) return;
+    navigator.clipboard.writeText(btn.dataset.code).then(() => {
+        btn.textContent = "Copied!";
+        showToast(`${btn.dataset.provider} code copied`);
+    });
+});
+
+/* ── Talking to a server that sleeps ──────────────────────────────────────
+   The API is on Render's free tier: it sleeps after ~15 idle minutes and the
+   first request then takes ~50s, sometimes failing outright while the
+   container boots. Every page used to answer that with a developer's message
+   ("Start it with: uvicorn api.server:app --port 8080", "Is the API running
+   on port 8080?") -- shown to bettors, routinely, on a product whose whole
+   asset is trust.
+
+   Three pieces, all here so no page can drift:
+   - GETs retry twice with backoff on a network failure or a 502/503/504 (what
+     a waking container answers). POSTs never retry: /api/booking/generate
+     creates a coupon, and doing that twice is not ours to decide.
+   - Any request still pending after 5s shows a small "waking" notice, so a
+     slow first load reads as a server starting, not a broken app.
+   - ppErrorMessage / ppErrorBox turn a failure into plain language that says
+     whose problem it is, with a Try again button. */
+const PP_RETRY_DELAYS = [3000, 8000];
+const ppSleep = ms => new Promise(r => setTimeout(r, ms));
+let ppInflight = 0, ppWakeTimer = null;
+
+function ppWakeStart() {
+    if (ppInflight++ === 0) ppWakeTimer = setTimeout(() => ppWakingNotice(true), 5000);
+}
+function ppWakeEnd() {
+    ppInflight = Math.max(0, ppInflight - 1);
+    if (ppInflight === 0) { clearTimeout(ppWakeTimer); ppWakingNotice(false); }
+}
+function ppWakingNotice(show) {
+    let n = document.getElementById("pp-waking");
+    if (!show) { if (n) n.classList.remove("show"); return; }
+    if (!n) {
+        n = document.createElement("div");
+        n.id = "pp-waking";
+        n.setAttribute("role", "status");
+        n.textContent = "Waking the prediction server. After a quiet spell the first load can take up to a minute.";
+        document.body.appendChild(n);
+    }
+    n.classList.add("show");
+}
+
 async function apiGet(path) {
-    const res = await fetch(`${API_BASE}${path}`);
-    if (!res.ok) throw new Error(`API ${path} returned ${res.status}`);
-    return res.json();
+    ppWakeStart();
+    try {
+        for (let attempt = 0; ; attempt++) {
+            let res;
+            try {
+                res = await fetch(`${API_BASE}${path}`);
+            } catch (err) {                       // network: offline, DNS, reset
+                if (attempt < PP_RETRY_DELAYS.length) { await ppSleep(PP_RETRY_DELAYS[attempt]); continue; }
+                err.network = true;
+                throw err;
+            }
+            if ([502, 503, 504].includes(res.status) && attempt < PP_RETRY_DELAYS.length) {
+                await ppSleep(PP_RETRY_DELAYS[attempt]);
+                continue;
+            }
+            if (!res.ok) {
+                const e = new Error(`API ${path} returned ${res.status}`);
+                e.status = res.status;
+                throw e;
+            }
+            return res.json();
+        }
+    } finally {
+        ppWakeEnd();
+    }
 }
 
 async function apiPost(path, body) {
-    const res = await fetch(`${API_BASE}${path}`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`API ${path} returned ${res.status}`);
-    return res.json();
+    ppWakeStart();
+    try {
+        let res;
+        try {
+            res = await fetch(`${API_BASE}${path}`, {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify(body),
+            });
+        } catch (err) {
+            err.network = true;
+            throw err;
+        }
+        if (!res.ok) {
+            const e = new Error(`API ${path} returned ${res.status}`);
+            e.status = res.status;
+            throw e;
+        }
+        return res.json();
+    } finally {
+        ppWakeEnd();
+    }
 }
+
+/* Plain-language failure text. `what` completes "…to <what>" (e.g. "load
+   today's picks"). Three different failures, three different sentences:
+   - err.status  -> the server answered with an error: ours, not the user's.
+   - err.network -> tagged by apiGet/apiPost when fetch itself failed: the
+                    connection, or a server still waking.
+   - anything else is a bug in the page. It must NOT be reported as the
+     network: calling every failure an outage is how a ReferenceError in the
+     Checker once spent an afternoon looking like one. */
+function ppErrorMessage(err, what) {
+    const target = what ? ` to ${what}` : "";
+    const trying = what ? ` while trying to ${what}` : "";
+    if (err && err.status) {
+        return `The prediction server hit a problem${trying} (error ${err.status}). ` +
+               `That's on our side, not yours. Try again in a minute.`;
+    }
+    if (err && err.network) {
+        return `Couldn't reach the prediction server${target}. It sleeps after a quiet ` +
+               `spell and can take up to a minute to wake, or your connection may have dropped.`;
+    }
+    return `Something went wrong on this page${trying}. Reloading usually fixes it.`;
+}
+
+/* The same message as a block with a Try again button. `retry` names a
+   page-level loader (a global function such as "loadPicks"); without one the
+   button reloads the page. */
+function ppErrorBox(err, what, retry) {
+    return `<div class="pp-error col-span-full rounded-xl border border-outline-variant bg-surface-container-low p-md text-body-md text-on-surface" role="alert">
+      <p>${escapeHtml(ppErrorMessage(err, what))}</p>
+      <button type="button" class="pp-retry mt-sm bg-primary text-on-primary rounded-lg px-md py-sm text-label-sm font-bold"
+        data-retry="${escapeHtml(retry || "")}">Try again</button>
+    </div>`;
+}
+
+document.addEventListener("click", e => {
+    const btn = e.target.closest && e.target.closest(".pp-retry");
+    if (!btn) return;
+    const fn = btn.dataset.retry && window[btn.dataset.retry];
+    if (typeof fn === "function") fn(); else location.reload();
+});
 
 const PotentialProAPI = {
     picks:       ()          => apiGet("/api/picks"),
@@ -570,12 +809,17 @@ const PotentialProAPI = {
         .pp-enter.pp-in { opacity:1; transform:none;
           transition:opacity .45s cubic-bezier(.2,.7,.3,1), transform .45s cubic-bezier(.2,.7,.3,1); }
         main .rounded-xl.border { transition:box-shadow .25s ease, transform .25s ease; }
-        main .rounded-xl.border:hover { transform:translateY(-2px);
-          box-shadow:0 6px 20px rgba(0,0,0,0.08); }
-        html.dark main .rounded-xl.border:hover { box-shadow:0 6px 20px rgba(0,0,0,0.45); }
         button { transition:transform .12s ease, background-color .2s ease,
                  color .2s ease, box-shadow .2s ease, border-color .2s ease; }
         button:active { transform:scale(.97); }
+      }
+      /* The card lift is a MOUSE affordance. Ungated, a phone applies :hover on
+         tap and leaves it there, so every tapped card stayed lifted until the
+         next tap elsewhere. */
+      @media (prefers-reduced-motion: no-preference) and (hover: hover) and (pointer: fine) {
+        main .rounded-xl.border:hover { transform:translateY(-2px);
+          box-shadow:0 6px 20px rgba(0,0,0,0.08); }
+        html.dark main .rounded-xl.border:hover { box-shadow:0 6px 20px rgba(0,0,0,0.45); }
       }
       button:focus-visible, a:focus-visible {
         outline:2px solid #91db2a; outline-offset:2px; border-radius:6px; }
@@ -651,6 +895,35 @@ const PotentialProAPI = {
         }
       }
 
+      /* 4c. The tells that make a web app read as "a website" on a phone.
+             - The grey/blue flash the browser paints over anything tappable.
+               Press feedback comes from button:active above instead.
+             - The double-tap-zoom wait before a tap fires.
+             - Long-press selecting a chip's label (controls only; content
+               text stays selectable).
+             - iOS zooms into any field under 16px and never zooms back out;
+               the Checker's selects were 12px. Coarse pointers only, so the
+               desktop layout keeps its compact controls. */
+      html { -webkit-tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+      button, a, [role="button"], select, label { touch-action: manipulation; }
+      button, [role="button"], .tier-chip, .league-chip, .league-btn, .count-btn, .add-leg {
+        -webkit-user-select: none; user-select: none; }
+      @media (pointer: coarse) {
+        input, select, textarea { font-size: 16px !important; }
+      }
+
+      /* 4d. "Waking the prediction server" notice (see apiGet). Sits above the
+             mobile bottom nav, centred; never covers content on desktop. */
+      #pp-waking { position: fixed; left: 50%; transform: translateX(-50%);
+        bottom: 24px; z-index: 60; width: max-content; max-width: min(92vw, 420px);
+        padding: 10px 16px; border-radius: 12px; font-size: 14px; line-height: 20px;
+        background: #2d3133; color: #eff1f3; box-shadow: 0 6px 20px rgba(0,0,0,.18);
+        opacity: 0; pointer-events: none; transition: opacity .2s ease; }
+      #pp-waking.show { opacity: 1; }
+      @media (max-width: 767px) {
+        #pp-waking { bottom: calc(84px + env(safe-area-inset-bottom)); }
+      }
+
       /* 5. Very small phones (360px and below are still common in Nigeria):
             stop headline text forcing horizontal overflow. */
       @media (max-width: 380px) {
@@ -680,8 +953,11 @@ const PotentialProAPI = {
       main {
         max-width: 1280px;
         margin-inline: auto;
-        padding-left: 16px;
-        padding-right: 16px;
+        /* max() with the safe-area inset: now that the viewport is
+           viewport-fit=cover, a landscape iPhone would otherwise put the
+           first column under the notch. */
+        padding-left: max(16px, env(safe-area-inset-left));
+        padding-right: max(16px, env(safe-area-inset-right));
         padding-top: 16px;
       }
       @media (min-width: 768px) {
@@ -723,17 +999,29 @@ const PotentialProAPI = {
         if (!main) return;
         [...main.children].forEach((el, i) => enter(el, i * 70));
         // Content injected later (slips, pick lists, stats) enters the same way
+        // ...but only the FIRST time real content lands in a given container.
+        // Every re-render replaces innerHTML, so the observer used to replay the
+        // fade-up on each tier-chip or league-chip tap, on every leg swap in the
+        // Builder: a repeated action made to wait on an entrance animation.
+        // Skeleton placeholders don't count as the first arrival, so the real
+        // cards that replace them still enter once.
+        const arrived = new WeakSet();
+        const isSkeleton = n => n.matches(".pp-skel, .animate-pulse") ||
+            (n.querySelector && n.querySelector(".pp-skel, .animate-pulse") &&
+             !n.querySelector(":scope > :not(.pp-skel):not(.animate-pulse)"));
         new MutationObserver(muts => {
             for (const m of muts) {
+                if (arrived.has(m.target)) continue;
+                let i = 0, real = false;
                 for (const n of m.addedNodes) {
-                    if (n.nodeType !== 1) continue;
-                    if (n.matches && n.matches("section, .rounded-xl")) enter(n, 40);
-                    else if (n.querySelectorAll) {
-                        let i = 0;
-                        for (const c of n.querySelectorAll(":scope > section, :scope > .rounded-xl"))
-                            enter(c, 40 + (i++ * 60));
-                    }
+                    if (n.nodeType !== 1 || isSkeleton(n)) continue;
+                    // Only a card/section arriving counts: a "Loading…" line
+                    // beside the skeletons must not use up the one entrance.
+                    const cards = n.matches("section, .rounded-xl") ? [n]
+                        : [...n.querySelectorAll(":scope > section, :scope > .rounded-xl")];
+                    for (const c of cards) { enter(c, 40 + Math.min(i++, 5) * 60); real = true; }
                 }
+                if (real) arrived.add(m.target);
             }
         }).observe(main, {childList: true, subtree: true});
     });

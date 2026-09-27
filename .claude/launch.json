@@ -3,7 +3,9 @@
   "configurations": [
     {
       "name": "webapp-static",
-      "url": "http://localhost:3000"
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "3000", "--directory", "webapp"],
+      "port": 3000
     }
   ]
 }

@@ -25,6 +25,10 @@ if (typeof tailwind === "undefined") {
 } else {
 tailwind.config = {
     darkMode: "class",
+    // Compile every hover: utility inside @media (hover: hover). Without it a
+    // phone applies :hover on tap and leaves it there — a tapped chip or card
+    // kept its hover colour/shadow until the next tap somewhere else.
+    future: { hoverOnlyWhenSupported: true },
     theme: { extend: {
         "colors": {
             "inverse-surface": "#2d3133","primary-container": "#131b2e","surface-container-high": "#e6e8ea",

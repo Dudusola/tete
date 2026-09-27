@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
 <meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="icon" type="image/png" href="icons/icon-192.png"/>
@@ -49,7 +49,6 @@
 </header>
 <!-- Hero -->
 <section class="mt-gutter mx-gutter md:mx-0 p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-center text-center">
-<div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image:radial-gradient(circle at 50% -20%,#acf847 0%,transparent 60%);"></div>
 <!-- The HEADLINE is every prediction we have made, LOW included. It was
      HIGH+MEDIUM (a friendlier 60.0% vs 57.1%) under the words "Overall Hit
      Rate" — leading with the subset means the biggest number on the page is
@@ -57,7 +56,10 @@
      served-picks figure is still here, one line down, because it is the
      honest measure of what we actually publish as bets. -->
 <span class="text-label-sm text-on-primary-container uppercase tracking-widest mb-xs relative z-10">Hit rate — every prediction</span>
-<div class="text-display-lg font-display-lg text-secondary-fixed relative z-10 flex items-baseline">
+<!-- White, not the lime success colour: this figure sits BELOW the ~53-55% a
+     bookmaker's favourite gets, and painting it as a win contradicted the
+     sentence underneath. The lime glow behind it went for the same reason. -->
+<div class="text-display-lg font-display-lg text-on-primary relative z-10 flex items-baseline">
 <span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
 </div>
 <p class="text-body-md text-primary-fixed-dim mt-xs relative z-10">All tiers incl. LOW, scored against real full-time results</p>
@@ -68,7 +70,7 @@
 <div class="flex justify-between w-full max-w-xs relative z-10">
 <div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-picks">—</span><span class="text-label-sm text-on-primary-container">Scored Picks</span></div>
 <div class="w-px h-full bg-surface-tint/30"></div>
-<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-secondary-fixed" id="total-correct">—</span><span class="text-label-sm text-on-primary-container">Correct</span></div>
+<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-correct">—</span><span class="text-label-sm text-on-primary-container">Correct</span></div>
 </div>
 </section>
 
@@ -262,7 +264,7 @@ async function openDrill(tier) {
             ? data.picks.map(renderDrillRow).join("")
             : `<div class="p-md text-on-surface-variant">No scored picks in this tier yet.</div>`;
     } catch (err) {
-        list.innerHTML = `<div class="p-md text-error">Couldn't load picks.</div>`;
+        list.innerHTML = `<div class="p-md">${ppErrorBox(err, "load these picks")}</div>`;
         console.error(err);
     }
 }
@@ -400,7 +402,7 @@ async function loadRecord() {
         }
     } catch (err) {
         document.getElementById("tier-cards").innerHTML =
-            `<div class="text-error text-body-md">⚠️ Couldn't reach the engine. Is the API running on port 8080?</div>`;
+            ppErrorBox(err, "load the track record", "loadRecord");
         console.error(err);
     }
 }

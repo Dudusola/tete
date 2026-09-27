@@ -42,3 +42,6 @@ worker/.wrangler/
 
 # wrangler build artefacts (Pages/Worker deploys)
 .wrangler/
+
+# /brag video scratch output (renders + composition, ~4MB a run)
+brag-output/
