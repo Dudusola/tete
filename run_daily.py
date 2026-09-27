@@ -467,6 +467,12 @@ def run_pipeline() -> list:
     run_step("Non-soccer ledger (ESPN: NFL, NBA, NHL)",
              ["scrapers/espn_ledger.py"], DEGRADED)
 
+    # OPTIONAL: nothing trains on data/sports_history yet - it is stockpiled
+    # for the day a model for these sports is built. And a missed day repairs
+    # itself: each update refetches from the newest game already in the file.
+    run_step("Non-soccer history CSVs (ESPN)",
+             ["scrapers/sports_history.py"], OPTIONAL)
+
     # 3. Merge cross-source duplicate fixtures BEFORE predicting, so the same
     #    real match never gets two predictions/picks
     # DEGRADED, not CRITICAL, and the distinction is the whole lesson of this

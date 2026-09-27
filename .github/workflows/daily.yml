@@ -162,6 +162,10 @@ jobs:
           # refreshed CSV is part of the state this job produces.
           git add -f db/sports_predictor.db feed/bot_feed.json
           git add -A data/historical || true
+          # Non-soccer training history (scrapers/sports_history.py). Kept
+          # OUT of data/historical so it neither trains the football model
+          # nor changes the model cache key.
+          git add -A data/sports_history || true
           # Refitted above from whatever historical CSVs are now present. It has
           # to be committed, not just built: deploy/render/Dockerfile COPYs it
           # into the API image, so the ratings Render prices with are the ones
