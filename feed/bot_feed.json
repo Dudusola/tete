@@ -1,10 +1,10 @@
 {
- "generated_at": "2026-09-28T06:08:02+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Monday, 28 September 2026*\n\n🟢 *Botafogo-SP vs Ponte Preta*\n   Brazilian Serie B | 2026-09-29 22:30\n   H 79% | D 15% | A 6%\n   👉 *Home Win* (79%) — HIGH\n   💬 _Ponte Preta enters this fixture in terrible away form with zero points per game and an alarming 3.60 goals conceded per match, while Botafogo-SP holds a superior 1.33 points per game at home alongside_\n\n🟢 *Seattle Sounders FC vs Sporting Kansas City*\n   MLS | 2026-10-02 01:30\n   H 67% | D 20% | A 13%\n   👉 *Home Win* (67%) — HIGH\n   💬 _Seattle Sounders FC hold a clear advantage backed by three wins from five head-to-head meetings, a recent form line of 1.80 points per game, and 2.20 goals scored per match against a struggling Sporti_\n\n🟡 *Sacramento Republic FC vs Las Vegas Lights FC*\n   USL Championship | 2026-10-01 02:00\n   H 62% | D 23% | A 15%\n   👉 *Home Win* (62%) — MEDIUM\n   💬 _Sacramento Republic FC are priced at 1.51 to win, backed by a home record yielding 1.00 points per game despite scoring just 0.33 goals and conceding 0.67 per game across a small sample of 3 completed_\n\n🟡 *Boca Juniors vs Unión (Santa Fe)*\n   Argentine Liga Profesional de Fútbol | 2026-10-03 00:30\n   H 61% | D 24% | A 16%\n   👉 *Home Win* (61%) — MEDIUM\n   💬 _Boca Juniors enters this fixture on a strong run of form taking 2.20 points per game over their last five matches while conceding just 0.60 goals per game, supported by a dominant home record of 2.60 _\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "generated_at": "2026-09-28T15:46:31+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Monday, 28 September 2026*\n\n🟢 *Botafogo-SP vs Ponte Preta*\n   Brazilian Serie B | 2026-09-29 22:30\n   H 78% | D 16% | A 6%\n   👉 *Home Win* (78%) — HIGH\n   💬 _Analysis unavailable at this time._\n\n🟢 *Seattle Sounders FC vs Sporting Kansas City*\n   MLS | 2026-10-02 01:30\n   H 67% | D 20% | A 13%\n   👉 *Home Win* (67%) — HIGH\n   💬 _Analysis unavailable at this time._\n\n🟡 *Sacramento Republic FC vs Las Vegas Lights FC*\n   USL Championship | 2026-10-01 02:00\n   H 62% | D 22% | A 17%\n   👉 *Home Win* (62%) — MEDIUM\n   💬 _Analysis unavailable at this time._\n\n🟡 *Boca Juniors vs Unión (Santa Fe)*\n   Argentine Liga Profesional de Fútbol | 2026-10-03 00:30\n   H 61% | D 23% | A 16%\n   👉 *Home Win* (61%) — MEDIUM\n   💬 _Analysis unavailable at this time._\n\n_Bet responsibly. Confidence ≠ certainty._",
  "picks_count": 4,
  "stats": {
-  "total": 456,
-  "correct": 309,
+  "total": 457,
+  "correct": 310,
   "accuracy": 67.8
  },
  "picks": [
@@ -15,7 +15,7 @@
    "date": "2026-09-29",
    "kickoff": "22:30",
    "bet": "Home Win",
-   "prob": 79.2,
+   "prob": 78.2,
    "confidence": "HIGH"
   },
   {
@@ -25,7 +25,7 @@
    "date": "2026-10-02",
    "kickoff": "01:30",
    "bet": "Home Win",
-   "prob": 67.3,
+   "prob": 66.9,
    "confidence": "HIGH"
   },
   {
@@ -35,7 +35,7 @@
    "date": "2026-10-01",
    "kickoff": "02:00",
    "bet": "Home Win",
-   "prob": 61.8,
+   "prob": 61.7,
    "confidence": "MEDIUM"
   },
   {
@@ -45,7 +45,7 @@
    "date": "2026-10-03",
    "kickoff": "00:30",
    "bet": "Home Win",
-   "prob": 60.8,
+   "prob": 61.1,
    "confidence": "MEDIUM"
   }
  ]
