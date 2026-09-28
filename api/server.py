@@ -39,6 +39,7 @@ from models.tiers import TIER_BANDS
 # and nothing filtered on it, so a basketball row would have appeared in the
 # picks feed and — worse — inside the published accuracy. See models/sports.py.
 from models.sports import FOOTBALL, sport_sql
+from models.settle import settle as settle_leg
 from scrapers.booking_codes import attach_sporty_odds
 from models.leagues import pretty_league
 from models.gradeability import overall_coverage
@@ -988,6 +989,50 @@ def results_lookup(match_ids: List[str] = Body(..., embed=True)):
     conn.close()
     return {"results": {r["match_id"]: {"home_goals": r["home_goals"], "away_goals": r["away_goals"],
                                         "outcome": r["outcome"]} for r in rows}}
+
+
+@app.post("/api/slip/settle")
+def slip_settle(legs: List[dict] = Body(..., embed=True)):
+    """Settle the legs of accumulators a user tracks in My Record.
+
+    Each leg: {match_id, market, selection, home_team, away_team} - exactly
+    what the Builder and Checker store. Graded against the SAME `results`
+    rows as the public record (see /api/results/lookup); models/settle.py
+    owns the rules. status: won | lost | void (Draw No Bet on a draw) |
+    pending (no final score yet) | ungradable (a market we can't settle -
+    never guessed).
+    """
+    legs = legs[:300]
+    ids = sorted({str(l.get("match_id")) for l in legs if l.get("match_id")})
+    scores = {}
+    if ids:
+        conn = get_connection()
+        rows = conn.execute(f"""
+            SELECT match_id, home_goals, away_goals FROM results
+            WHERE match_id IN ({",".join("?" * len(ids))})
+        """, ids).fetchall()
+        conn.close()
+        scores = {r["match_id"]: (r["home_goals"], r["away_goals"]) for r in rows}
+    out = []
+    for l in legs:
+        sc = scores.get(str(l.get("match_id")))
+        if not sc or sc[0] is None or sc[1] is None:
+            out.append({"status": "pending"})
+            continue
+        st = settle_leg(l.get("market"), l.get("selection"),
+                        l.get("home_team") or "", l.get("away_team") or "", sc[0], sc[1])
+        out.append({"status": st or "ungradable", "home_goals": sc[0], "away_goals": sc[1]})
+    return {"legs": out}
+
+
+@app.post("/api/slip/odds")
+def slip_odds(legs: List[dict] = Body(..., embed=True)):
+    """SportyBet prices for a hand-built slip (the Checker's legs carry none),
+    so a tracked accumulator records the price at the moment it was tracked.
+    Best effort: a leg SportyBet doesn't list comes back null."""
+    return attach_sporty_odds([{"home_team": l.get("home_team"), "away_team": l.get("away_team"),
+                                "market": l.get("market"), "selection": l.get("selection")}
+                               for l in legs[:30]])
 
 
 @app.post("/api/slip/check")

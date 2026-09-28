@@ -300,6 +300,9 @@ GET /api/stats/picks?tier= (drill-down) ; GET /api/stats/trend (weekly hit
 rate, for the Record chart) ; GET /api/fixtures (for slip-checker) ;
 GET /api/leagues ; POST /api/slip/check (score a user-assembled slip) ;
 POST /api/results/lookup {match_ids} (final scores - grades a user's My Record).
+POST /api/slip/settle {legs} (won/lost/void/pending/ungradable per leg, via
+models/settle.py - grades tracked accumulators) ; POST /api/slip/odds {legs}
+(SportyBet prices for a hand-built slip, recorded when it is tracked).
 Booking: POST /api/booking/decode | generate | convert | merge | split |
 optimize ; GET /api/booking/providers (authoritative list of who we can read
 from vs create on — they are NOT the same set). CORS allow_origins=["*"].
@@ -1534,7 +1537,16 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    even signed-in users get "permission denied". Legal pages required by
    Google's consent screen: `webapp/privacy.html`, `webapp/terms.html`
    (contact potentialproteam@gmail.com). NEVER put user data in
-   db/sports_predictor.db. The design notes below still hold.
+   db/sports_predictor.db.
+   **Accumulators (28 Sep 2026):** `tracked_slips` (db/supabase/002_tracked_slips.sql,
+   run once in the SQL editor) stores a Builder/Checker slip as ONE row with its
+   legs as JSON. Graded as one bet - any lost leg loses it, Draw No Bet on a draw
+   is VOID at 1.00 - never as "4 of 5 legs won". models/settle.py settles every
+   market derive_markets() emits (asserted: all 22) and returns None, never a
+   guess, for anything else. P/L counts a slip only if EVERY leg carried a price,
+   win or lose, so unpriced wins can't be dropped while unpriced losses count.
+   Signed out, "Track this slip" parks the slip in sessionStorage and
+   account.html saves it right after Google sign-in. The design notes below still hold.
 
    **Original design notes (Aug 2026):** DESIGNED, DEFERRED.
    Asked for as "every user has login details and their own record". Deferred
