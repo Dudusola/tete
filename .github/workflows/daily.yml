@@ -145,6 +145,10 @@ jobs:
           # assumed. Skipping keeps a known-unfixable block from looking like
           # a daily failure. It still runs locally, where it works.
           PP_SKIP_FOREBET: '1'
+          # API-Football suspends accounts calling from shared IPs, and these
+          # runners are shared Azure IPs (support, 28 Sep 2026). Off until it
+          # runs from a dedicated-IP server - see run_daily.py.
+          PP_SKIP_APIFOOTBALL: '1'
           PYTHONUTF8: '1'
           PYTHONIOENCODING: utf-8
         run: python run_daily.py
