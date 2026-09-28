@@ -1137,6 +1137,17 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     **An allow-list that logs what it rejects is how every one of these was
     found. A block-list would have let each through silently.**
 
+32. **A queued workflow ran on a stale ledger (28 Sep 2026).** daily.yml,
+    results.yml and closing.yml share the `daily-pipeline` concurrency group,
+    so they never run at once - but `actions/checkout@v4` checks out
+    `github.sha`, the commit at TRIGGER time. A run that waited in the queue
+    started from the ledger as it was when it was queued, missed the commit
+    the previous run had just pushed, and its binary-DB rebase conflicted.
+    Seen when a results sweep was dispatched right behind a manual pipeline
+    run. FIX: every ledger-writing checkout (and the guard, which reads
+    today's commits) uses `ref: ${{ github.ref }}`, i.e. the branch head when
+    the job STARTS. **A queue serialises runs; it does not refresh them.**
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
