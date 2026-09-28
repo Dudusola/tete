@@ -99,6 +99,24 @@ const API_BASE = (function () {
          ("analytics", "receipt_long") render as words on slow connections.
          Hidden (space kept) until the font is ready; see the loader below. */
       html:not(.pp-icons-ready) .material-symbols-outlined { color:transparent !important; overflow:hidden; }
+      /* Thumb-sized controls on phones. A layout audit (28 Sep 2026) measured
+         most chips and small buttons at 24-26px tall: the Checker's market
+         chips, the Picks filters, Track, the stake boxes. 36px is the floor
+         here; buttons centre their own content, so text stays put. Phones
+         only, so desktop density is unchanged. */
+      @media (max-width: 767px) {
+        button, select, [role=button],
+        input:not([type=checkbox]):not([type=radio]):not([type=hidden]) { min-height: 36px; }
+        button, [role=button] { min-width: 36px; }
+      }
+      /* Smallest phones (320px): the 5-item bottom menu pushed "Checker" past
+         the screen edge, and the header's Sign-in pill ran into the name. */
+      @media (max-width: 359px) {
+        nav[class*="md:hidden"] { padding-left: 2px !important; padding-right: 2px !important; }
+        nav[class*="md:hidden"] a { padding-left: 2px !important; padding-right: 2px !important; }
+        .pp-account-btn .pp-account-label { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
+        .pp-account-btn { margin-left: 8px !important; padding: 6px !important; }
+      }
       /* Keyboard focus, every page. The browser default was too faint to find
          (Sept 2026 critique). Brand green on light, lime on dark; offset so it
          never merges with a card or input border. :focus-visible = keyboard
