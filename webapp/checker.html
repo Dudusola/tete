@@ -200,6 +200,7 @@
   </div>
   <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes — paste those above.</div>
   <div id="ck-book-result" class="mt-sm text-body-md text-on-surface"></div>
+  <div id="track-slip-slot"></div>
 </div>
 </div>
 <button id="clear-btn" class="mt-sm text-label-sm text-on-surface-variant hover:text-error flex items-center gap-1">
@@ -336,7 +337,8 @@ function addLeg(mid, selection) {
     SLIP = SLIP.filter(l => l.match_id !== mid);
     if (!(existing && existing.selection === selection)) {
         SLIP.push({match_id: mid, home_team: fx.home_team, away_team: fx.away_team,
-                   league: fx.league, market: m.market, selection: m.selection,
+                   league: fx.league, league_display: fx.league_display, kickoff_utc: fx.kickoff_utc,
+                   market: m.market, selection: m.selection,
                    probability: m.probability});
     }
     renderSlip();
@@ -374,6 +376,13 @@ function renderSlip() {
     // Nothing to book with an empty slip, and a live button that errors is worse
     // than a greyed-out one that explains itself.
     document.querySelectorAll(".ck-book-btn").forEach(b => b.disabled = !SLIP.length);
+    // Rebuilt on every change: an edited slip is a different bet, so a
+    // "Tracked" state from before the edit must not carry over.
+    const slot = document.getElementById("track-slip-slot");
+    if (slot && window.ppTrackSlipBlock) {
+        slot.innerHTML = SLIP.length ? ppTrackSlipBlock() : "";
+        if (SLIP.length) ppWireTrackSlip(() => SLIP.map(l => ({ ...l })), "checker", { fetchOdds: true });
+    }
     if (!SLIP.length) {
         box.innerHTML = `<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Pick a market from a fixture on the left.</div>`;
         document.getElementById("acc-pct").textContent = "—";

@@ -283,11 +283,13 @@ function renderSlip(data) {
     </div>
     <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes (Slip Checker).</div>
     <div id="book-result" class="mt-sm text-body-md text-on-surface"></div>
+    ${ppTrackSlipBlock()}
   </div>
 </section>`;
     LAST_SLIP = data.legs;
     document.querySelectorAll(".book-provider-btn").forEach(b =>
         b.addEventListener("click", () => bookSlip(b.dataset.provider)));
+    ppWireTrackSlip(() => LAST_SLIP.map(l => ({ ...l, odds: l.sporty_odds })), "builder");
     document.querySelectorAll(".swap-leg-btn").forEach(b =>
         b.addEventListener("click", () => {
             const leg = data.legs[parseInt(b.dataset.idx)];

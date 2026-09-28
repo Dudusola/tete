@@ -26,6 +26,8 @@
     let client = null, user = null, ready = null;
     const listeners = [];
     const tracked = new Map();          // "match_id|selection" -> row
+    let slips = [];                     // tracked_slips rows, newest first
+    let slipsError = null;              // set when the table can't be read (e.g. 002 not run yet)
 
     function loadSdk() {
         if (window.supabase && window.supabase.createClient) return Promise.resolve();
@@ -60,11 +62,17 @@
 
     async function refreshTracked() {
         tracked.clear();
+        slips = []; slipsError = null;
         if (!client || !user) return;
-        const { data, error } = await client.from("tracked_picks")
-            .select("*").order("created_at", { ascending: false });
-        if (error) { console.error("tracked_picks:", error.message); return; }
-        (data || []).forEach(r => tracked.set(`${r.match_id}|${r.selection}`, r));
+        const [picks, slipRes] = await Promise.all([
+            client.from("tracked_picks").select("*").order("created_at", { ascending: false }),
+            client.from("tracked_slips").select("*").order("created_at", { ascending: false }),
+        ]);
+        if (picks.error) console.error("tracked_picks:", picks.error.message);
+        else (picks.data || []).forEach(r => tracked.set(`${r.match_id}|${r.selection}`, r));
+        // Kept separate so a missing slips table can't take single picks down with it.
+        if (slipRes.error) { slipsError = slipRes.error.message; console.error("tracked_slips:", slipsError); }
+        else slips = slipRes.data || [];
     }
 
     // ── Account button in the nav (desktop link row + mobile brand bar) ──────
@@ -154,12 +162,99 @@
             tracked.set(`${data.match_id}|${data.selection}`, data);
             return data;
         },
+        // ── Accumulators: one slip = one bet = one row (002_tracked_slips.sql) ──
+        slips: () => slips,
+        slipsError: () => slipsError,
+        // legs: [{match_id, home_team, away_team, league, kickoff_utc, market,
+        //         selection, probability, odds}]; odds = SportyBet price or null.
+        trackSlip: async (legs, source) => {
+            await ready;
+            if (!user) throw Object.assign(new Error("Sign in to track slips"), { needsSignIn: true });
+            const clean = legs.map(l => ({
+                match_id: l.match_id, home_team: l.home_team, away_team: l.away_team,
+                league: l.league_display || l.league || null, kickoff_utc: l.kickoff_utc || null,
+                market: l.market, selection: l.selection,
+                probability: l.probability ?? null,
+                odds: l.odds && l.odds > 1 ? Number(l.odds) : null,
+            }));
+            // A total only when EVERY leg is priced: a product over some legs
+            // would understate the slip's real odds and overstate nothing useful.
+            const total = clean.every(l => l.odds)
+                ? Math.round(clean.reduce((t, l) => t * l.odds, 1) * 100) / 100 : null;
+            const { data, error } = await client.from("tracked_slips")
+                .insert({ source, legs: clean, total_odds: total }).select().single();
+            if (error) throw error;
+            slips = [data, ...slips];
+            notify();
+            return data;
+        },
+        untrackSlip: async (id) => {
+            await ready;
+            const { error } = await client.from("tracked_slips").delete().eq("id", id);
+            if (error) throw error;
+            slips = slips.filter(s => s.id !== id);
+            notify();
+        },
+        setSlipStake: async (id, stake) => {
+            await ready;
+            const { data, error } = await client.from("tracked_slips")
+                .update({ stake: stake === "" || stake == null ? null : Number(stake) }).eq("id", id).select().single();
+            if (error) throw error;
+            slips = slips.map(s => s.id === id ? data : s);
+            return data;
+        },
         deleteAccount: async () => {
             await ready;
             const { error } = await client.rpc("delete_my_account");
             if (error) throw error;
             await client.auth.signOut();
         },
+    };
+
+    // ── "Track this slip" (Builder + Checker share it) ───────────────────────
+    // Signed out, the slip is parked in sessionStorage and saved by
+    // account.html straight after Google sign-in, so signing in doesn't
+    // throw away the slip the user just built.
+    window.ppTrackSlipBlock = () => `
+      <div class="mt-sm pt-sm border-t border-outline-variant flex flex-wrap items-center gap-sm">
+        <button type="button" id="track-slip-btn" class="inline-flex items-center gap-xs px-md py-sm rounded-full border border-outline-variant text-label-sm font-bold text-on-surface-variant hover:border-secondary">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">bookmark_add</span>Track this slip in My Record</button>
+        <span id="track-slip-msg" class="text-label-sm text-on-surface-variant" aria-live="polite">Graded as one bet: it wins only if every leg does.</span>
+      </div>`;
+    window.ppWireTrackSlip = (getLegs, source, { fetchOdds = false } = {}) => {
+        const btn = document.getElementById("track-slip-btn");
+        const msg = document.getElementById("track-slip-msg");
+        if (!btn || btn.dataset.wired) return;
+        btn.dataset.wired = "1";
+        btn.addEventListener("click", async () => {
+            const legs = getLegs();
+            if (!legs.length) return;
+            btn.disabled = true;
+            msg.textContent = "Saving…";
+            try {
+                await ready;
+                if (fetchOdds && window.PotentialProAPI) {
+                    try {
+                        const o = await PotentialProAPI.slipOdds(legs);
+                        legs.forEach((l, i) => { l.odds = (o.odds || [])[i] || null; });
+                    } catch (_) { /* odds are optional; the slip still tracks */ }
+                }
+                if (!user) {
+                    try { sessionStorage.setItem("pp-pending-slip", JSON.stringify({ legs, source })); } catch (_) {}
+                    location.href = "account.html";
+                    return;
+                }
+                await window.PPAuth.trackSlip(legs, source);
+                btn.setAttribute("aria-pressed", "true");
+                btn.classList.add("pp-track-btn");
+                btn.lastChild.textContent = "Tracked";
+                msg.innerHTML = `Saved. <a href="account.html" class="text-secondary font-semibold underline underline-offset-2">See it in My Record</a>`;
+            } catch (err) {
+                console.error(err);
+                btn.disabled = false;
+                msg.textContent = "Couldn't save this slip. Please try again.";
+            }
+        });
     };
 
     ready = init().catch(err => {
