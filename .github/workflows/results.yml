@@ -78,6 +78,16 @@ jobs:
           PYTHONUTF8: '1'
         run: python scrapers/kickoff_times.py --days 1
 
+      # Kickoff times refreshed above can move a kickoff earlier than a pick
+      # already made; the record must only count pre-kickoff predictions
+      # (CLAUDE.md bug #33). Archives, never deletes.
+      - name: Archive post-kickoff predictions
+        continue-on-error: true
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+        run: python db/quarantine_late_predictions.py --apply
+
       - name: Commit the updated ledger
         if: always()
         run: |

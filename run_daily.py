@@ -559,6 +559,13 @@ def run_pipeline() -> list:
     # or reports on predictions that would not exist.
     run_step("Generate predictions", predict_args, CRITICAL)
 
+    # DEGRADED: the record counts only predictions made BEFORE kickoff (bug
+    # #33). predict.py now refuses started matches, but kickoff_times.py can
+    # move a kickoff EARLIER after a pick was made; this re-checks every day
+    # and archives anything that turned out to be post-kickoff. Never deletes.
+    run_step("Archive post-kickoff predictions",
+             ["db/quarantine_late_predictions.py", "--apply"], DEGRADED)
+
     # 5. Cross-source consensus report
     # Any pick still missing its written analysis — a --no-gemma run, an LLM
     # outage, or a fixture that can no longer be re-predicted because its odds

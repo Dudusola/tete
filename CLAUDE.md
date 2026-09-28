@@ -1148,6 +1148,31 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     today's commits) uses `ref: ${{ github.ref }}`, i.e. the branch head when
     the job STARTS. **A queue serialises runs; it does not refresh them.**
 
+33. **A quarter of the graded record was predicted AFTER kickoff (28 Sep 2026).**
+    predict.py selected fixtures by `match_date >= date('now')` only. A late
+    kickoff (23:00 UTC) that one source dates "tomorrow" was predicted again the
+    next morning - after the final whistle - and because every stats query
+    counts the LATEST prediction per match (bug #3), that row replaced the real
+    pre-match pick. Worse, `build_current_team_histories()` appends OUR recorded
+    results to form, so a match whose result was already in `results` fed its
+    own outcome into its own features. Measured: 341 of 1,439 graded football
+    picks (83 served) counted a post-kickoff prediction; 226 were made with the
+    result already recorded. It did NOT flatter the numbers (late served picks
+    won 61% vs 68% overall) - it was still wrong: a record may only count a pick
+    someone could have bet. Found while checking the claim "labelled before
+    kickoff" before publishing it on record.html.
+    FIX: predict.py refuses any fixture with kickoff_utc in the past or a result
+    already recorded. `db/quarantine_late_predictions.py` MOVES rows predicted
+    at/after kickoff (or after the result) to `model_predictions_after_kickoff`
+    - kept, not deleted - so MAX(id) everywhere falls back to the latest
+    pre-kickoff prediction without touching ~15 queries. Runs daily (pipeline +
+    results sweep) because kickoff_times.py can correct a kickoff after a pick.
+    Effect: served 310/457 = 67.8% -> 265/385 = 68.8%; all tiers 51.0% -> 50.4%;
+    both tiers still within noise of their claims.
+    **Before publishing a sentence about the data, check the data makes it
+    true. "Latest per match" is only the definition of what we predicted if
+    every row was a prediction.**
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
