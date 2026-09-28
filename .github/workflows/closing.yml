@@ -33,7 +33,16 @@ jobs:
     timeout-minutes: 10
 
     steps:
+      # Check out the branch AS IT IS NOW, not the commit this run was queued
+      # on. checkout@v4 defaults to github.sha, the commit at TRIGGER time; a
+      # run that waited in the daily-pipeline queue therefore started from a
+      # ledger older than the one the previous run just pushed, and its own
+      # push was refused (28 Sep 2026: the results sweep queued behind a manual
+      # pipeline run failed exactly this way). The queue stops two runs writing
+      # at once; this makes each run start from the latest ledger.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
 
       - uses: actions/setup-python@v5
         with:
