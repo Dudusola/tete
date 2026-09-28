@@ -1399,7 +1399,16 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    shape the pipeline already accepts, and demanding odds would have blocked the
    whole thing for no reason.
 
-   Remaining order of work: (a) unsuspend the API-Football account; (b) resolve
+   **CAUSE FOUND 28 Sep 2026 (API-Football support):** shared-IP anti-abuse.
+   GitHub Actions runners share Azure outbound IPs with thousands of users; a
+   PAID PLAN DOES NOT EXEMPT YOU - only a DEDICATED outbound IP does. The
+   laptop is no fix either (Nigerian ISPs are mostly carrier-grade NAT). The
+   step is now OFF in the cloud (`PP_SKIP_APIFOOTBALL=1`, daily.yml) so a
+   reinstated account isn't instantly re-suspended. Path back: a ~$4-6/mo VPS
+   with its own IPv4 running fixtures_api.py, THEN ask support to reinstate.
+   Deferred by Boss's call until testers are on the site.
+   Remaining order of work: (a) unsuspend the API-Football account (needs the
+   dedicated-IP server first - see above); (b) resolve
    the Saudi league id via `fixtures_api.py --discover` and add it to
    `LEAGUE_IDS`; (c) add the `TEAM_ALIASES` entries above *in that same change*,
    and verify against real served picks; (d) bug #27's `has_form_history`

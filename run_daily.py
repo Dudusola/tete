@@ -422,8 +422,21 @@ def run_pipeline() -> list:
     # the same bookmaker markets, so consensus between them is two views of one
     # market rather than two opinions. That is a real cost and it is recorded
     # in CLAUDE.md — but it is not worth a daily false alarm.
-    fixture_sources["apifootball"] = run_step(
-        "Fixtures + odds (API-Football)", ["scrapers/fixtures_api.py"], OPTIONAL)
+    #
+    # SKIPPED IN THE CLOUD since 28 Sep 2026 (PP_SKIP_APIFOOTBALL=1 in
+    # daily.yml). API-Football support confirmed the suspension is their
+    # shared-IP protection: GitHub's Azure runners share outbound addresses with
+    # thousands of other users, and a paid plan does NOT exempt you. Only a
+    # DEDICATED outbound IP does. Calling from here also risks re-suspending the
+    # account the moment it is reinstated, so the step is off, not just failing.
+    # Nigerian home/mobile connections are usually carrier-grade NAT (shared
+    # too), so the laptop is not a fix either. To restore: run this step from a
+    # server with its own IP, THEN ask support to reinstate.
+    if os.getenv("PP_SKIP_APIFOOTBALL", "").strip() == "1":
+        logger.info("⏭  Skipping API-Football (PP_SKIP_APIFOOTBALL=1 — needs a dedicated IP)")
+    else:
+        fixture_sources["apifootball"] = run_step(
+            "Fixtures + odds (API-Football)", ["scrapers/fixtures_api.py"], OPTIONAL)
 
     # THE GROUP GATE. Per-step severity cannot express "any one of these is
     # fine, none of them is fatal" — and that combination is precisely the
