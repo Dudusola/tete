@@ -72,19 +72,29 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 <!-- White, not the lime success colour: this figure sits BELOW the ~53-55% a
      bookmaker's favourite gets, and painting it as a win contradicted the
      sentence underneath. The lime glow behind it went for the same reason. -->
+<!-- REVISED 28 Sep 2026 (Boss's call). The headline is now the picks we
+     RECOMMEND (HIGH + MEDIUM), matching the Picks page, because that is the
+     number a punter acts on and the 51% headline read as "this doesn't work".
+     The safeguards the old design existed for are kept, not dropped:
+       1. The tiers are fixed BEFORE kickoff, and the hero says so - this is
+          not a subset chosen after the results.
+       2. Every prediction (LOW included) sits directly underneath at readable
+          size, with the bookmaker comparison, in the same box.
+       3. Both figures carry their denominators.
+     Still white, not lime: no celebratory colour on either number. -->
 <div class="text-display-lg font-display-lg text-on-primary relative z-10 flex items-baseline">
 <span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
 </div>
-<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10 max-w-xl"><span class="text-on-primary font-semibold">of every prediction won</span> — all tiers including LOW, scored against real full-time results. A bookmaker's favourite wins about 53–55%, so this number alone is not an edge — the calibration below is where the value claim lives.</p>
+<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10 max-w-xl"><span class="text-on-primary font-semibold">of the picks we recommend won</span> <span id="served-count" class="tabular-nums"></span> — HIGH and MEDIUM picks, labelled before kickoff and scored against real full-time results.</p>
+<div class="w-full h-px bg-surface-tint/30 my-4 relative z-10"></div>
 <!-- primary-fixed-dim, not on-primary-container: the latter renders ~4:1 on
      this dark hero, and the whole point of this line is that it be read. -->
-<p id="all-tiers-line" class="text-label-sm text-primary-fixed-dim mt-xs relative z-10"></p>
-<div class="w-full h-px bg-surface-tint/30 my-4 relative z-10"></div>
-<div class="flex justify-between w-full max-w-xs relative z-10">
-<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-picks">—</span><span class="text-label-sm text-on-primary-container">Scored Picks</span></div>
-<div class="w-px h-full bg-surface-tint/30"></div>
-<div class="flex flex-col items-center"><span class="text-data-tabular font-data-tabular text-on-primary" id="total-correct">—</span><span class="text-label-sm text-on-primary-container">Correct</span></div>
-</div>
+<p class="relative z-10 max-w-xl text-body-md text-primary-fixed-dim">
+  <span class="text-on-primary font-semibold">Every prediction, including LOW:</span>
+  <strong class="text-on-primary tabular-nums" id="all-rate">—</strong>
+  <span class="tabular-nums">(<span id="total-correct">—</span> of <span id="total-picks">—</span>)</span>.
+  A bookmaker's favourite wins about 53–55%, so that figure alone is not an edge — which is why LOW picks are never recommended, and why the calibration below is where the claim lives.
+</p>
 </section>
 
 <!-- Per-tier -->
@@ -408,21 +418,18 @@ async function loadRecord() {
             PotentialProAPI.stats(), PotentialProAPI.statsTiers(),
         ]);
         renderTierBands(tiers);
-        // Headline = ALL tiers. The served (HIGH+MEDIUM) figure moves to the
-        // supporting line: still prominent, no longer the biggest number.
+        // Headline = the picks we RECOMMEND (HIGH + MEDIUM); every prediction
+        // sits directly underneath in the same box. See the hero comment.
         const at = overall.all_tiers || {};
-        document.getElementById("overall-rate").textContent =
-            at.accuracy != null ? at.accuracy.toFixed(1) : "0";
         const fmt = v => (v || 0).toLocaleString("en");
+        document.getElementById("overall-rate").textContent =
+            overall.accuracy != null ? Number(overall.accuracy).toFixed(1) : "0";
+        document.getElementById("served-count").textContent = overall.scored_picks
+            ? `(${fmt(overall.correct)} of ${fmt(overall.scored_picks)})` : "";
+        document.getElementById("all-rate").textContent =
+            at.accuracy != null ? `${Number(at.accuracy).toFixed(1)}%` : "—";
         document.getElementById("total-picks").textContent = fmt(at.scored_picks);
         document.getElementById("total-correct").textContent = fmt(at.correct);
-
-        const allLine = document.getElementById("all-tiers-line");
-        if (allLine && overall.scored_picks) {
-            allLine.textContent =
-                `Picks we actually serve (HIGH + MEDIUM): ${overall.accuracy}% ` +
-                `(${overall.correct}/${overall.scored_picks})`;
-        }
 
         // Draw ceiling. Without it 60% reads as mediocre rather than as most
         // of what is reachable — the model has never picked a draw, so every
