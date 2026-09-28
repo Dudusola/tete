@@ -237,7 +237,14 @@ let SLIP = [];  // {match_id, home_team, away_team, market, selection, probabili
    doesn't collapse what the user just opened. */
 const EXPANDED = new Set();
 let MARKET_FILTER = "";
-const CHIPS_COLLAPSED = 6;
+/* Phones show 4 chips (two rows) and desktops 6. With 37 fixtures x 6 chips
+   the page was 10,500px tall on a phone; the rest stay one tap away. */
+const CHIPS_COLLAPSED = window.matchMedia("(max-width: 767px)").matches ? 4 : 6;
+/* Fixtures are paged for the same reason: the first screenful is what most
+   people use, and search finds anything further down. Reset whenever the
+   search or market filter changes, so a new query starts from the top. */
+const FIXTURE_PAGE = 12;
+let fixtureLimit = FIXTURE_PAGE;
 
 function marketChip(fx, m, picked) {
     // Selected chips must look selected. Without this the only feedback that a
@@ -245,7 +252,7 @@ function marketChip(fx, m, picked) {
     const cls = picked
         ? "bg-secondary-container text-on-secondary-container border-secondary font-bold"
         : "border-outline-variant hover:bg-surface-container-high";
-    return `<button class="add-leg text-label-sm px-2 py-1 rounded-md border transition ${cls}"
+    return `<button type="button" class="add-leg text-label-sm px-2 py-1 rounded-md border transition ${cls}"
         data-mid="${esc(fx.match_id)}" data-sel="${esc(m.selection)}"
         title="${esc(m.market)}${m.risk ? " • " + esc(ppRiskLabel(m.risk)) : ""}">
         ${esc(m.selection)} <span class="${picked ? "" : "text-on-surface-variant"}">${Math.round(m.probability*100)}%</span>
@@ -268,7 +275,11 @@ function renderFixtures(filter="") {
         list.innerHTML = `<div class="text-on-surface-variant">No fixtures match${MARKET_FILTER ? " that market" : ""}.</div>`;
         return;
     }
-    list.innerHTML = shown.map(fx => {
+    // A fixture already on the slip is always shown, even past the page limit,
+    // so a leg never disappears from the list it was picked from.
+    const paged = shown.filter((fx, i) => i < fixtureLimit || SLIP.some(l => l.match_id === fx.match_id));
+    const remaining = shown.length - paged.length;
+    list.innerHTML = paged.map(fx => {
         const mkts = MARKET_FILTER
             ? fx.markets.filter(m => m.market === MARKET_FILTER)
             : fx.markets;
@@ -297,7 +308,15 @@ function renderFixtures(filter="") {
             : "")}
   </div>
 </div>`;
-    }).join("");
+    }).join("") + (remaining > 0 ? `
+<button type="button" id="more-fixtures" class="w-full py-sm rounded-lg border border-outline-variant text-body-md font-semibold text-secondary hover:bg-surface-container-high">
+  Show ${Math.min(remaining, FIXTURE_PAGE)} more ${Math.min(remaining, FIXTURE_PAGE) === 1 ? "fixture" : "fixtures"} <span class="text-on-surface-variant font-normal tabular-nums">(${remaining} left)</span>
+</button>` : "");
+    const more = document.getElementById("more-fixtures");
+    if (more) more.addEventListener("click", () => {
+        fixtureLimit += FIXTURE_PAGE;
+        renderFixtures(document.getElementById("search").value);
+    });
 
     list.querySelectorAll(".add-leg").forEach(btn =>
         btn.addEventListener("click", () => addLeg(btn.dataset.mid, btn.dataset.sel)));
@@ -397,7 +416,7 @@ function renderSlip() {
     <div class="text-label-sm text-on-surface-variant">${esc(l.market)}: ${esc(l.selection)}</div>
   </div>
   <span class="text-body-md font-semibold text-primary">${Math.round(l.probability*100)}%</span>
-  <button class="rm material-symbols-outlined text-on-surface-variant hover:text-error text-[18px]" data-mid="${esc(l.match_id)}" aria-label="Remove this leg">close</button>
+  <button type="button" class="rm material-symbols-outlined inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-error text-[18px]" data-mid="${esc(l.match_id)}" aria-label="Remove this leg">close</button>
 </div>`).join("");
     box.querySelectorAll(".rm").forEach(b => b.addEventListener("click", () => removeLeg(b.dataset.mid)));
 
@@ -641,8 +660,9 @@ async function decodeBookingCode() {
 document.addEventListener("DOMContentLoaded", () => {
     load();
     renderSlip();          // disables the booking buttons on an empty slip
-    document.getElementById("search").addEventListener("input", e => renderFixtures(e.target.value));
+    document.getElementById("search").addEventListener("input", e => { fixtureLimit = FIXTURE_PAGE; renderFixtures(e.target.value); });
     document.getElementById("market-filter").addEventListener("change", e => {
+        fixtureLimit = FIXTURE_PAGE;
         MARKET_FILTER = e.target.value;
         renderFixtures(document.getElementById("search").value);
     });
