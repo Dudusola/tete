@@ -271,6 +271,17 @@ generate predictions on demand.
                           link to index.html on every page, and on mobile trims the bottom nav to
                           Picks/Builder/Record/More — Consensus, Checker and the theme toggle live in
                           the #pp-sheet bottom sheet behind the More (hamburger) button.
+                          STYLES (28 Sep 2026): pages load a PREBUILT css/app.css (30 KB, 6.5 KB
+                          gzipped), not the Tailwind Play CDN (419 KB script that compiled CSS in
+                          the browser, 7.9 s to fetch on a slow link). Tokens live in
+                          tools/tailwind/tailwind.config.js (theme.js is gone). deploy-webapp.yml
+                          REBUILDS it every deploy and hash-stamps css/app.css?v= like api.js, so
+                          production can't ship stale CSS; the committed copy is for local dev —
+                          `cd tools/tailwind && npm ci && npm run build` after adding classes.
+                          RULE: never build a class name from pieces ("text-"+x) — the build only
+                          sees whole class names written in webapp/*.html and webapp/js/*.js.
+                          Swap verified by computed-style diff: 0 differences, 8 pages x
+                          phone/desktop x light/dark.
                           PWA (July 2026): manifest.json + icons/ (from logo.png) + sw.js registered by
                           api.js. sw.js is NETWORK-FIRST on purpose (cache only serves offline) — never
                           switch it to cache-first for HTML/JS or the stale-api.js bug returns.

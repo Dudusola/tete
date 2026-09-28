@@ -1,29 +1,33 @@
-/* Tailwind design tokens — the single source for all five pages.
+/* Tailwind build config for the web app -> webapp/css/app.css.
 
-   This block was inline in every page: 2.4KB × 5, byte-identical copies of 47
-   colour tokens plus the spacing, radius and type scales. They were still
-   identical only because nobody had touched them; the first colour change would
-   have been made in one file, and the drift would have been invisible until
-   someone happened to compare two pages side by side. That is exactly how the
-   desktop nav ended up spaced three different ways.
+   WHY THIS EXISTS. Every page used to load the Tailwind Play CDN: a 419 KB
+   script (127 KB gzipped) that compiles CSS IN THE BROWSER on every page view,
+   and blocks rendering until it has. Measured 7.9 s to download on 28 Sep 2026.
+   Tailwind's own docs say the Play CDN is not for production. For a phone on
+   Nigerian mobile data that was the single slowest thing on every page.
+   Now the CSS is compiled once, here, and pages load a small static file.
 
-   Must load AFTER cdn.tailwindcss.com (it assigns onto the `tailwind` global)
-   and BEFORE </head>. Both are head-blocking scripts, so they finish before
-   <body> is parsed and the Play CDN's observer never sees content styled under a
-   default config — no flash of unstyled content.
+   The design tokens below MOVED here from webapp/js/theme.js (deleted), which
+   assigned them to the Play CDN's runtime global. This file is now the single
+   source for colours, spacing, radius and type.
 
-   Stamped with a content hash by .github/workflows/deploy-webapp.yml, same as
-   api.js. A shared file served from a stale cache is the "Couldn't book" bug
-   class that workflow exists to prevent; if you add another shared file, stamp
-   it there too.
+   BUILD:  cd tools/tailwind && npm ci && npm run build
+   The deploy workflow (.github/workflows/deploy-webapp.yml) ALWAYS rebuilds
+   before publishing, so production can never ship a stale stylesheet. The
+   committed webapp/css/app.css is for local dev (python -m http.server) and the
+   Render fallback; rebuild it when you change classes, or a new class simply
+   has no style locally. The workflow warns when the committed copy is stale.
 
-   The guard is for the case where the CDN itself is blocked or fails: without it
-   this line throws an uncaught ReferenceError and the console shows a confusing
-   error about our own file, not about the CDN that actually failed. */
-if (typeof tailwind === "undefined") {
-    console.warn("Tailwind CDN did not load — design tokens not applied.");
-} else {
-tailwind.config = {
+   THE ONE RULE: Tailwind finds classes by scanning the files in `content` for
+   complete class names. Never assemble a class name from pieces
+   (`"text-" + colour`) — it is invisible to the scan and ships unstyled. Write
+   the whole name out (`on ? "bg-primary" : "bg-surface"`). */
+module.exports = {
+    content: [
+        "../../webapp/*.html",
+        "../../webapp/js/*.js",
+        "../../webapp/config.js",
+    ],
     darkMode: "class",
     // Compile every hover: utility inside @media (hover: hover). Without it a
     // phone applies :hover on tap and leaves it there — a tapped chip or card
@@ -61,6 +65,6 @@ tailwind.config = {
             "headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],
             "data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]
         }
-    }}
+    }},
+    plugins: [require("@tailwindcss/forms")],
 };
-}

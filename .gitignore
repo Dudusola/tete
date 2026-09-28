@@ -45,3 +45,6 @@ worker/.wrangler/
 
 # /brag video scratch output (renders + composition, ~4MB a run)
 brag-output/
+
+# Tailwind build tools (tools/tailwind; see tailwind.config.js)
+tools/tailwind/node_modules/

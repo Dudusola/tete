@@ -26,6 +26,7 @@ on:
     branches: [main]
     paths:
       - 'webapp/**'
+      - 'tools/tailwind/**'
       - '.github/workflows/deploy-webapp.yml'
   workflow_dispatch:
 
@@ -38,6 +39,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # The stylesheet is compiled HERE, every deploy, from the HTML/JS being
+      # shipped. It replaced the Tailwind Play CDN (a 419 KB script that
+      # compiled CSS in each visitor's browser). Building in the workflow means
+      # production can never carry a stylesheet older than its own markup: a
+      # class added without a local rebuild still gets its style.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: tools/tailwind/package-lock.json
+      - name: Build stylesheet
+        working-directory: tools/tailwind
+        run: |
+          cp ../../webapp/css/app.css /tmp/committed.css
+          npm ci --no-audit --no-fund
+          npm run build
+          test -s ../../webapp/css/app.css || { echo "::error::webapp/css/app.css is empty"; exit 1; }
+          # Production is fine either way (it ships the fresh build); this only
+          # says local dev and the Render fallback are running stale CSS.
+          cmp -s /tmp/committed.css ../../webapp/css/app.css || \
+            echo "::warning::committed webapp/css/app.css is stale - run 'npm run build' in tools/tailwind and commit it"
+          wc -c ../../webapp/css/app.css
+
       # The cache-bust, computed rather than remembered.
       #
       # Shared JS is loaded as "js/<file>.js?v=N" and N was bumped by hand.
@@ -46,27 +70,26 @@ jobs:
       # forgotten and cannot be wrong: identical file, identical query string,
       # so caches still work; changed file, new string, so nobody sees stale JS.
       #
-      # EVERY shared file under webapp/js/ must be stamped. theme.js holds the
-      # Tailwind design tokens for all five pages — a stale copy of that repaints
-      # the whole app with the wrong palette, which is a louder failure than a
-      # stale api.js, not a quieter one. The loop means a new shared file only
-      # has to be added to SHARED below.
-      - name: Stamp shared JS with a content hash
+      # EVERY shared file must be stamped, the stylesheet included: a stale
+      # app.css repaints the whole app against new markup, which is a louder
+      # failure than a stale api.js, not a quieter one. The loop means a new
+      # shared file only has to be added to SHARED below.
+      - name: Stamp shared JS and CSS with a content hash
         run: |
-          SHARED="api.js theme.js auth.js"
+          SHARED="js/api.js js/auth.js css/app.css"
           for f in $SHARED; do
-            test -f "webapp/js/$f" || { echo "::error::webapp/js/$f is listed as shared but does not exist"; exit 1; }
-            HASH=$(sha256sum "webapp/js/$f" | cut -c1-10)
+            test -f "webapp/$f" || { echo "::error::webapp/$f is listed as shared but does not exist"; exit 1; }
+            HASH=$(sha256sum "webapp/$f" | cut -c1-10)
             echo "$f hash: $HASH"
-            sed -i -E "s|js/${f%.js}\.js\?v=[A-Za-z0-9]+|js/$f?v=$HASH|g" webapp/*.html
+            sed -i -E "s|${f/./\\.}\?v=[A-Za-z0-9]+|$f?v=$HASH|g" webapp/*.html
           done
           # Fail loudly if any page still carries an unstamped reference: a
           # silent miss here is precisely the bug this step exists to stop.
-          if grep -rn 'js/[a-z]*\.js"' webapp/*.html; then
-            echo "::error::a shared script above is referenced without ?v= — add it to SHARED"
+          if grep -rnE '(js|css)/[a-z]*\.(js|css)"' webapp/*.html; then
+            echo "::error::a shared file above is referenced without ?v= - add it to SHARED"
             exit 1
           fi
-          grep -ho 'js/[a-z]*\.js?v=[A-Za-z0-9]*' webapp/index.html
+          grep -hoE '(js|css)/[a-z]*\.(js|css)\?v=[A-Za-z0-9]*' webapp/index.html
 
       - name: Check deploy credentials
         id: creds
