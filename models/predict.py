@@ -221,6 +221,15 @@ def get_todays_scraped_matches() -> list:
             WHERE p2.match_id = m.match_id
         )
         WHERE m.match_date >= date('now')
+          -- NEVER predict a match that has started or already has a result
+          -- (CLAUDE.md bug #33). match_date alone let a 23:00 UTC kickoff,
+          -- dated "tomorrow" by one source, be predicted the next morning -
+          -- after the final whistle, with its own result already feeding the
+          -- form features. The record counts the LATEST prediction per match,
+          -- so such a row silently replaced the real pre-match pick.
+          AND (m.kickoff_utc IS NULL
+               OR m.kickoff_utc > strftime('%Y-%m-%d %H:%M', 'now'))
+          AND NOT EXISTS (SELECT 1 FROM results r WHERE r.match_id = m.match_id)
           {sport_sql(FOOTBALL)}
         ORDER BY m.match_date, m.kickoff_time
     """).fetchall()
