@@ -179,19 +179,22 @@ function renderLeg(leg, idx) {
     const pinned = isPinned(leg);
     return `
 <div class="p-md flex flex-col md:flex-row md:items-center justify-between gap-md hover:bg-surface transition relative ${pinned ? "border-l-2 border-l-secondary" : ""}">
+  <!-- On phones these float top-right, so the text column below reserves
+       their width (pr-[76px]); without it the kickoff time and long team names
+       ran underneath the pin. 36px targets (p-2) instead of 28px. -->
   <div class="absolute top-2 right-2 md:static md:order-last flex items-center gap-1">
     <button data-idx="${idx}" title="${pinned ? "Unpin this Banker" : "Pin as Banker — survives re-rolls and filter changes"}"
-      class="pin-leg-btn transition p-1 rounded-full hover:bg-surface-container-high ${pinned ? "text-secondary" : "text-on-surface-variant hover:text-secondary"}">
+      class="pin-leg-btn transition p-2 rounded-full hover:bg-surface-container-high ${pinned ? "text-secondary" : "text-on-surface-variant hover:text-secondary"}">
       <span class="material-symbols-outlined" style="font-size:20px;${pinned ? "font-variation-settings:'FILL' 1;" : ""}">push_pin</span>
     </button>
     <button data-idx="${idx}" title="Remove this game and pull in the next best"
-      class="swap-leg-btn text-on-surface-variant hover:text-error transition p-1 rounded-full hover:bg-surface-container-high">
+      class="swap-leg-btn text-on-surface-variant hover:text-error transition p-2 rounded-full hover:bg-surface-container-high">
       <span class="material-symbols-outlined" style="font-size:20px">close</span>
     </button>
   </div>
-  <div class="flex-1">
+  <div class="flex-1 min-w-0 pr-[76px] md:pr-0">
     <div class="flex items-center gap-2 mb-1">
-      <span class="w-2 h-2 rounded-full bg-secondary"></span>
+      <span class="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
       <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(kickoffLabel(leg.match_date, leg.kickoff_time, leg.kickoff_utc))}</span>
     </div>
     <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
