@@ -38799,6 +38799,20 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401817096,2026-09-26,2026-09-26 23:10,2026,2,Milwaukee Brewers,St. Louis Cardinals,8,24,3,2,H,REG,3,2,0
 401817097,2026-09-26,2026-09-26 20:10,2026,2,Minnesota Twins,Texas Rangers,9,13,2,6,A,REG,2,6,0
 401817101,2026-09-26,2026-09-26 20:05,2026,2,San Francisco Giants,Los Angeles Dodgers,26,19,3,4,A,REG,3,4,0
+401817089,2026-09-27,2026-09-27 19:05,2026,2,Boston Red Sox,Chicago Cubs,2,16,2,6,A,REG,2,6,1
 401817098,2026-09-27,2026-09-27 01:40,2026,2,Seattle Mariners,Los Angeles Angels,12,3,8,4,H,REG,8,4,0
 401817099,2026-09-27,2026-09-27 00:40,2026,2,San Diego Padres,Arizona Diamondbacks,25,29,10,7,H,REG,10,7,0
 401817100,2026-09-27,2026-09-27 01:40,2026,2,Athletics,Houston Astros,11,18,2,13,A,REG,2,13,0
+401817102,2026-09-27,2026-09-27 19:10,2026,2,Miami Marlins,Atlanta Braves,28,15,5,3,H,REG,5,3,0
+401817105,2026-09-27,2026-09-27 19:07,2026,2,Toronto Blue Jays,Cincinnati Reds,14,17,5,1,H,REG,5,1,0
+401817106,2026-09-27,2026-09-27 17:05,2026,2,Washington Nationals,New York Mets,20,21,6,4,H,REG,6,4,0
+401817107,2026-09-27,2026-09-27 19:10,2026,2,Detroit Tigers,Pittsburgh Pirates,6,23,2,4,A,REG,2,4,0
+401817108,2026-09-27,2026-09-27 18:30,2026,2,Philadelphia Phillies,Tampa Bay Rays,22,30,7,3,H,REG,7,3,0
+401817109,2026-09-27,2026-09-27 19:10,2026,2,Kansas City Royals,Cleveland Guardians,7,5,3,2,H,REG,3,2,0
+401817110,2026-09-27,2026-09-27 19:10,2026,2,Chicago White Sox,Colorado Rockies,4,27,4,2,H,REG,4,2,0
+401817111,2026-09-27,2026-09-27 19:10,2026,2,Milwaukee Brewers,St. Louis Cardinals,8,24,6,4,H,REG,6,4,0
+401817112,2026-09-27,2026-09-27 19:10,2026,2,Minnesota Twins,Texas Rangers,9,13,6,4,H,REG,6,4,0
+401817113,2026-09-27,2026-09-27 19:10,2026,2,Seattle Mariners,Los Angeles Angels,12,3,7,3,H,REG,7,3,0
+401817114,2026-09-27,2026-09-27 19:10,2026,2,San Diego Padres,Arizona Diamondbacks,25,29,9,4,H,REG,9,4,0
+401817115,2026-09-27,2026-09-27 19:05,2026,2,Athletics,Houston Astros,11,18,0,9,A,REG,0,9,0
+401817116,2026-09-27,2026-09-27 19:05,2026,2,San Francisco Giants,Los Angeles Dodgers,26,19,1,5,A,OT,1,1,0
