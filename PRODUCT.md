@@ -33,9 +33,9 @@ Most tipster products sell confidence. PotentialPro sells **verifiable calibrati
 
 ## Capabilities and Constraints
 
-- Existing, live system (static HTML + Tailwind CDN + vanilla JS on Cloudflare Pages; FastAPI on Render). **This is a refinement of the incumbent system, not a redesign** (Boss, 28 Sep 2026: "we have our system currently, we just need to fix it up").
+- Existing, live system (static HTML + prebuilt Tailwind CSS + vanilla JS on Cloudflare Pages; FastAPI on Render). **This is a refinement of the incumbent system, not a redesign** (Boss, 28 Sep 2026: "we have our system currently, we just need to fix it up").
 - Six pages: Picks (index), Builder (slip), Record, Consensus, Checker, My Record (account); plus privacy/terms.
-- Shared chrome, tokens, dark mode, accessibility helpers and error/booking copy live in `webapp/js/api.js` and `webapp/js/theme.js`.
+- Shared chrome, tokens, dark mode, accessibility helpers and error/booking copy live in `webapp/js/api.js`; design tokens in `tools/tailwind/tailwind.config.js` (compiled to `webapp/css/app.css`).
 - Terminology: HIGH / MEDIUM / LOW = confidence tiers only. Risk is shown as Safer / Balanced / Longer odds (`PP_RISK_LABEL`).
 
 ## Brand Commitments
