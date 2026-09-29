@@ -168,6 +168,9 @@ generate predictions on demand.
                           and closing price. Its own table on purpose: scraped_predictions is
                           football's 3-way feature path (bug #7). This is what lets Elo be tested
                           against the market later — ESPN deletes odds once a game is final.
+                          Since 29 Sep 2026 also the SPREAD (puck/run line; `line` = the HOME
+                          side's line) and the TOTAL (`odds_over`/`odds_under` at `line`), each
+                          with its opening line — the line itself moves (NYI @ TOR o6.5 -> o5.5).
                           Exits 0 on an empty
                           schedule (off-season), 1 only if every request failed. `_parse_event` is
                           also the parser for sports_history.py — see bug #31 for what it filters.
@@ -189,14 +192,44 @@ generate predictions on demand.
                           training seasons ONLY, the last two complete seasons scored once. Writes
                           data/sports_history/elo_params.json + elo_ratings_<feed>.csv. Not in the
                           pipeline: nothing consumes it yet. `python models/elo.py` (~25 s).
-- models/elo_shadow.py    SHADOW Elo predictions for NFL/NBA/NHL/MLB into `shadow_predictions`, a
-                          table NOTHING serves (no endpoint, page, bot or stats query reads it), with
-                          the margin-free market probability beside each. Daily step (DEGRADED) +
+- models/elo_shadow.py    SHADOW Elo predictions for NFL/NBA/NHL/MLB into `shadow_predictions`, with
+                          the margin-free market probability beside each. Nothing PUBLIC reads it:
+                          no /api/picks, /api/stats, Record page or bot. Its ONE reader outside the
+                          reports is the private NHL preview (29 Sep 2026, below). For NHL games it
+                          also stores `markets_json` + `facts_json`. Daily step (DEGRADED) +
                           hourly in closing.yml, updated until kickoff. Reverts ratings for a new
                           season the history file has not reached yet. Read with
                           `python db/shadow_report.py` (Elo vs market log loss, paired 95% CI,
                           graded on the FINAL result; NFL ties excluded). The evidence clock for
                           serving any non-soccer sport (docs/basketball.md sections 5 and 7).
+- models/nhl_markets.py   Prices the four markets hockey is bet on: moneyline (Elo, incl. OT/SO),
+                          60-minute 1X2 (what SportyBet calls hockey "1X2"), puck line ±1.5, totals
+                          5.5/6.5. NOT Poisson: NHL regulation totals are UNDER-dispersed (var 5.5 on
+                          mean 6.0) and 22% of games reach OT vs Poisson's ~16%. Each market is a small
+                          logistic fitted on 2012-2024, half-life chosen on validation seasons, scored
+                          ONCE on 2025-26 (2,624 games): puck line gains ~0.009 log loss over the base
+                          rate, totals ~0.006 (and ~3 pts over-confident in the 60-70% band), 60-min
+                          3-way ~0.013. The reg. draw and the OT winner had NO skill, so they use the
+                          league rates (23.0%, home 51.3%) - never dress a constant up as a model.
+                          `grade()` settles every key (full game on the FINAL, 60-min on reg score);
+                          `verdict()` picks the largest edge >= 3 pts, strength by size, capped at
+                          "slight" in opening week. Refit: `python models/nhl_markets.py` ->
+                          data/sports_history/nhl_markets.json (NOT refit daily; do it each summer).
+- models/nhl_form.py      The FACTS an NHL analysis may use: last 10 (W-L-OTL, with how many were
+                          playoff games), home/road last 10, streak, rest/back-to-back, last 5
+                          meetings, rating rank. Point-in-time; shootout "goal" removed from GF/GA.
+- analysis/nhl_analyst.py Prose for the private preview, from facts_json/markets_json only. Three
+                          guards, each added after Gemini broke the rule on day one: the h2h TALLY
+                          is precomputed leader-first ("Florida won two of five" when they won three;
+                          "Boston's 3-2 edge" when Boston trailed 2-3); the VERDICT is decided in code
+                          (it rated a +3.2 edge "moderate"); and `unsupported_figures()` rejects any
+                          score/record/decimal not in the evidence (caught an invented "3-6-0"),
+                          retries once, then stores NOTHING. Daily OPTIONAL step.
+- models/nhl_preview.py   Payload for GET /api/preview/nhl -> webapp/hockey.html (PRIVATE: linked from
+                          nowhere, noindex). Upcoming games + all markets vs the book + analysis +
+                          facts; finished games with the verdict graded; the preview's OWN record,
+                          never mixed into football's. db/shadow_report.py grades each NHL market
+                          family against the book (paired log loss) + the verdicts' flat-stake P/L.
 - models/sports.py        `matches.sport` values (football, basketball, american_football,
                           ice_hockey, baseball) and `sport_sql()`, the WHERE fragment that keeps
                           them apart. Rejects unknown sports so a typo can't silently filter
@@ -304,7 +337,8 @@ POST /api/slip/settle {legs} (won/lost/void/pending/ungradable per leg, via
 models/settle.py - grades tracked accumulators) ; POST /api/slip/odds {legs}
 (SportyBet prices for a hand-built slip, recorded when it is tracked).
 Booking: POST /api/booking/decode | generate | convert | merge | split |
-optimize ; GET /api/booking/providers (authoritative list of who we can read
+optimize ; GET /api/preview/nhl (PRIVATE NHL preview, see models/nhl_preview.py) ;
+GET /api/booking/providers (authoritative list of who we can read
 from vs create on — they are NOT the same set). CORS allow_origins=["*"].
 
 Payload notes worth knowing before adding a consumer:
@@ -1636,6 +1670,14 @@ unknown until the honest ledger matures (`db/edge_report.py`).
 
 10. **Multi-sport — STATUS 27 Sep 2026: the LEDGER and the HISTORY exist for
     NFL, NBA, NHL and MLB; no model, odds, markets or picks for any of them.**
+    **UPDATE 29 Sep 2026 (NHL, Boss's call: "private preview, NHL only"):** NHL
+    now has priced markets (moneyline, 60-min 1X2, puck line, totals), facts-only
+    AI analysis and a verdict per game — on the PRIVATE page webapp/hockey.html
+    only. Still NOT public: the serving bar is unchanged — `db/shadow_report.py`
+    must show the markets holding up against the book over a few hundred games.
+    Starting goalies are the biggest known gap (the book has them, we don't);
+    api-web.nhle.com is the candidate source. NFL/MLB get spread + total lines
+    recorded but no markets or analysis yet.
     | League | Ledger live from | History (data/sports_history) |
     |---|---|---|
     | NFL | now (mid-season) | 4,396 games, 2010- |

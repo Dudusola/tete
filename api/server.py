@@ -1278,6 +1278,24 @@ def booking_generate(legs: List[dict] = Body(..., embed=True),
         return {"ok": False, "error": str(e)}
     return {"ok": True, "provider": provider, **res}
 
+
+@app.get("/api/preview/nhl")
+def preview_nhl():
+    """PRIVATE NHL preview (webapp/hockey.html, unlisted): upcoming games with
+    every standard hockey market priced beside the bookmaker's, the facts-only
+    analysis, and the preview's own separate record. Never part of /api/picks
+    or /api/stats - see models/nhl_preview.py.
+
+    Imported here, not at the top: an import error in the preview must cost
+    this one endpoint, never the football API (bug #15's failure mode).
+    """
+    from models.nhl_preview import build
+    conn = get_connection()
+    try:
+        return build(conn)
+    finally:
+        conn.close()
+
 # ─── Serve the PWA from the API (single-origin deploy) ────────────────────────
 # Mounting the web app here means ONE tunnel/host exposes both the site and the
 # API at the same origin: config.js can stay blank (api.js falls back to the

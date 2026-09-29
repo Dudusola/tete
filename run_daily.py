@@ -593,6 +593,12 @@ def run_pipeline() -> list:
     # contradict the draw it is printed under.
     run_step("Draw analysis", ["analysis/draw_analysis.py"], OPTIONAL)
 
+    # OPTIONAL: prose for the PRIVATE NHL preview (webapp/hockey.html). Same
+    # reason as the two above - explanation, never the prediction - and the
+    # markets it explains are already stored by the shadow step. Its readers
+    # are one unlisted page; a missed day just shows "written the day before".
+    run_step("NHL preview analysis (private)", ["analysis/nhl_analyst.py"], OPTIONAL)
+
     # OPTIONAL: this step only PRINTS a report — the consensus the API serves
     # is computed live by build_consensus(). Nothing downstream reads it.
     run_step("Cross-source consensus", ["models/consensus.py"], OPTIONAL)

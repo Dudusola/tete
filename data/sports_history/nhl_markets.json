@@ -1,0 +1,180 @@
+{
+ "models": {
+  "over_5.5": {
+   "coef": [
+    0.716676
+   ],
+   "intercept": -3.989321
+  },
+  "over_6.5": {
+   "coef": [
+    0.722057
+   ],
+   "intercept": -4.467724
+  },
+  "home_by_2": {
+   "coef": [
+    0.994762,
+    0.108473
+   ],
+   "intercept": -1.540709
+  },
+  "away_by_2": {
+   "coef": [
+    -1.074784,
+    0.240528
+   ],
+   "intercept": -2.335957
+  }
+ },
+ "reg_draw_rate": 0.2296,
+ "ot_home_rate": 0.5127,
+ "half_life": 20,
+ "base_rates": {
+  "over_5.5": 0.5,
+  "over_6.5": 0.3921,
+  "home_by_2": 0.316,
+  "away_by_2": 0.2479,
+  "reg3": {
+   "reg_home": 0.4247318859534397,
+   "reg_draw": 0.22959717499346063,
+   "reg_away": 0.34567093905309965
+  }
+ },
+ "held_out": {
+  "over_5.5": {
+   "n": 2624,
+   "log_loss": 0.6871,
+   "base_log_loss": 0.6931,
+   "calibration": [
+    {
+     "band": "40-50%",
+     "n": 164,
+     "claimed": 0.482,
+     "actual": 0.573
+    },
+    {
+     "band": "50-60%",
+     "n": 1947,
+     "claimed": 0.555,
+     "actual": 0.544
+    },
+    {
+     "band": "60-70%",
+     "n": 513,
+     "claimed": 0.623,
+     "actual": 0.591
+    }
+   ]
+  },
+  "over_6.5": {
+   "n": 2624,
+   "log_loss": 0.6867,
+   "base_log_loss": 0.6933,
+   "calibration": [
+    {
+     "band": "30-40%",
+     "n": 264,
+     "claimed": 0.381,
+     "actual": 0.409
+    },
+    {
+     "band": "40-50%",
+     "n": 1984,
+     "claimed": 0.45,
+     "actual": 0.446
+    },
+    {
+     "band": "50-60%",
+     "n": 376,
+     "claimed": 0.521,
+     "actual": 0.473
+    }
+   ]
+  },
+  "home_by_2": {
+   "n": 2624,
+   "log_loss": 0.6232,
+   "base_log_loss": 0.6326,
+   "calibration": [
+    {
+     "band": "10-20%",
+     "n": 124,
+     "claimed": 0.174,
+     "actual": 0.169
+    },
+    {
+     "band": "20-30%",
+     "n": 935,
+     "claimed": 0.259,
+     "actual": 0.288
+    },
+    {
+     "band": "30-40%",
+     "n": 1106,
+     "claimed": 0.345,
+     "actual": 0.324
+    },
+    {
+     "band": "40-50%",
+     "n": 389,
+     "claimed": 0.436,
+     "actual": 0.463
+    },
+    {
+     "band": "50-60%",
+     "n": 68,
+     "claimed": 0.532,
+     "actual": 0.441
+    }
+   ]
+  },
+  "away_by_2": {
+   "n": 2624,
+   "log_loss": 0.5707,
+   "base_log_loss": 0.5793,
+   "calibration": [
+    {
+     "band": "10-20%",
+     "n": 551,
+     "claimed": 0.168,
+     "actual": 0.185
+    },
+    {
+     "band": "20-30%",
+     "n": 1312,
+     "claimed": 0.25,
+     "actual": 0.261
+    },
+    {
+     "band": "30-40%",
+     "n": 605,
+     "claimed": 0.339,
+     "actual": 0.304
+    },
+    {
+     "band": "40-50%",
+     "n": 128,
+     "claimed": 0.435,
+     "actual": 0.453
+    }
+   ]
+  },
+  "reg_3way": {
+   "n": 2624,
+   "log_loss": 1.0551,
+   "base_log_loss": 1.0677
+  }
+ },
+ "seasons": {
+  "train": [
+   2012,
+   2024
+  ],
+  "test": [
+   2025,
+   2026
+  ]
+ },
+ "fitted_at": "2026-09-29 16:44 UTC"
+}

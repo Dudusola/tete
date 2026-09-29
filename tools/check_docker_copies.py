@@ -42,7 +42,7 @@ ENTRY = os.path.join(ROOT, "api", "server.py")
 
 # Packages whose modules are copied file-by-file. A package NOT listed here is
 # either copied wholesale (webapp/) or not shipped at all.
-TRACKED = ("api", "db", "models", "scrapers")
+TRACKED = ("api", "db", "models", "scrapers", "analysis")
 
 
 def copied_files() -> set:

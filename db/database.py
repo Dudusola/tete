@@ -224,6 +224,23 @@ def init_db():
     """)
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_market_lines_match "
                    "ON market_lines(match_id, id)")
+    # Spread and total markets (29 Sep 2026). A price is meaningless without
+    # its LINE, and the line itself moves (NYI @ TOR opened o6.5, closed o5.5),
+    # so both the current and the opening line are kept.
+    #   market 'spread'  odds_home/odds_away are the prices of the home and away
+    #                    side AT `line`, which is the HOME side's line (-1.5
+    #                    means home gives 1.5). Puck line / run line / spread.
+    #   market 'total'   odds_over/odds_under at total `line`. Full game,
+    #                    overtime included (and in the NHL the shootout winner
+    #                    is credited one goal, as ESPN's final already is).
+    # Over/under get their own columns rather than borrowing odds_home/away:
+    # a column whose name lies is bug #23's shape.
+    for col in ("line REAL", "open_line REAL", "odds_over REAL",
+                "odds_under REAL", "open_over REAL", "open_under REAL"):
+        try:
+            cursor.execute(f"ALTER TABLE market_lines ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # already exists
 
     # CLOSING-LINE VALUE (27 Sep 2026). book_odds says what the market thought
     # when we picked; these say what it thought just before kickoff, from the
@@ -240,6 +257,37 @@ def init_db():
                 "close_at TEXT", "close_mins_before INTEGER"):
         try:
             cursor.execute(f"ALTER TABLE model_predictions ADD COLUMN {col}")
+        except sqlite3.OperationalError:
+            pass  # already exists
+
+    # SHADOW predictions for the non-soccer sports (models/elo_shadow.py).
+    # Created here as well as there because the NHL preview endpoint reads it,
+    # and schema belongs to the schema file (bug #21).
+    #   markets_json  every market priced for the game (models/nhl_markets.py):
+    #                 our probability beside the market's, so each market can be
+    #                 graded against the bookmaker later (db/shadow_report.py).
+    #   facts_json    the evidence the analysis is written from, stored so the
+    #                 prose can be checked against exactly what it was given.
+    #   analysis      LLM prose (analysis/nhl_analyst.py). Explanation only.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS shadow_predictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id TEXT NOT NULL,
+            model_version TEXT NOT NULL,
+            predicted_at TEXT NOT NULL,
+            home_rating REAL, away_rating REAL,
+            p_home REAL NOT NULL,
+            market_p_home REAL,
+            market_odds_home REAL, market_odds_away REAL, market_odds_draw REAL,
+            market_observed_at TEXT,
+            UNIQUE (match_id, model_version),
+            FOREIGN KEY (match_id) REFERENCES matches(match_id)
+        )
+    """)
+    for col in ("markets_json TEXT", "facts_json TEXT", "analysis TEXT",
+                "analysis_at TEXT"):
+        try:
+            cursor.execute(f"ALTER TABLE shadow_predictions ADD COLUMN {col}")
         except sqlite3.OperationalError:
             pass  # already exists
 

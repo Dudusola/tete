@@ -280,7 +280,16 @@ def analyze_match(match_context: dict) -> str:
     predictions are still saved in that case; the pick does not depend on this
     layer, which is why it fails soft.
     """
-    prompt = build_prompt(match_context)
+    return complete(build_prompt(match_context))
+
+
+def complete(prompt: str) -> str:
+    """Run any prompt through the provider chain with the same failover.
+
+    Split out of analyze_match (29 Sep 2026) so the NHL analyst reuses the
+    chain and the two-strike breaker instead of growing a second one - a
+    second chain is how bug #23's gate/chain disagreement started.
+    """
     chain = _provider_chain()
 
     for i, provider in enumerate(chain):
