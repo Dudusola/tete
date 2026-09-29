@@ -4409,3 +4409,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401872960,2026-09-27,2026-09-27 20:25,2026,2,Dallas Cowboys,Baltimore Ravens,6,33,31,34,A,REG,31,34,1
 401872961,2026-09-27,2026-09-27 20:25,2026,2,New Orleans Saints,Las Vegas Raiders,18,13,27,35,A,REG,27,35,0
 401872962,2026-09-28,2026-09-28 00:20,2026,2,Denver Broncos,Los Angeles Rams,7,14,30,26,H,REG,30,26,0
+401872963,2026-09-29,2026-09-29 00:15,2026,2,Chicago Bears,Philadelphia Eagles,3,21,27,7,H,REG,27,7,0

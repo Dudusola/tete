@@ -1,13 +1,23 @@
 {
- "generated_at": "2026-09-28T15:46:31+00:00",
- "picks_message": "⚽ *PotentialPro Picks — Monday, 28 September 2026*\n\n🟢 *Botafogo-SP vs Ponte Preta*\n   Brazilian Serie B | 2026-09-29 22:30\n   H 78% | D 16% | A 6%\n   👉 *Home Win* (78%) — HIGH\n   💬 _Analysis unavailable at this time._\n\n🟢 *Seattle Sounders FC vs Sporting Kansas City*\n   MLS | 2026-10-02 01:30\n   H 67% | D 20% | A 13%\n   👉 *Home Win* (67%) — HIGH\n   💬 _Analysis unavailable at this time._\n\n🟡 *Sacramento Republic FC vs Las Vegas Lights FC*\n   USL Championship | 2026-10-01 02:00\n   H 62% | D 22% | A 17%\n   👉 *Home Win* (62%) — MEDIUM\n   💬 _Analysis unavailable at this time._\n\n🟡 *Boca Juniors vs Unión (Santa Fe)*\n   Argentine Liga Profesional de Fútbol | 2026-10-03 00:30\n   H 61% | D 23% | A 16%\n   👉 *Home Win* (61%) — MEDIUM\n   💬 _Analysis unavailable at this time._\n\n_Bet responsibly. Confidence ≠ certainty._",
- "picks_count": 4,
+ "generated_at": "2026-09-29T06:09:01+00:00",
+ "picks_message": "⚽ *PotentialPro Picks — Tuesday, 29 September 2026*\n\n🟢 *Castellón vs Ceuta*\n   Spanish LALIGA 2 | 2026-10-04 16:30\n   H 79% | D 15% | A 7%\n   👉 *Home Win* (79%) — HIGH\n   💬 _Castellón enters this fixture in dominant form with five consecutive wins averaging 2.40 goals scored and just 0.20 conceded per game, contrasted against Ceuta's poor away run yielding only 0.60 point_\n\n🟢 *Botafogo-SP vs Ponte Preta*\n   Brazilian Serie B | 2026-09-29 22:30\n   H 74% | D 18% | A 8%\n   👉 *Home Win* (74%) — HIGH\n   💬 _Ponte Preta comes into this match in dreadful away form with 0.00 points per game, scoring 0.60 and conceding 3.60 per game over their last five outings while taking just 0.20 points per game overall._\n\n🟢 *Atlético Goianiense vs América Mineiro*\n   Brazilian Serie B | 2026-10-03 19:00\n   H 72% | D 18% | A 10%\n   👉 *Home Win* (72%) — HIGH\n   💬 _Atlético Goianiense enter this match averaging 1.80 points per game over their last five outings with a strong home record of 2.60 points per game, while conceding only 0.40 goals per match alongside _\n\n🟢 *Seattle Sounders FC vs Sporting Kansas City*\n   MLS | 2026-10-02 01:30\n   H 67% | D 20% | A 13%\n   👉 *Home Win* (67%) — HIGH\n   💬 _Seattle Sounders FC are backed by a strong recent run of two wins and three draws, scoring 2.20 goals and conceding 1.40 per game, alongside three victories in five head-to-head meetings against Sport_\n\n🟡 *Águilas Doradas vs Jaguares de Córdoba*\n   Colombian Primera A | 2026-10-03 19:00\n   H 63% | D 21% | A 15%\n   👉 *Home Win* (63%) — MEDIUM\n   💬 _Águilas Doradas are priced at 1.54 by the bookmakers to win at home, backed by an advantage where our edge is four points better than the market's price once the margin is removed. A major risk to thi_\n\n🟡 *Boca Juniors vs Unión (Santa Fe)*\n   Argentine Liga Profesional de Fútbol | 2026-10-03 00:30\n   H 61% | D 24% | A 15%\n   👉 *Home Win* (61%) — MEDIUM\n   💬 _Boca Juniors are strongly favored at home priced at 1.56, supported by an impressive home venue average of 2.60 points per game alongside a solid overall recent run of DWDWW yielding 2.20 points per g_\n\n🟡 *Sacramento Republic FC vs Las Vegas Lights FC*\n   USL Championship | 2026-10-01 02:00\n   H 60% | D 24% | A 16%\n   👉 *Home Win* (60%) — MEDIUM\n   💬 _Sacramento Republic FC are priced at 1.51 to win and hold a home venue split of 1.00 points per game, though very little is known about them as we hold only 3 completed matches. A clear risk to this s_\n\n_Bet responsibly. Confidence ≠ certainty._",
+ "picks_count": 7,
  "stats": {
-  "total": 457,
-  "correct": 310,
-  "accuracy": 67.8
+  "total": 385,
+  "correct": 265,
+  "accuracy": 68.8
  },
  "picks": [
+  {
+   "home": "Castellón",
+   "away": "Ceuta",
+   "league": "Spanish LALIGA 2",
+   "date": "2026-10-04",
+   "kickoff": "16:30",
+   "bet": "Home Win",
+   "prob": 78.5,
+   "confidence": "HIGH"
+  },
   {
    "home": "Botafogo-SP",
    "away": "Ponte Preta",
@@ -15,7 +25,17 @@
    "date": "2026-09-29",
    "kickoff": "22:30",
    "bet": "Home Win",
-   "prob": 78.2,
+   "prob": 74.4,
+   "confidence": "HIGH"
+  },
+  {
+   "home": "Atlético Goianiense",
+   "away": "América Mineiro",
+   "league": "Brazilian Serie B",
+   "date": "2026-10-03",
+   "kickoff": "19:00",
+   "bet": "Home Win",
+   "prob": 71.9,
    "confidence": "HIGH"
   },
   {
@@ -29,13 +49,13 @@
    "confidence": "HIGH"
   },
   {
-   "home": "Sacramento Republic FC",
-   "away": "Las Vegas Lights FC",
-   "league": "USL Championship",
-   "date": "2026-10-01",
-   "kickoff": "02:00",
+   "home": "Águilas Doradas",
+   "away": "Jaguares de Córdoba",
+   "league": "Colombian Primera A",
+   "date": "2026-10-03",
+   "kickoff": "19:00",
    "bet": "Home Win",
-   "prob": 61.7,
+   "prob": 63.1,
    "confidence": "MEDIUM"
   },
   {
@@ -46,6 +66,16 @@
    "kickoff": "00:30",
    "bet": "Home Win",
    "prob": 61.1,
+   "confidence": "MEDIUM"
+  },
+  {
+   "home": "Sacramento Republic FC",
+   "away": "Las Vegas Lights FC",
+   "league": "USL Championship",
+   "date": "2026-10-01",
+   "kickoff": "02:00",
+   "bet": "Home Win",
+   "prob": 60.4,
    "confidence": "MEDIUM"
   }
  ]
