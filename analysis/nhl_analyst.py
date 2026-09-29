@@ -138,8 +138,28 @@ def facts_block(home: str, away: str, facts: dict, markets: dict) -> str:
         out.append("- Where our numbers differ from the bookmaker's (positive = we rate it "
                    "likelier than the price implies):")
         out.extend(r for _, r in sorted(rows, key=lambda r: -r[0]))
-    out.append("- UNKNOWN to us: starting goalies, injuries, line combinations, travel. "
-               "The bookmaker knows all of these.")
+    gk = facts.get("goalies")
+    if gk:
+        for side, name in (("home", home), ("away", away)):
+            gs = gk.get(side) or []
+            if not gs:
+                continue
+            season = gs[0].get("season")
+            label = f"{str(season)[:4]}-{str(season)[6:]}" if season else "last season"
+            listed = "; ".join(
+                f"{g['name']} {g['gp']} games, save % {g['sv_pct']:.3f}, {g['gaa']:.2f} goals against avg"
+                for g in gs if g.get("gp") and g.get("sv_pct") is not None and g.get("gaa") is not None)
+            if listed:
+                out.append(f"- {name} goalies on the roster, with their {label} numbers "
+                           f"(possibly earned at another club): {listed}.")
+            recent = (gk.get("recent_starts") or {}).get(side) or []
+            if recent:
+                out.append(f"- {name}'s starters in their last {len(recent)} games in our "
+                           f"records, newest first: {', '.join(recent)}.")
+        out.append("- TONIGHT'S STARTING GOALIES ARE NOT CONFIRMED (teams announce at "
+                   "warm-ups). Never say who will start.")
+    out.append("- UNKNOWN to us: confirmed starting goalies, injuries, line combinations, "
+               "travel. The bookmaker knows all of these.")
     return "\n".join(out)
 
 
@@ -161,8 +181,9 @@ Write:
    tally).
 2. The market read: where our edge is largest, in points, and in which market -
    or, if every edge is under {AGREE_POINTS:.0f} points, that we broadly agree with the price.
-3. A RISK: a figure in the evidence that argues against the verdict. Then say
-   that starting goalies are not known yet and can swing an NHL game.
+3. A RISK: a figure in the evidence that argues against the verdict (a goalie
+   figure counts). Then say that tonight's starting goalies are not confirmed
+   yet and can swing an NHL game.
 4. The VERDICT above, in substance. You may soften it to "no bet" if the risk
    you found is serious; never make it stronger.
 
@@ -170,6 +191,9 @@ RULES - these matter more than style:
 - Do not address the reader or mention who they are; just analyse the game.
 - Use ONLY the figures above. Invent NOTHING: no injuries, goalies, trades,
   coaches, standings, streaks or storylines that are not in the evidence.
+- Goalies: you may name a team's listed goalies and quote their numbers, but
+  NEVER say or imply who will start tonight ("X gets the start", "expected to
+  start", "with X in net") - nobody knows yet.
 - If the OPENING WEEK warning is present, say plainly that the form is last
   season's and rosters have changed since.
 - Never name a model, rating system, provider or data source. Do not quote our
@@ -179,7 +203,8 @@ RULES - these matter more than style:
 - No hype: never "lock", "banker", "sure", "guaranteed"."""
 
 
-_FIGURE = re.compile(r"\d+(?:-\d+){1,2}|\d+\.\d+")
+# \d*\.\d+ so a save percentage written hockey-style (".895") is checked too.
+_FIGURE = re.compile(r"\d+(?:-\d+){1,2}|\d*\.\d+")
 
 
 def _figures(text: str) -> set:
@@ -188,8 +213,14 @@ def _figures(text: str) -> set:
         if "-" in tok:
             out.add(tuple(int(x) for x in tok.split("-")))
         else:
-            out.add(round(float(tok), 2))
+            out.add(round(float(tok), 3))
     return out
+
+
+# Phrases that assert tonight's starter. The prompt forbids them; this checks.
+_STARTER_CLAIM = re.compile(
+    r"\b(gets? the (start|nod)|(expected|projected|likely|set|slated|confirmed) to start|"
+    r"will start|starts in (goal|net)|in (net|goal) (tonight|for this))\b", re.I)
 
 
 def unsupported_figures(text: str, prompt: str) -> set:
@@ -203,7 +234,11 @@ def unsupported_figures(text: str, prompt: str) -> set:
     """
     allowed = _figures(prompt)
     allowed |= {t[::-1] for t in allowed if isinstance(t, tuple) and len(t) == 2}
-    return {t for t in _figures(text) if t not in allowed}
+    bad = {t for t in _figures(text) if t not in allowed}
+    claim = _STARTER_CLAIM.search(text)
+    if claim:
+        bad.add(f"starter claim: {claim.group(0)!r}")
+    return bad
 
 
 def targets(conn, force: bool) -> list:

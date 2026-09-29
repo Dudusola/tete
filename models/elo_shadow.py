@@ -206,6 +206,7 @@ def run() -> int:
                 facts = nhl_form.build(hid, aid, g["kickoff_utc"][:10], nhl_games,
                                        ranked, nhl_ranks)
                 facts["market_movement"] = movement
+                facts["goalies"] = nhl_form.goalie_facts(conn, g["match_id"], g["kickoff_utc"])
                 facts_json = json.dumps(facts)
             conn.execute("""
                 INSERT INTO shadow_predictions

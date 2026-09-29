@@ -486,6 +486,13 @@ def run_pipeline() -> list:
     run_step("Non-soccer history CSVs (ESPN)",
              ["scrapers/sports_history.py"], OPTIONAL)
 
+    # OPTIONAL: NHL goalies (api-web.nhle.com) for the private preview. There
+    # is a real fallback - without them the analysis already says starters are
+    # unknown - and a missed day repairs itself: boxscores stay up, so
+    # `--days-back 30` recovers every starter. Runs BEFORE the shadow step,
+    # which copies the goalie facts into each game's facts_json.
+    run_step("NHL goalies (NHL API)", ["scrapers/nhl_goalies.py"], OPTIONAL)
+
     # DEGRADED: shadow Elo predictions for NFL/NBA/NHL/MLB - written ONLY to
     # shadow_predictions, which nothing serves. It is the evidence clock for
     # "does Elo beat the market?" (db/shadow_report.py); a missed day is a day

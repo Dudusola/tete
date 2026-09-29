@@ -137,6 +137,45 @@ def rating_ranks(ratings: dict, games: list) -> dict:
     return {t: i + 1 for i, t in enumerate(order)}, len(order)
 
 
+def goalie_facts(conn, match_id: str, kickoff_utc: str) -> dict | None:
+    """Each side's goalies (scrapers/nhl_goalies.py) plus who actually started
+    that team's recent games in OUR records. None if nothing was fetched.
+
+    Never a starter for THIS game: the NHL confirms it at warm-ups, after the
+    analysis is written. `confirmed` is always False here and the analysis is
+    forbidden to name one. Season numbers belong to the goalie, not the club -
+    after a summer move they were earned somewhere else.
+    """
+    try:
+        rows = conn.execute("""
+            SELECT g.side, g.player_id, g.name, g.stats_season, g.season_gp,
+                   g.season_record, g.season_sv_pct, g.season_gaa,
+                   CASE g.side WHEN 'home' THEN m.home_team ELSE m.away_team END AS team
+            FROM nhl_goalies g JOIN matches m ON m.match_id = g.match_id
+            WHERE g.match_id = ?
+            ORDER BY g.side, COALESCE(g.season_gp, 0) DESC
+        """, [match_id]).fetchall()
+    except Exception:
+        return None
+    if not rows:
+        return None
+    out = {"confirmed": False, "home": [], "away": [], "recent_starts": {}}
+    for r in rows:
+        out[r["side"]].append({"name": r["name"], "gp": r["season_gp"],
+                               "record": r["season_record"], "sv_pct": r["season_sv_pct"],
+                               "gaa": r["season_gaa"], "season": r["stats_season"]})
+    for side in ("home", "away"):
+        team = next((r["team"] for r in rows if r["side"] == side), None)
+        starts = conn.execute("""
+            SELECT g.name FROM nhl_goalies g JOIN matches m ON m.match_id = g.match_id
+            WHERE g.started = 1 AND m.kickoff_utc < ?
+              AND ((g.side = 'home' AND m.home_team = ?) OR (g.side = 'away' AND m.away_team = ?))
+            ORDER BY m.kickoff_utc DESC LIMIT 5
+        """, [kickoff_utc, team, team]).fetchall()
+        out["recent_starts"][side] = [s["name"] for s in starts]
+    return out
+
+
 def build(home_id: str, away_id: str, kickoff_date: str, games: list,
           ratings: dict, ranks: tuple) -> dict:
     rank, of = ranks
