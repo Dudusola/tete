@@ -20578,3 +20578,8 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401874174,2026-06-10,2026-06-10 00:00,2026,3,Vegas Golden Knights,Carolina Hurricanes,37,7,3,5,A,REG,3,5,0
 401874175,2026-06-12,2026-06-12 00:00,2026,3,Carolina Hurricanes,Vegas Golden Knights,7,37,4,2,H,REG,4,2,0
 401874176,2026-06-15,2026-06-15 00:00,2026,3,Vegas Golden Knights,Carolina Hurricanes,37,7,0,3,A,REG,0,3,0
+401891773,2026-09-29,2026-09-29 21:00,2027,2,Carolina Hurricanes,Florida Panthers,7,26,0,1,A,OT,0,0,0
+401891827,2026-09-29,2026-09-29 23:00,2027,2,Toronto Maple Leafs,Montreal Canadiens,21,10,2,3,A,REG,2,3,0
+401891774,2026-09-30,2026-09-30 00:00,2027,2,Boston Bruins,New York Rangers,1,13,3,0,H,REG,3,0,0
+401891775,2026-09-30,2026-09-30 02:45,2027,2,Vegas Golden Knights,Chicago Blackhawks,37,4,5,2,H,REG,5,2,0
+401891804,2026-09-30,2026-09-30 02:00,2027,2,Edmonton Oilers,Vancouver Canucks,6,22,5,6,A,OT,5,5,0
