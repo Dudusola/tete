@@ -20583,3 +20583,6 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401891774,2026-09-30,2026-09-30 00:00,2027,2,Boston Bruins,New York Rangers,1,13,3,0,H,REG,3,0,0
 401891775,2026-09-30,2026-09-30 02:45,2027,2,Vegas Golden Knights,Chicago Blackhawks,37,4,5,2,H,REG,5,2,0
 401891804,2026-09-30,2026-09-30 02:00,2027,2,Edmonton Oilers,Vancouver Canucks,6,22,5,6,A,OT,5,5,0
+401891821,2026-09-30,2026-09-30 23:30,2027,2,Philadelphia Flyers,Pittsburgh Penguins,15,16,0,7,A,REG,0,7,0
+401892431,2026-09-30,2026-09-30 23:30,2027,2,Toronto Maple Leafs,New York Islanders,21,12,2,1,H,REG,2,1,0
+401891780,2026-10-01,2026-10-01 02:00,2027,2,Colorado Avalanche,Los Angeles Kings,17,8,8,4,H,REG,8,4,0
