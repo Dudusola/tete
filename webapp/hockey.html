@@ -2,14 +2,14 @@
 <html class="light" lang="en"><head>
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
-<!-- PRIVATE PREVIEW. Linked from no page, kept out of search engines. The NHL
-     numbers here have no graded record yet; see models/nhl_preview.py. -->
-<meta name="robots" content="noindex, nofollow"/>
+<!-- PUBLIC since 2 Oct 2026 (Boss: analysis + labelled alerts). Every claim on
+     this page is bounded by models/nhl_market_backtest.py: no proven edge, and
+     leans only on 10+ point moneyline disagreements, labelled experimental. -->
 <meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
 <link rel="manifest" href="manifest.json"/>
 <link rel="icon" type="image/png" href="icons/icon-192.png"/>
 <link rel="apple-touch-icon" href="icons/icon-180.png"/>
-<title>PotentialPro - NHL preview</title>
+<title>PotentialPro - NHL</title>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;} .icon-fill{font-variation-settings:'FILL' 1;} .pb-safe{padding-bottom:env(safe-area-inset-bottom,0.5rem);}
@@ -31,18 +31,19 @@ details[open] > summary .pp-chev { transform: rotate(180deg); }</style>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="consensus.html">Consensus</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="record.html">Record</a>
+<a class="text-secondary font-bold text-label-sm border-b-2 border-secondary pb-1" href="hockey.html" aria-current="page">NHL</a>
 </div>
 </nav>
 
 <main class="max-w-container-max mx-auto px-md md:px-lg pt-md pb-xl">
 <header class="mb-md pt-md md:pt-xl">
   <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold mb-sm">
-    <span class="material-symbols-outlined text-[14px]" aria-hidden="true">lock</span>Private preview · not published
+    <span class="material-symbols-outlined text-[14px]" aria-hidden="true">science</span>Experimental · separate from our football record
   </span>
   <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary mb-xs">NHL · ice hockey</h1>
   <p class="text-on-surface-variant text-body-md max-w-2xl">
-    Every game priced in the four markets hockey is bet on, our number beside the bookmaker's,
-    and an analysis written only from the facts shown under it.
+    Every NHL game priced in the four markets hockey is bet on, our number beside the bookmaker's,
+    and an analysis written only from the facts shown under it. Read it as analysis, not tips.
   </p>
 </header>
 
@@ -80,12 +81,13 @@ details[open] > summary .pp-chev { transform: rotate(180deg); }</style>
 </main>
 
 <!-- Mobile Nav -->
-<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 py-2 bg-surface-container-lowest border-t border-outline-variant shadow-lg pb-safe">
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="index.html"><span class="material-symbols-outlined mb-1">analytics</span>Picks</a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span>Builder</a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="record.html"><span class="material-symbols-outlined mb-1">query_stats</span>Record</a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="consensus.html"><span class="material-symbols-outlined mb-1">groups</span>Consensus</a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant p-2 text-label-sm rounded-xl" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span>Checker</a>
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-1 py-2 bg-surface-container-lowest border-t border-outline-variant shadow-lg pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant text-label-sm rounded-xl py-2 px-0 flex-1 min-w-0" href="index.html"><span class="material-symbols-outlined mb-1">analytics</span>Picks</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant text-label-sm rounded-xl py-2 px-0 flex-1 min-w-0" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span>Builder</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant text-label-sm rounded-xl py-2 px-0 flex-1 min-w-0" href="record.html"><span class="material-symbols-outlined mb-1">query_stats</span>Record</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant text-label-sm rounded-xl py-2 px-0 flex-1 min-w-0" href="consensus.html"><span class="material-symbols-outlined mb-1">groups</span>Consensus</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant text-label-sm rounded-xl py-2 px-0 flex-1 min-w-0" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span>Checker</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant text-label-sm rounded-xl py-2 px-0 flex-1 min-w-0" href="hockey.html"><span class="material-symbols-outlined mb-1">sports_hockey</span>NHL</a>
 </nav>
 
 <script src="config.js?v=2"></script>
@@ -334,7 +336,7 @@ async function load() {
     const units = r.bets ? `${r.units > 0 ? "+" : ""}${r.units.toFixed(2)} units` : "";
     document.getElementById("summary").innerHTML =
         `<span><strong class="text-primary tabular-nums">${d.upcoming.length}</strong> upcoming games</span>
-         <span>Preview record: ${r.bets
+         <span>NHL record: ${r.bets
             ? `<strong class="text-primary tabular-nums">${r.won}-${r.lost}</strong> on ${r.bets} verdicts, <span class="tabular-nums">${units}</span> at 1 unit each`
             : "no verdicts graded yet"}</span>`;
 

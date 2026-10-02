@@ -1,4 +1,8 @@
-"""nhl_preview.py - the payload behind the PRIVATE NHL preview page.
+"""nhl_preview.py - the payload behind the NHL page (webapp/hockey.html).
+
+PUBLIC since 2 Oct 2026 (Boss chose "analysis + labelled alerts" after
+models/nhl_market_backtest.py showed no proven edge). The notes below date
+from the private-preview phase and still describe what the payload is.
 
 Read-only. Served at /api/preview/nhl to webapp/hockey.html, which is linked
 from nowhere and marked noindex. It is the one reader of shadow_predictions
@@ -19,9 +23,10 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.nhl_markets import PARAMS_PATH, grade, market_label, verdict
 from models.sports import ICE_HOCKEY, sport_sql
 
-DISCLOSURE = ("Private preview. These NHL numbers have no graded track record "
-              "yet: they are being tested against the bookmaker before anything "
-              "is published. Not a tip.")
+DISCLOSURE = ("Experimental. Tested on 5,000 past games, these NHL numbers did not "
+              "beat the bookmaker's prices, so they are analysis, not tips. The rare "
+              "'lean' marks a big disagreement with the price - the one place the "
+              "market later moved our way - and is not proven profit.")
 
 # The order a hockey bettor reads a market board in.
 GROUP_ORDER = ["ml", "reg", "pl", "total"]

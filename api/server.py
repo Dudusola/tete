@@ -1281,7 +1281,7 @@ def booking_generate(legs: List[dict] = Body(..., embed=True),
 
 @app.get("/api/preview/nhl")
 def preview_nhl():
-    """PRIVATE NHL preview (webapp/hockey.html, unlisted): upcoming games with
+    """The NHL page (webapp/hockey.html; public since 2 Oct 2026): upcoming games with
     every standard hockey market priced beside the bookmaker's, the facts-only
     analysis, and the preview's own separate record. Never part of /api/picks
     or /api/stats - see models/nhl_preview.py.
