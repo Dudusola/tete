@@ -38824,3 +38824,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401907974,2026-09-30,2026-09-30 02:00,2026,3,San Diego Padres,Chicago Cubs,25,16,8,0,H,REG,8,0,0
 401907963,2026-10-01,2026-10-01 00:00,2026,3,New York Yankees,Boston Red Sox,10,2,9,2,H,REG,9,2,0
 401907975,2026-10-01,2026-10-01 02:00,2026,3,San Diego Padres,Chicago Cubs,25,16,4,1,H,REG,4,1,0
+401907973,2026-10-02,2026-10-02 00:00,2026,3,Atlanta Braves,Philadelphia Phillies,15,22,6,2,H,REG,6,2,0
