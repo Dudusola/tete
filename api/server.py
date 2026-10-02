@@ -550,18 +550,36 @@ def get_slip(
     leagues: str = Query(None, description="Comma-separated league names to restrict to"),
     exclude: str = Query(None, description="Fixtures to leave out, as 'Home||Away' pairs separated by ';;'"),
     pin: str = Query(None, description="Banker legs to lock in, as 'Home||Away||Market||Selection' separated by ';;'"),
+    sports: str = Query("football", description="Comma-separated: football, nhl, nfl"),
 ):
     """Build a risk-based betting slip (one bet per match). Started games are
     excluded; each leg carries SportyBet odds when the bookmaker lists it.
     build_slip is deterministic, so re-requesting with one fixture excluded
     keeps the other legs and back-fills the next best option ('swap a leg')."""
-    preds = _predictions_with_goals()
+    wanted = _parse_sports(sports)
+    preds = _predictions_with_goals() if "football" in wanted else []
     all_opts = []
     for p in preds:
         all_opts.extend(derive_markets(p))
+    us_codes = [c for c in wanted if c != "football"]
+    if us_codes:
+        # NHL/NFL options come from the same nightly pricing as their Picks
+        # (models/us_sports.py) and go through the SAME build_slip: risk bands,
+        # one leg per game, the correlation cap, bankers and swaps all apply.
+        from models.us_sports import slip_options
+        conn = get_connection()
+        try:
+            all_opts.extend(slip_options(conn, us_codes))
+        finally:
+            conn.close()
 
     league_set = ({l.strip().lower() for l in leagues.split(",") if l.strip()}
                   if leagues else None)
+    if league_set is not None:
+        # The league chips list FOOTBALL leagues; a chosen sport is its own
+        # "league" and must not be filtered out by them.
+        # (BetOption.league is "NHL"/"NFL"; build_slip lowercases it.)
+        league_set |= set(us_codes)
     exclude_set = None
     if exclude:
         exclude_set = set()
@@ -582,8 +600,10 @@ def get_slip(
                           exclude_keys=keys or None, pinned=pinned)
 
     def sporty_for(slip):
+        # `league` routes NHL/NFL legs to their own SportyBet feed and its
+        # FULL-GAME market ids (scrapers/booking_codes.US_SPORTS).
         return attach_sporty_odds([
-            {"home_team": l.home_team, "away_team": l.away_team,
+            {"home_team": l.home_team, "away_team": l.away_team, "league": l.league,
              "market": l.market, "selection": l.selection} for l in slip])
 
     # A leg SportyBet won't price whose kickoff we can't verify as future is
@@ -618,13 +638,19 @@ def get_slip(
 
     leg_dicts = [
         {
+            # Settlement (/api/slip/settle) looks results up BY match_id, and
+            # these legs never carried it - so every slip tracked from the
+            # Builder sat at "pending" forever (found 2 Oct 2026; Checker legs
+            # always had it via /api/fixtures).
+            "match_id": leg.match_id,
             "home_team": leg.home_team,
             "away_team": leg.away_team,
             "league": leg.league,
             "league_display": pretty_league(leg.league),
             "match_date": leg.match_date,
             "kickoff_time": leg.kickoff_time,
-            "kickoff_utc": kickoffs.get(leg.match_id),
+            "kickoff_utc": kickoffs.get(leg.match_id) or leg.kickoff_utc,
+            "sport": _sport_of_league(leg.league),
             "market": leg.market,
             "selection": leg.selection,
             "probability": round(leg.probability, 4),
@@ -649,6 +675,39 @@ def get_slip(
         "sporty_total_odds": sporty["total_odds"],
         "legs": leg_dicts,
     }
+
+
+SPORT_CODES = ("football", "nhl", "nfl")
+
+
+def _parse_sports(sports: str | None) -> list:
+    """'football,nhl' -> ['football', 'nhl']; unknown names are ignored and an
+    empty choice falls back to football, so a bad query never returns nothing
+    for a reason the user cannot see."""
+    got = [s.strip().lower() for s in (sports or "").split(",") if s.strip()]
+    got = [s for s in SPORT_CODES if s in got]
+    return got or ["football"]
+
+
+def _sport_of_league(league: str | None) -> str:
+    return {"NHL": "nhl", "NFL": "nfl"}.get((league or "").strip(), "football")
+
+
+@app.get("/api/picks/sports")
+def get_sport_picks(sports: str = Query("nhl,nfl", description="Comma-separated: nhl, nfl")):
+    """Recommended picks for NHL / NFL, football-style (models/us_sports.py):
+    one bet per game with the football tiers, the bookmaker's view beside it,
+    and each sport's OWN record - never blended into football's.
+    Imported lazily so a failure here costs this endpoint, not the API."""
+    from models.us_sports import picks as us_picks
+    codes = [c for c in _parse_sports(sports) if c != "football"]
+    if not codes:
+        return {"picks": [], "records": {}, "disclosures": {}}
+    conn = get_connection()
+    try:
+        return us_picks(conn, codes)
+    finally:
+        conn.close()
 
 
 @app.get("/api/leagues")
@@ -1008,19 +1067,30 @@ def slip_settle(legs: List[dict] = Body(..., embed=True)):
     if ids:
         conn = get_connection()
         rows = conn.execute(f"""
-            SELECT match_id, home_goals, away_goals FROM results
-            WHERE match_id IN ({",".join("?" * len(ids))})
+            SELECT match_id, home_goals, away_goals, reg_home_goals, reg_away_goals
+            FROM results WHERE match_id IN ({",".join("?" * len(ids))})
         """, ids).fetchall()
         conn.close()
         scores = {r["match_id"]: (r["home_goals"], r["away_goals"]) for r in rows}
+        regs = {r["match_id"]: (r["reg_home_goals"], r["reg_away_goals"]) for r in rows}
     out = []
     for l in legs:
         sc = scores.get(str(l.get("match_id")))
         if not sc or sc[0] is None or sc[1] is None:
             out.append({"status": "pending"})
             continue
-        st = settle_leg(l.get("market"), l.get("selection"),
-                        l.get("home_team") or "", l.get("away_team") or "", sc[0], sc[1])
+        if _sport_of_league(l.get("league")) != "football":
+            # NHL/NFL: the same grading as each sport's public record
+            # (models/us_sports.settle_leg), incl. overtime; 60-minute legs
+            # use the regulation score.
+            from models.us_sports import settle_leg as settle_us
+            rh, ra = regs.get(str(l.get("match_id")), (None, None))
+            st = settle_us(l.get("league"), l.get("market"), l.get("selection"),
+                           l.get("home_team") or "", l.get("away_team") or "",
+                           sc[0], sc[1], rh, ra)
+        else:
+            st = settle_leg(l.get("market"), l.get("selection"),
+                            l.get("home_team") or "", l.get("away_team") or "", sc[0], sc[1])
         out.append({"status": st or "ungradable", "home_goals": sc[0], "away_goals": sc[1]})
     return {"legs": out}
 

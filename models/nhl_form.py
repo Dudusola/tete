@@ -32,12 +32,17 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.elo import HIST
 
 FORM_GAMES = 10
+# NFL teams play weekly, so 10 games is most of a season; 5 is "recent form".
+FORM_GAMES_BY = {"nhl": 10, "nfl": 5}
 H2H_GAMES = 5
 NEW_SEASON_GAP_DAYS = 45
 
 
-def load_games() -> list:
-    with open(os.path.join(HIST, "nhl.csv"), newline="", encoding="utf-8") as fh:
+def load_games(feed: str = "nhl") -> list:
+    """Finals for one league. Used for the NFL as well since 2 Oct 2026: the
+    record there is W-L-T (an NFL overtime loss is just a loss, and a tie is
+    possible), so each game carries its feed and `tie`."""
+    with open(os.path.join(HIST, f"{feed}.csv"), newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh))
     games = []
     for r in rows:
@@ -49,26 +54,30 @@ def load_games() -> list:
                       "home": r["home_id"], "away": r["away_id"],
                       "home_name": r["home_team"], "away_name": r["away_team"],
                       "hs": hs, "as": as_, "decided_in": r["decided_in"] or None,
+                      "feed": feed,
+                      "tie": int(r["home_score"]) == int(r["away_score"]),
                       "winner_home": int(r["home_score"]) > int(r["away_score"])})
     games.sort(key=lambda g: g["date"])
     return games
 
 
 def _record(team: str, games: list) -> dict:
-    w = l = otl = gf = ga = 0
+    w = l = otl = t = gf = ga = 0
     for g in games:
         home = g["home"] == team
         won = g["winner_home"] == home
         f, a = (g["hs"], g["as"]) if home else (g["as"], g["hs"])
         gf, ga = gf + f, ga + a
-        if won:
+        if g.get("tie"):
+            t += 1
+        elif won:
             w += 1
-        elif g["decided_in"] in ("OT", "SO"):
+        elif g["decided_in"] in ("OT", "SO") and g.get("feed", "nhl") == "nhl":
             otl += 1
         else:
             l += 1
     n = len(games)
-    return {"n": n, "w": w, "l": l, "otl": otl,
+    return {"n": n, "w": w, "l": l, "otl": otl, "t": t,
             "playoff": sum(g["playoff"] for g in games),
             "gf_pg": round(gf / n, 2) if n else None,
             "ga_pg": round(ga / n, 2) if n else None}
@@ -81,7 +90,7 @@ def _streak(team: str, games: list) -> str | None:
     kind, n = None, 0
     for g in reversed(games):
         won = g["winner_home"] == (g["home"] == team)
-        k = "W" if won else "L"
+        k = "T" if g.get("tie") else "W" if won else "L"
         if kind is None:
             kind = k
         if k != kind:
@@ -101,11 +110,13 @@ def team_facts(team: str, before: str, games: list, venue: str) -> dict:
     this_season = [] if new_season else [g for g in played if g["season"] == last["season"]
                                          and not g["playoff"]]
     at_venue = [g for g in played if (g["home"] == team) == (venue == "home")]
-    recent = played[-FORM_GAMES:]
+    n_venue = FORM_GAMES_BY.get(played[0]["feed"], FORM_GAMES) if played else FORM_GAMES
+    n_form = FORM_GAMES_BY.get(played[0]["feed"], FORM_GAMES) if played else FORM_GAMES
+    recent = played[-n_form:]
     return {
         "last10": _record(team, recent),
         "last10_through": recent[-1]["date"] if recent else None,
-        "venue10": _record(team, at_venue[-FORM_GAMES:]),
+        "venue10": _record(team, at_venue[-n_venue:]),
         "venue": venue,
         "season": _record(team, this_season),
         "streak": _streak(team, recent),

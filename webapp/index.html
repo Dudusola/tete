@@ -59,7 +59,6 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="consensus.html">Consensus</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="record.html">Record</a>
-<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="hockey.html">NHL</a>
 </div>
 </nav>
 <!-- The mobile brand bar is injected by api.js so all five pages share one
@@ -71,8 +70,16 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">The model's picks for today. Every one is graded against the final score.</p>
 </header>
 
-<!-- Summary stat strip -->
+<!-- Sports. One preference shared with the Builder (ppSportChips in api.js).
+     NHL and NFL used to be a separate tab; they live here now, with their
+     own record and disclosure, never blended into football's numbers. -->
+<div id="sport-filter" class="flex flex-wrap gap-xs mb-md" role="group" aria-label="Sports"></div>
+
+<!-- Summary stat strip (FOOTBALL's record - hidden when football is off) -->
 <div id="stat-strip" class="mb-lg"></div>
+
+<!-- One line per chosen NHL/NFL sport: its own record and its disclosure. -->
+<div id="sport-notes" class="mb-md flex flex-col gap-xs"></div>
 
 <!-- Tier filter chips + status -->
 <div class="flex flex-wrap items-center justify-between gap-sm mb-md">
@@ -134,8 +141,6 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <span class="material-symbols-outlined mb-1">groups</span><span class="text-label-sm">Consensus</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="checker.html">
 <span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="hockey.html">
-<span class="material-symbols-outlined mb-1">sports_hockey</span><span class="text-label-sm">NHL</span></a>
 </nav>
 
 <script src="config.js?v=2"></script>
@@ -178,11 +183,13 @@ function marketCheck(p) {
     const book = Math.round(p.book_probability * 100);
     const gap = ours - book;
     const wide = Math.abs(gap) >= 15;
+    // NHL/NFL prices come from DraftKings via ESPN, not SportyBet - say which.
+    const bookName = p.sport && p.sport !== "football" ? "Bookmaker" : "SportyBet";
     return `
   <div class="flex items-center justify-between gap-xs mb-md px-sm py-1 rounded-lg bg-surface border border-outline-variant text-label-sm">
     <span class="text-on-surface-variant">Our model <strong class="text-primary">${ours}%</strong></span>
     <span class="text-on-surface-variant">·</span>
-    <span class="text-on-surface-variant">SportyBet <strong class="text-primary">${p.book_odds}</strong> (${book}%)</span>
+    <span class="text-on-surface-variant">${bookName} <strong class="text-primary">${p.book_odds}</strong> (${book}%)</span>
     <span class="${wide ? "text-error font-bold" : "text-on-surface-variant"}"
           title="${wide ? "We disagree with the market by more than 15 points — treat with caution" : "In line with the market"}">
       ${gap > 0 ? "+" : ""}${gap}
@@ -216,7 +223,77 @@ function expectedGoalsLine(p) {
              Expected goals: ${n(eg.home)} – ${n(eg.away)}</div>`;
 }
 
+/* NHL / NFL card - the football card's shape (badge, recommendation, ring,
+   bookmaker check, details) so a mixed feed reads as one list. Differences
+   are deliberate: no Track button (My Record cannot grade these yet), the
+   sport is named in the meta line, and "overtime counts" is spelled out
+   because a 60-minute 1X2 is a different bet on SportyBet. */
+function renderSportCard(p) {
+    const prob = Math.round((p.best_bet_prob || 0) * 100);
+    const started = hasKickedOff(p);
+    const pct = v => v == null ? "—" : `${Math.round(v * 100)}%`;
+    const form = (r, name) => r && r.n
+        ? `<span>${escapeHtml(name)}: last ${r.n} ${r.w}-${r.l}${r.otl ? "-" + r.otl : ""}${r.t ? "-" + r.t + "T" : ""}</span>` : "";
+    const markets = (p.markets || []).filter(m => m.market !== "Moneyline").map(m => `
+        <tr><td class="py-base pr-sm text-primary">${escapeHtml(m.market)} · ${escapeHtml(m.selection)}</td>
+            <td class="py-base px-xs text-right tabular-nums">${pct(m.probability)}</td>
+            <td class="py-base pl-xs text-right tabular-nums text-on-surface-variant">${pct(m.book_probability)}</td></tr>`).join("");
+    return `
+<article class="glass-card rounded-xl border border-outline-variant p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden${started ? " opacity-60" : ""}">
+  <div class="flex justify-between items-start gap-sm mb-sm">
+    <div class="min-w-0 flex-1">
+      <span class="text-label-sm text-on-tertiary-container uppercase tracking-wider">${escapeHtml(p.league)} • ${escapeHtml(kickoffLabel(p.match_date, null, p.kickoff_utc))}</span>
+      <h2 class="text-headline-md font-headline-md text-primary mt-base">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
+    </div>
+    <div class="flex flex-col items-end gap-xs shrink-0">
+      <div class="${badgeClasses(p.confidence)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${p.confidence}</div>
+      <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold"
+            title="Kept separate from our football record">experimental</span>
+    </div>
+  </div>
+  <div class="bg-surface p-sm rounded-lg border border-outline-variant mb-md flex justify-between items-center">
+    <div>
+      <div class="text-label-sm text-on-surface-variant mb-base">Recommendation</div>
+      <div class="text-body-lg font-semibold text-primary">${escapeHtml(p.best_bet)} to win</div>
+      <div class="text-label-sm text-on-surface-variant mt-base">Moneyline · overtime${p.sport === "nhl" ? " and shootout" : ""} count</div>
+    </div>
+    <div class="text-right flex flex-col items-end">
+      <div class="text-label-sm text-on-surface-variant mb-base">Probability</div>
+      <div class="relative w-12 h-12 flex items-center justify-center">
+        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+          <path class="text-surface-container-high stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"></path>
+          <path class="text-secondary stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-dasharray="${prob}, 100" stroke-width="3"></path>
+        </svg>
+        <span class="absolute text-label-sm font-bold text-primary">${prob}%</span>
+      </div>
+    </div>
+  </div>
+  ${marketCheck(p)}
+  ${(p.first_game_teams || []).length ? `<p class="text-label-sm text-on-surface-variant mb-sm">${escapeHtml(p.first_game_teams.join(" and "))}: first game of the season, so the rating has not seen ${p.first_game_teams.length > 1 ? "either" : "this"} new roster yet.</p>` : ""}
+  <div class="border-t border-outline-variant pt-sm">
+    <button type="button" aria-expanded="false" class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary rounded"
+            onclick="const o = this.nextElementSibling.classList.toggle('hidden'); this.setAttribute('aria-expanded', o ? 'false' : 'true'); this.lastElementChild.style.transform = o ? '' : 'rotate(180deg)';">
+      <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> Details${p.analysis ? " &amp; AI analysis" : ""}</span>
+      <span class="material-symbols-outlined text-[18px] transition-transform">expand_more</span>
+    </button>
+    <div class="hidden mt-sm">
+      <div class="text-label-sm text-on-surface-variant mb-xs">Model's chances to win (overtime counts)</div>
+      <div class="flex gap-xs mb-sm text-label-sm text-on-surface-variant tabular-nums">
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">${escapeHtml(p.home_team)} ${pct(p.home_win_prob)}</span>
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">${escapeHtml(p.away_team)} ${pct(p.away_win_prob)}</span>
+      </div>
+      <div class="flex flex-wrap gap-x-md text-label-sm text-on-surface-variant mb-sm">${form(p.form && p.form.home, p.home_team)}${form(p.form && p.form.away, p.away_team)}</div>
+      ${markets ? `<table class="w-full text-label-sm mb-sm">
+        <thead><tr class="text-on-surface-variant"><th class="text-left font-medium">Other markets</th><th class="text-right font-medium px-xs">Ours</th><th class="text-right font-medium pl-xs">Book</th></tr></thead>
+        <tbody>${markets}</tbody></table>` : ""}
+      ${p.analysis ? `<div class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${escapeHtml(p.analysis)}</div>` : ""}
+    </div>
+  </div>
+</article>`;
+}
+
 function renderCard(p) {
+    if (p.sport && p.sport !== "football") return renderSportCard(p);
     /* Draw-leaning cards are a DIFFERENT KIND OF THING and must not borrow the
        1X2 card's furniture. Without this branch the Draws tab headlined
        "Recommendation: Away Win, 44%" with a LOW badge, directly above AI text
@@ -499,6 +576,29 @@ document.addEventListener("click", async (e) => {
 });
 if (window.PPAuth) PPAuth.onChange(syncTrackButtons);
 
+let SPORTS = ppSportsGet();
+
+/* One line per chosen NHL/NFL sport: its own record (never football's) and
+   its disclosure, from the API so the caveat cannot drift from the evidence. */
+function renderSportNotes(sp, us) {
+    const box = document.getElementById("sport-notes");
+    if (!box) return;
+    if (!us.length) { box.innerHTML = ""; return; }
+    if (!sp || sp.error) {
+        box.innerHTML = `<p class="text-body-md text-on-surface-variant">${escapeHtml(ppErrorMessage(sp && sp.error, "load NHL/NFL picks"))}</p>`;
+        return;
+    }
+    box.innerHTML = us.map(code => {
+        const r = (sp.records || {})[code] || {};
+        const rec = r.graded
+            ? `<strong class="text-primary tabular-nums">${r.won}-${r.lost}</strong> on ${r.graded} graded picks (${r.hit_pct}%)`
+            : "no graded picks yet";
+        return `<div class="flex gap-sm items-start p-sm rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
+          <span class="font-bold text-primary shrink-0">${code.toUpperCase()}</span>
+          <span>Record: ${rec}. ${escapeHtml((sp.disclosures || {})[code] || "")}</span></div>`;
+    }).join("");
+}
+
 async function loadPicks() {
     const feed = document.getElementById("picks-feed");
     const status = document.getElementById("status");
@@ -506,15 +606,33 @@ async function loadPicks() {
     // (renderStarted is defined below loadPicks so it can use the same helpers)
     status.textContent = "Loading…";
     try {
-        const [data, stats] = await Promise.all([
-            PotentialProAPI.picks(),
-            PotentialProAPI.stats().catch(() => null),
+        const wantFootball = SPORTS.includes("football");
+        const us = SPORTS.filter(s => s !== "football");
+        // NHL/NFL failing must not take football down with it (or vice versa):
+        // each side degrades to its own message.
+        const [data, stats, sp] = await Promise.all([
+            wantFootball ? PotentialProAPI.picks() : Promise.resolve({picks: [], started: []}),
+            wantFootball ? PotentialProAPI.stats().catch(() => null) : Promise.resolve(null),
+            us.length ? PotentialProAPI.sportPicks(us).catch(err => ({error: err, picks: []}))
+                      : Promise.resolve(null),
         ]);
-        ALL_PICKS = (data.picks || []).slice().sort((a, b) =>
+        const football = (data.picks || []).map(p => ({...p, sport: "football"}));
+        ALL_PICKS = football.concat((sp && sp.picks) || []).sort((a, b) =>
             (kickoffDate(a.match_date, a.kickoff_time, a.kickoff_utc) || 0) - (kickoffDate(b.match_date, b.kickoff_time, b.kickoff_utc) || 0));
         UPDATED_AT = data.generated_at || null;
         renderStarted(data.started || []);
-        renderStatStrip(ALL_PICKS, stats);
+        // The stat strip is FOOTBALL's track record. It is not shown for a
+        // view without football, and NHL/NFL get their own line below it.
+        if (wantFootball) renderStatStrip(football, stats);
+        else document.getElementById("stat-strip").innerHTML = "";
+        renderSportNotes(sp, us);
+        if (ALL_PICKS.length === 0 && !wantFootball) {
+            feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                No HIGH or MEDIUM ${us.map(c => c.toUpperCase()).join(" or ")} picks right now.
+                Lower-confidence games are left out, as they are for football.</div>`;
+            status.textContent = "";
+            return;
+        }
         if (ALL_PICKS.length === 0) {
             /* Two different empties, and the old message conflated them. "The
                model is sitting today's fixtures out" is only true if TODAY's
@@ -722,6 +840,11 @@ document.addEventListener("DOMContentLoaded", () => {
             renderFeed();
         }));
     paintTierChips();
+    ppSportChips(document.getElementById("sport-filter"), SPORTS, sel => {
+        SPORTS = sel;
+        CURRENT_LEAGUE = "ALL";   // a league from a sport no longer shown would empty the list
+        loadPicks();
+    });
     loadPicks();
 });
 </script>
