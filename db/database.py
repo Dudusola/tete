@@ -284,6 +284,30 @@ def init_db():
             FOREIGN KEY (match_id) REFERENCES matches(match_id)
         )
     """)
+    # NHL GOALIES (scrapers/nhl_goalies.py, api-web.nhle.com). One row per
+    # goalie per game. Before the game: the team's goalies and their season
+    # numbers (`stats_season`), because the NHL does NOT publish the starter
+    # until warm-ups - `started` stays NULL, which means UNKNOWN, never "no".
+    # After the game: `started` 1/0 plus that night's line, which is what will
+    # eventually let starters be predicted (e.g. the backup on a back-to-back).
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS nhl_goalies (
+            match_id TEXT NOT NULL,
+            side TEXT NOT NULL CHECK (side IN ('home', 'away')),
+            player_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            stats_season INTEGER,
+            season_gp INTEGER, season_record TEXT,
+            season_sv_pct REAL, season_gaa REAL,
+            started INTEGER,
+            toi TEXT, shots_against INTEGER, saves INTEGER,
+            goals_against INTEGER, decision TEXT,
+            updated_at TEXT NOT NULL,
+            PRIMARY KEY (match_id, player_id),
+            FOREIGN KEY (match_id) REFERENCES matches(match_id)
+        )
+    """)
+
     for col in ("markets_json TEXT", "facts_json TEXT", "analysis TEXT",
                 "analysis_at TEXT"):
         try:

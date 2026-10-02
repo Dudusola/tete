@@ -225,6 +225,16 @@ generate predictions on demand.
                           (it rated a +3.2 edge "moderate"); and `unsupported_figures()` rejects any
                           score/record/decimal not in the evidence (caught an invented "3-6-0"),
                           retries once, then stores NOTHING. Daily OPTIONAL step.
+- scrapers/nhl_goalies.py NHL goalies per game from api-web.nhle.com (no key) into `nhl_goalies`.
+                          Probed 29 Sep 2026: pre-game the API lists each team's goalies with LAST
+                          season's numbers but NEVER the starter (confirmed at warm-ups, after the
+                          analysis is written) -> `started` NULL = UNKNOWN. Post-game the boxscore
+                          flags `starter` + saves/shots/decision; boxscores persist, so
+                          `--days-back 30` backfills. Joined to ESPN fixtures EXACTLY on both
+                          normalised names + UTC date (all 32 names verified; no fuzzy matcher).
+                          The analyst may quote goalie numbers but a regex rejects any starter
+                          claim ("gets the start", "expected to start"...). Daily OPTIONAL step,
+                          before the shadow step. Cloud reachability of api-web.nhle.com UNPROBED.
 - models/nhl_preview.py   Payload for GET /api/preview/nhl -> webapp/hockey.html (PRIVATE: linked from
                           nowhere, noindex). Upcoming games + all markets vs the book + analysis +
                           facts; finished games with the verdict graded; the preview's OWN record,

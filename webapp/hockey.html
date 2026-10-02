@@ -205,6 +205,33 @@ function sideFacts(name, s, venueWord) {
       </ul></div>`;
 }
 
+// The goalie is the biggest single factor in an NHL game and the one the
+// bookmaker knows before we do: the starter is announced at warm-ups. So the
+// panel lists each team's goalies with LAST season's numbers and says plainly
+// that tonight's starter is not confirmed - it never picks one.
+function goaliePanel(g, gk) {
+    if (!gk) return "";
+    const season = s => s ? `${String(s).slice(0, 4)}-${String(s).slice(6)}` : "last season";
+    const side = (name, list, recent) => {
+        if (!list || !list.length) return "";
+        const rows = list.map(p => `<li class="flex justify-between gap-sm">
+            <span>${esc(p.name)}</span>
+            <span class="tabular-nums text-label-sm">${p.gp ?? "–"} GP · ${p.sv_pct != null ? p.sv_pct.toFixed(3).replace(/^0/, "") : "–"} sv% · ${p.gaa != null ? p.gaa.toFixed(2) : "–"} GAA</span></li>`).join("");
+        return `<div><div class="font-semibold text-primary mb-base">${esc(name)}</div>
+          <ul class="text-body-md text-on-surface-variant space-y-base">${rows}</ul>
+          ${recent && recent.length ? `<p class="text-label-sm text-on-surface-variant mt-xs">Recent starters: ${recent.map(esc).join(", ")}</p>` : ""}</div>`;
+    };
+    const first = (gk.home && gk.home[0]) || (gk.away && gk.away[0]) || {};
+    return `<div>
+      <div class="font-semibold text-primary mb-base flex items-center gap-xs">
+        <span class="material-symbols-outlined text-[18px]" aria-hidden="true">sports_hockey</span>Goalies</div>
+      <p class="text-label-sm text-on-surface-variant mb-sm">Tonight's starters are not confirmed until warm-ups. Numbers are from ${season(first.season)} and may have been earned at another club.</p>
+      <div class="grid md:grid-cols-2 gap-md">
+        ${side(g.home, gk.home, (gk.recent_starts || {}).home)}
+        ${side(g.away, gk.away, (gk.recent_starts || {}).away)}
+      </div></div>`;
+}
+
 function factsPanel(g) {
     const f = g.facts;
     if (!f) return "";
@@ -236,6 +263,7 @@ function factsPanel(g) {
           ${h2h ? `<ul class="text-body-md text-on-surface-variant space-y-base">${h2h}</ul>`
                 : `<p class="text-body-md text-on-surface-variant">Not met in our records.</p>`}
         </div>
+        ${goaliePanel(g, f.goalies)}
         ${moves.length ? `<div><div class="font-semibold text-primary mb-base">Price movement</div>
           <ul class="text-body-md text-on-surface-variant space-y-base">${moves.map(m => `<li>${m}</li>`).join("")}</ul></div>` : ""}
       </div>
@@ -276,6 +304,7 @@ function recentRow(g) {
       <div class="min-w-0">
         <div class="text-body-md text-primary">${esc(g.home)} <strong class="tabular-nums">${esc(g.score)}</strong> ${esc(g.away)}${g.decided_in && g.decided_in !== "REG" ? ` <span class="text-label-sm text-on-surface-variant">(${esc(g.decided_in)})</span>` : ""}</div>
         <div class="text-label-sm text-on-surface-variant">${esc(kickoffLabel(null, null, g.kickoff_utc))} · ${esc(sel)}</div>
+        ${g.starters && (g.starters.home || g.starters.away) ? `<div class="text-label-sm text-on-surface-variant">In goal: ${esc(g.starters.home || "?")} v ${esc(g.starters.away || "?")}</div>` : ""}
       </div>${res}</div>`;
 }
 

@@ -50,7 +50,17 @@ def _facts_summary(f: dict) -> dict:
         return {k: s.get(k) for k in ("rank", "of", "last10", "venue10", "streak",
                                       "rest_days", "back_to_back", "new_season", "last_game")}
     return {"home": side(f["home"]), "away": side(f["away"]), "h2h": f.get("h2h", []),
-            "movement": f.get("market_movement", {})}
+            "movement": f.get("market_movement", {}), "goalies": f.get("goalies")}
+
+
+def _starters(conn, match_id: str) -> dict:
+    """Who actually started a finished game (scrapers/nhl_goalies.py), if known."""
+    try:
+        rows = conn.execute("SELECT side, name FROM nhl_goalies WHERE match_id = ? AND started = 1",
+                            [match_id]).fetchall()
+    except Exception:
+        return {}
+    return {r["side"]: r["name"] for r in rows}
 
 
 def _backtest() -> dict | None:
@@ -100,6 +110,7 @@ def build(conn) -> dict:
                 units += (odds - 1) if res else -1
             game.update(score=f"{r['home_goals']}-{r['away_goals']}",
                         decided_in=r["decided_in"],
+                        starters=_starters(conn, r["match_id"]),
                         result=None if res is None else ("won" if res else "lost"))
             recent.append(game)
             continue
