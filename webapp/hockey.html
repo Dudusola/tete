@@ -125,8 +125,8 @@ function record(r) {
 
 function verdictChip(v) {
     if (!v || !v.key) {
-        return `<span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold">
-                  <span class="material-symbols-outlined text-[14px]" aria-hidden="true">check</span>No bet · price looks right</span>`;
+        return `<span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold" title="${esc(v ? v.text : "")}">
+                  <span class="material-symbols-outlined text-[14px]" aria-hidden="true">check</span>No bet</span>`;
     }
     const strength = (v.text.match(/^(\w+) lean/) || [])[1] || "";
     const sel = v.text.replace(/^\w+ lean: /, "").replace(/ \(edge.*$/, "");
@@ -313,7 +313,9 @@ function renderBacktest(b) {
     if (!b || !b.held_out) { el.textContent = ""; return; }
     const h = b.held_out;
     const n = (h["home_by_2"] || {}).n;
-    el.textContent = `Tested on ${n ? n.toLocaleString() : "the"} games from seasons it never saw: the puck line and totals beat a flat base rate, the 60-minute result did slightly; the draw and the overtime winner could not be predicted, so they use the league rate. None of that shows it beats the bookmaker — this page exists to find out.`;
+    // The second half is models/nhl_market_backtest.py (2 Oct 2026): a fixed
+    // historical result, so it is stated here rather than recomputed.
+    el.textContent = `Tested on ${n ? n.toLocaleString() : "the"} games from seasons it never saw: the puck line and totals beat a flat base rate; the draw and the overtime winner could not be predicted, so they use the league rate. Against the bookmaker's real prices on 5,000 past games, the bookmaker was better on the moneyline and puck line and level on totals, and small edges lost money. So a lean is shown only when we disagree with the moneyline by 10+ points — the one place the market then moved our way (about two times in three). Even that is not proven profit.`;
 }
 
 async function load() {
