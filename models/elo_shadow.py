@@ -48,7 +48,7 @@ from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection, init_db
-from models import nhl_form, nhl_markets
+from models import nfl_markets, nhl_form, nhl_markets
 from models.elo import HIST, MEAN, load, run_elo, win_prob
 
 MODEL_VERSION = "elo_v1"
@@ -142,6 +142,45 @@ def nhl_markets_for(conn, match_id: str, p_home: float, exp_total: float,
     return items, movement
 
 
+def nfl_markets_for(conn, match_id: str, p_home: float, mu_total: float,
+                    params: dict) -> tuple[list, dict]:
+    """NFL moneyline, spread and total - priced at the BOOK's own lines only."""
+    ml = _latest(conn, match_id, "moneyline")
+    sp = _latest(conn, match_id, "spread")
+    tot = _latest(conn, match_id, "total")
+    home_line = sp["line"] if sp and sp["line"] is not None else None
+    total_line = tot["line"] if tot and tot["line"] is not None else None
+    ours = nfl_markets.price(p_home, mu_total, params, home_line, total_line)
+    book, movement = {}, {}
+    if ml:
+        book["ml_home"] = (ml["odds_home"], _fair(ml["odds_home"], ml["odds_away"]))
+        book["ml_away"] = (ml["odds_away"], _fair(ml["odds_away"], ml["odds_home"]))
+        movement["moneyline"] = {"open": [ml["open_home"], ml["open_away"]],
+                                 "now": [ml["odds_home"], ml["odds_away"]]}
+    if home_line is not None:
+        h = f"spread_home_{nfl_markets._fmt(home_line)}"
+        a = f"spread_away_{nfl_markets._fmt(-home_line)}"
+        book[h] = (sp["odds_home"], _fair(sp["odds_home"], sp["odds_away"]))
+        book[a] = (sp["odds_away"], _fair(sp["odds_away"], sp["odds_home"]))
+        movement["spread"] = {"home_line": home_line, "open_home_line": sp["open_line"],
+                              "open": [sp["open_home"], sp["open_away"]],
+                              "now": [sp["odds_home"], sp["odds_away"]]}
+    if total_line is not None:
+        book[f"over_{total_line:g}"] = (tot["odds_over"], _fair(tot["odds_over"], tot["odds_under"]))
+        book[f"under_{total_line:g}"] = (tot["odds_under"], _fair(tot["odds_under"], tot["odds_over"]))
+        movement["total"] = {"line": total_line, "open_line": tot["open_line"],
+                             "open": [tot["open_over"], tot["open_under"]],
+                             "now": [tot["odds_over"], tot["odds_under"]]}
+    items = []
+    for key, p in ours.items():
+        if key.startswith("_"):
+            continue                    # push probabilities, carried separately
+        odds, fair = book.get(key, (None, None))
+        items.append({"key": key, "p": p, "market_p": fair, "odds": odds})
+    pushes = {k[1:]: v for k, v in ours.items() if k.startswith("_")}
+    return items, movement, pushes
+
+
 def run() -> int:
     params_all = json.load(open(os.path.join(HIST, "elo_params.json"), encoding="utf-8"))
     conn = get_connection()
@@ -152,6 +191,9 @@ def run() -> int:
     nhl_params = nhl_markets.load_params()
     if not nhl_params:
         logger.warning("nhl: no fitted market params - run models/nhl_markets.py")
+    nfl_params = nfl_markets.load_params()
+    if not nfl_params:
+        logger.warning("nfl: no fitted market params - run models/nfl_markets.py")
 
     for feed, sport in FEEDS.items():
         params = params_all.get(feed, {}).get("params")
@@ -160,9 +202,13 @@ def run() -> int:
             continue
         ratings, name_to_id, last_played = ratings_for(feed, params)
         nhl = feed == "nhl" and nhl_params
-        if nhl:
-            nhl_state = nhl_markets.current_rates(nhl_params, params)
-            nhl_games = nhl_form.load_games()
+        nfl = feed == "nfl" and nfl_params
+        if nhl or nfl:
+            if nhl:
+                nhl_state = nhl_markets.current_rates(nhl_params, params)
+            else:
+                nfl_state = nfl_markets.current_rates(nfl_params, params)
+            nhl_games = nhl_form.load_games(feed)
             # Ranks on the ratings a game is actually predicted with: after the
             # off-season revert when the history has not reached the new season.
             gap = (now - datetime.strptime(last_played, "%Y-%m-%d")).days
@@ -207,6 +253,17 @@ def run() -> int:
                                        ranked, nhl_ranks)
                 facts["market_movement"] = movement
                 facts["goalies"] = nhl_form.goalie_facts(conn, g["match_id"], g["kickoff_utc"])
+                facts_json = json.dumps(facts)
+            elif nfl:
+                mu_total = nfl_markets.expected_total(nfl_state, nfl_params, hid, aid,
+                                                      g["kickoff_utc"][:10])
+                items, movement, pushes = nfl_markets_for(conn, g["match_id"], p_home,
+                                                          mu_total, nfl_params)
+                markets_json = json.dumps({"version": "nfl_mk_v1", "exp_total": round(mu_total, 1),
+                                           "pushes": pushes, "items": items})
+                facts = nhl_form.build(hid, aid, g["kickoff_utc"][:10], nhl_games,
+                                       ranked, nhl_ranks)
+                facts["market_movement"] = movement
                 facts_json = json.dumps(facts)
             conn.execute("""
                 INSERT INTO shadow_predictions

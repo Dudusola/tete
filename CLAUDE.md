@@ -250,11 +250,36 @@ generate predictions on demand.
                           The analyst may quote goalie numbers but a regex rejects any starter
                           claim ("gets the start", "expected to start"...). Daily OPTIONAL step,
                           before the shadow step. Cloud reachability of api-web.nhle.com UNPROBED.
-- models/nhl_preview.py   Payload for GET /api/preview/nhl -> webapp/hockey.html (PUBLIC since 2 Oct
-                          2026, "NHL" in every nav; was private/noindex). Upcoming games + all markets vs the book + analysis +
-                          facts; finished games with the verdict graded; the preview's OWN record,
-                          never mixed into football's. db/shadow_report.py grades each NHL market
-                          family against the book (paired log loss) + the verdicts' flat-stake P/L.
+- models/nhl_preview.py   Payload for GET /api/preview/nhl (the old standalone NHL page). SUPERSEDED
+                          2 Oct 2026 by models/us_sports.py: Boss did not want a separate tab, so
+                          webapp/hockey.html is now only a redirect to index.html?sport=nhl. The
+                          endpoint stays for old clients. db/shadow_report.py still grades each NHL
+                          market family against the book + the verdicts' flat-stake P/L.
+- models/us_sports.py     NHL + NFL INSIDE Picks and the Builder (2 Oct 2026, Boss: "choose the
+                          sports you want ... recommended bets like football"). picks(): one bet per
+                          game - the moneyline side the model rates likelier - with FOOTBALL's tiers
+                          (HIGH >=65%, MEDIUM >=55%, LOW not served), the bookmaker's view beside it,
+                          and each sport's OWN record (never blended into football's). slip_options():
+                          every OFFERED market as BetOption so build_slip() treats them like football
+                          (risk bands, correlation cap, bankers, swaps). "Offered" matters: we price
+                          favourite +1.5 too, but books only quote favourite -1.5 / dog +1.5, and that
+                          unbookable 81% leg topped every LOW slip until filtered. Market names
+                          (Moneyline, 60-Minute Result, Puck Line, Spread, Over/Under Goals/Points) are
+                          a CONTRACT with scrapers/booking_codes.US_SPORTS. settle_leg() grades tracked
+                          NHL/NFL slip legs with the same grade() as the record (NFL push = void).
+- models/nfl_markets.py   NFL moneyline (Elo) / spread / total at the BOOK's lines. Margin = normal
+                          x KEY-NUMBER weights by |margin| (fitted 2011-23: 3 -> x2.54, 7 -> x1.75;
+                          14.6% of games end by exactly 3), mu solved so P(home win) == Elo's.
+                          Held out 2024-25 (570 g): beats the base rate at every spread -7.5..+7.5
+                          and every total 40.5..50.5; key-number model beats a plain normal on exact
+                          margins. Pushes are VOID. No QB/injury/weather data - expect big gaps to
+                          the book early in a season (Washington 57% vs book 37%, 2 Oct).
+- Booking NHL/NFL (scrapers/booking_codes.US_SPORTS): SportyBet FULL-GAME ids only - NHL 406 winner,
+                          410 handicap, 412 total (all "incl. overtime and penalties"), 1 = 60-min 1X2
+                          (from our 60-Minute Result only); NFL 219/223/225 "incl. overtime". Mapped by
+                          exact market id + line + outcome id, never by name: SportyBet's plain hockey
+                          18 "Over/Under" is 60-MINUTE (Over 6.5 paid 2.60 vs 2.20 for 412). Verified by
+                          booking code QBV5GK and decoding it back. Bet9ja: NHL/NFL legs unmapped.
 - models/sports.py        `matches.sport` values (football, basketball, american_football,
                           ice_hockey, baseball) and `sport_sql()`, the WHERE fragment that keeps
                           them apart. Rejects unknown sports so a typo can't silently filter
@@ -352,7 +377,10 @@ generate predictions on demand.
                           bg-…/90 opacity variant, themed separately in the dark CSS.
 
 ## API endpoints (port 8080)
-GET / ; GET /api/picks ; GET /api/picks/all ; GET /api/picks/draws ; GET /api/slip?risk=&games= ;
+GET / ; GET /api/picks ; GET /api/picks/all ; GET /api/picks/draws ;
+GET /api/picks/sports?sports=nhl,nfl (NHL/NFL picks + each sport's own record) ;
+GET /api/slip?risk=&games=&sports=football,nhl,nfl (slip legs now carry match_id + sport;
+before 2 Oct 2026 they had NO match_id, so Builder-tracked slips never settled) ;
 GET /api/consensus ; GET /api/stats ; GET /api/stats/tiers ;
 GET /api/stats/picks?tier= (drill-down) ; GET /api/stats/trend (weekly hit
 rate, for the Record chart) ; GET /api/fixtures (for slip-checker) ;

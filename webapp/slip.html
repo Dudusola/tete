@@ -29,7 +29,6 @@
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="consensus.html">Consensus</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="record.html">Record</a>
-<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="hockey.html">NHL</a>
 </div>
 </nav>
 
@@ -78,9 +77,16 @@
 </div>
 <p id="count-note" class="text-label-sm text-on-surface-variant mt-xs"></p>
 </section>
-<!-- League filter -->
+<!-- Sports (Oct 2026) - the same preference as the Picks page. NHL/NFL legs
+     go through the same slip engine: risk bands, one leg per game, the
+     correlation cap, bankers and swaps all apply. -->
 <section>
-<h2 class="text-body-lg font-semibold text-primary mb-sm">Leagues</h2>
+<h2 class="text-body-lg font-semibold text-primary mb-sm">Sports</h2>
+<div class="flex flex-wrap gap-xs" id="sport-group" role="group" aria-label="Sports"></div>
+</section>
+<!-- League filter (football leagues; hidden when football is not chosen) -->
+<section id="league-section">
+<h2 class="text-body-lg font-semibold text-primary mb-sm">Football leagues</h2>
 <div class="flex flex-wrap gap-xs" id="league-group">
 <span class="text-label-sm text-on-surface-variant">Loading leagues…</span>
 </div>
@@ -108,7 +114,6 @@
 <a class="flex flex-col items-center justify-center text-on-surface-variant rounded-xl py-2 px-0 flex-1 min-w-0" href="record.html"><span class="material-symbols-outlined">query_stats</span><span class="text-label-sm mt-1">Record</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant rounded-xl py-2 px-0 flex-1 min-w-0" href="consensus.html"><span class="material-symbols-outlined">groups</span><span class="text-label-sm mt-1">Consensus</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant rounded-xl py-2 px-0 flex-1 min-w-0" href="checker.html"><span class="material-symbols-outlined">fact_check</span><span class="text-label-sm mt-1">Checker</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant rounded-xl py-2 px-0 flex-1 min-w-0" href="hockey.html"><span class="material-symbols-outlined">sports_hockey</span><span class="text-label-sm mt-1">NHL</span></a>
 </nav>
 
 <script src="config.js?v=2"></script>
@@ -120,6 +125,12 @@ let selectedCount = 5;
 let selectedLeagues = new Set();
 let excludedPairs = [];   // [{home, away}] fixtures the user removed
 let pinnedLegs = [];      // Bankers: [{home_team, away_team, market, selection}]
+let selectedSports = ppSportsGet();
+
+function paintLeagueSection() {
+    const sec = document.getElementById("league-section");
+    if (sec) sec.classList.toggle("hidden", !selectedSports.includes("football"));
+}
 
 function isPinned(leg) {
     return pinnedLegs.some(p => p.home_team === leg.home_team &&
@@ -266,9 +277,11 @@ function renderSlip(data) {
   ${data.legs.some(l => l.market !== "Match Result") ? `
   <div class="bg-surface-container-low px-md py-xs border-t border-outline-variant">
     <span class="text-label-sm text-on-surface-variant">
-      Only Match Result picks have a graded track record so far. The other
+      Only football Match Result picks have a graded track record so far. The other
       markets on this slip are model estimates that haven't been checked
-      against results yet.
+      against results yet.${data.legs.some(l => l.sport && l.sport !== "football") ? `
+      NHL/NFL legs are experimental and kept separate from our football record;
+      they include overtime, and book on SportyBet and MSport only.` : ""}
     </span>
   </div>` : ""}
   <div class="bg-surface-container-low px-md py-sm border-t border-outline-variant">
@@ -331,9 +344,11 @@ async function bookSlip(provider) {
     btns.forEach(b => b.disabled = true);
     out.innerHTML = `<span class="text-on-surface-variant">Booking on ${PROVIDER_NAME[provider]}…</span>`;
     try {
+        // `sport` + `league` route NHL/NFL legs to SportyBet's FULL-GAME
+        // markets (scrapers/booking_codes.US_SPORTS), never the 60-minute ones.
         const d = await PotentialProAPI.generateCode(LAST_SLIP.map(l => ({
-            home_team: l.home_team, away_team: l.away_team,
-            market: l.market, selection: l.selection,
+            home_team: l.home_team, away_team: l.away_team, league: l.league,
+            sport: l.sport, market: l.market, selection: l.selection,
         })), provider);
         if (!d.ok) { out.innerHTML = `<span class="text-error">⚠️ ${escapeHtml(d.error)}</span>`; return; }
         out.innerHTML = ppBookingResult(d, PROVIDER_NAME[provider], LAST_SLIP);
@@ -352,7 +367,8 @@ async function generateSlip() {
     out.innerHTML = `<div class="space-y-sm">${ppSkeleton(56)}${ppSkeleton(180)}${ppSkeleton(90)}</div>
       <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${ppRiskLabel(selectedRisk).toLowerCase()} slip…</div>`;
     try {
-        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, [...selectedLeagues], excludedPairs, pinnedLegs);
+        const leagues = selectedSports.includes("football") ? [...selectedLeagues] : [];
+        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, leagues, excludedPairs, pinnedLegs, selectedSports);
         renderSlip(data);
     } catch (err) {
         out.innerHTML = ppErrorBox(err, "build your slip", "generateSlip");
@@ -422,6 +438,11 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     document.getElementById("generate-btn").addEventListener("click", generateSlip);
+    ppSportChips(document.getElementById("sport-group"), selectedSports, sel => {
+        selectedSports = sel;
+        paintLeagueSection();
+    });
+    paintLeagueSection();
     paintRisk(); paintCount(); loadLeagues();
 });
 </script>

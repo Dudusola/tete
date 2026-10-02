@@ -171,12 +171,18 @@ def _sim(a: str, b: str) -> float:
     return SequenceMatcher(None, (a or "").lower(), (b or "").lower()).ratio()
 
 
-_EVENTS_CACHE = {"at": 0.0, "events": []}
+_EVENTS_CACHE = {"at": 0.0, "events": []}      # football (the original cache)
+_SPORT_CACHES = {}                               # sport_id -> same shape
 _EVENTS_TTL = 300   # odds move, but event/market IDs are stable - 5 min is safe
 
 
-def fetch_sportybet_events(pages: int = 0, page_size: int = 100) -> list[dict]:
-    """Flatten SportyBet's upcoming football events (with main markets).
+def fetch_sportybet_events(pages: int = 0, page_size: int = 100,
+                           sport_id: str = "sr:sport:1",
+                           market_ids: str = GEN_MARKET_IDS) -> list[dict]:
+    """Flatten SportyBet's upcoming events (with main markets) for one sport.
+    Football by default; NHL/NFL pass their sport id and FULL-GAME market ids
+    (US_SPORTS below). Each event carries `_tournament` so a mapper can refuse
+    an event outside the league it wants (an AHL or college game).
 
     pages=0 (default) means ASK the feed how many there are.
 
@@ -192,15 +198,17 @@ def fetch_sportybet_events(pages: int = 0, page_size: int = 100) -> list[dict]:
     """
     import math
     import time as _time
-    if _EVENTS_CACHE["events"] and _time.time() - _EVENTS_CACHE["at"] < _EVENTS_TTL:
-        return _EVENTS_CACHE["events"]
+    cache = (_EVENTS_CACHE if sport_id == "sr:sport:1"
+             else _SPORT_CACHES.setdefault(sport_id, {"at": 0.0, "events": []}))
+    if cache["events"] and _time.time() - cache["at"] < _EVENTS_TTL:
+        return cache["events"]
     def fetch_page(page: int) -> list[dict]:
         d = None
         for attempt in (1, 2):   # one retry - a single failed page must not
             try:                 # truncate (and then cache) a partial list
                 r = requests.get(EVENTS_URL, headers=HEADERS, timeout=25,
-                                 params={"sportId": "sr:sport:1",
-                                         "marketId": GEN_MARKET_IDS,
+                                 params={"sportId": sport_id,
+                                         "marketId": market_ids,
                                          "pageSize": page_size,
                                          "pageNum": page, "option": 1})
                 d = r.json()
@@ -212,7 +220,9 @@ def fetch_sportybet_events(pages: int = 0, page_size: int = 100) -> list[dict]:
             return []
         out = []
         for t in (d.get("data") or {}).get("tournaments") or []:
-            out.extend(t.get("events") or [])
+            for e in t.get("events") or []:
+                e["_tournament"] = t.get("name")
+                out.append(e)
         return out
 
     # Pages fetched in parallel (sequential took 60s+ and slip requests
@@ -233,8 +243,8 @@ def fetch_sportybet_events(pages: int = 0, page_size: int = 100) -> list[dict]:
         total = 0
         try:
             probe = requests.get(EVENTS_URL, headers=HEADERS, timeout=25,
-                                 params={"sportId": "sr:sport:1",
-                                         "marketId": GEN_MARKET_IDS,
+                                 params={"sportId": sport_id,
+                                         "marketId": market_ids,
                                          "pageSize": page_size,
                                          "pageNum": 1, "option": 1})
             total = ((probe.json().get("data") or {}).get("totalNum")) or 0
@@ -276,13 +286,13 @@ def fetch_sportybet_events(pages: int = 0, page_size: int = 100) -> list[dict]:
             if eid not in seen:
                 seen.add(eid)
                 events.append(e)
-    logger.info(f"SportyBet events feed: {len(events)} upcoming matches")
+    logger.info(f"SportyBet events feed ({sport_id}): {len(events)} upcoming matches")
     # Only cache a COMPLETE fetch. Caching a partial one would serve degraded
     # odds for the whole TTL, and slip building treats an unpriced leg as a
     # signal (it swaps legs SportyBet won't price) — so incomplete data doesn't
     # just look worse, it changes which legs get picked.
     if events and complete:
-        _EVENTS_CACHE.update(at=_time.time(), events=events)
+        cache.update(at=_time.time(), events=events)
     return events
 
 
@@ -454,6 +464,125 @@ def map_leg_to_sportybet(leg: dict, events: list[dict]) -> dict | None:
     return None
 
 
+# ── NHL / NFL ─────────────────────────────────────────────────────────────
+# Probed live 2 Oct 2026. Every id below is the FULL-GAME market, because our
+# NHL/NFL prices include overtime (and the NHL shootout). The trap, measured:
+# SportyBet's plain hockey "1X2" (1) and "Over/Under" (18) are 60-MINUTE
+# markets - its 60-minute Over 6.5 paid 2.60 while the full-game one (412)
+# paid 2.20 on the same game. Mapping by market NAME would have booked the
+# wrong bet, so these legs map by exact market id, exact line and exact
+# outcome id, never by description. The 60-minute 1X2 is mapped ONLY from our
+# own 60-Minute Result market, which is the same 60-minute bet.
+US_SPORTS = {
+    "nhl": {"sport_id": "sr:sport:4", "tournament": "NHL", "market_ids": "406,1,410,412",
+            "markets": {"Moneyline": "406", "60-Minute Result": "1",
+                        "Puck Line": "410", "Over/Under Goals": "412"}},
+    "nfl": {"sport_id": "sr:sport:16", "tournament": "NFL", "market_ids": "219,223,225",
+            "markets": {"Moneyline": "219", "Spread": "223", "Over/Under Points": "225"}},
+}
+_US_LEAGUE = {"NHL": "nhl", "NFL": "nfl"}
+
+
+def leg_sport(leg: dict) -> str:
+    """'nhl' / 'nfl' / 'football' for a slip leg (explicit field, else league)."""
+    s = (leg.get("sport") or "").lower()
+    if s in US_SPORTS:
+        return s
+    return _US_LEAGUE.get((leg.get("league") or "").strip(), "football")
+
+
+def _spec_value(spec: str, key: str):
+    if not spec or not spec.startswith(key + "="):
+        return None
+    try:
+        return float(spec.split("=", 1)[1])
+    except ValueError:
+        return None
+
+
+def _map_us_leg(leg: dict, events: list[dict], code: str) -> dict | None:
+    import re
+    cfg = US_SPORTS[code]
+    market_id = cfg["markets"].get(leg.get("market") or "")
+    if not market_id:
+        return None
+    home, away = leg.get("home_team") or "", leg.get("away_team") or ""
+    sel = (leg.get("selection") or "").strip()
+
+    # What outcome, and on which line, did the user pick?
+    want_key = want_line = want_outcome = None
+    if market_id in ("406", "219"):                       # winner incl. OT
+        want_outcome = "4" if sel == home else "5" if sel == away else None
+    elif market_id == "1":                                 # 60 minutes
+        want_outcome = {home: "1", "Draw": "2", away: "3"}.get(sel)
+    elif market_id in ("410", "223"):                      # handicap incl. OT
+        m = re.match(r"^(.*) ([+-]\d+(?:\.\d+)?)$", sel)
+        if m and m.group(1) in (home, away):
+            line = float(m.group(2))
+            want_key = "hcp"
+            want_line = line if m.group(1) == home else -line   # stated from HOME
+            want_outcome = "1714" if m.group(1) == home else "1715"
+    elif market_id in ("412", "225"):                      # total incl. OT
+        m = re.match(r"^(Over|Under) (\d+(?:\.\d+)?)$", sel)
+        if m:
+            want_key, want_line = "total", float(m.group(2))
+            want_outcome = "12" if m.group(1) == "Over" else "13"
+    if not want_outcome:
+        return None
+
+    best_ev, best_s = None, 0.0
+    for ev in events:
+        if ev.get("_tournament") != cfg["tournament"]:
+            continue                                       # never an AHL/college game
+        s = _pair_score(home, away, ev.get("homeTeamName") or "", ev.get("awayTeamName") or "")
+        if s is not None and s > best_s:
+            best_ev, best_s = ev, s
+    if not best_ev:
+        return None
+    for mkt in best_ev.get("markets") or []:
+        if str(mkt.get("id")) != market_id:
+            continue
+        spec = mkt.get("specifier") or ""
+        if want_key is not None and _spec_value(spec, want_key) != want_line:
+            continue
+        for out in mkt.get("outcomes") or []:
+            if str(out.get("id")) == want_outcome and out.get("isActive"):
+                return {"selection": {"eventId": best_ev["eventId"], "marketId": market_id,
+                                      "specifier": spec, "outcomeId": want_outcome},
+                        "descr": (f"{best_ev['homeTeamName']} vs {best_ev['awayTeamName']} - "
+                                  f"{mkt.get('desc')}{' ' + spec if spec else ''}: {out.get('desc')}"),
+                        "odds": out.get("odds")}
+    return None
+
+
+class _EventsBySport:
+    """Fetch each sport's SportyBet events at most once per call, on demand."""
+    def __init__(self):
+        self._got = {}
+
+    def __call__(self, code: str) -> list[dict]:
+        if code not in self._got:
+            try:
+                if code == "football":
+                    self._got[code] = fetch_sportybet_events()
+                else:
+                    cfg = US_SPORTS[code]
+                    self._got[code] = fetch_sportybet_events(sport_id=cfg["sport_id"],
+                                                             market_ids=cfg["market_ids"])
+            except Exception as e:
+                logger.warning(f"SportyBet {code} events failed: {e}")
+                self._got[code] = []
+        return self._got[code]
+
+
+def map_leg(leg: dict, events_for) -> dict | None:
+    """Route a leg to its own sport's events and mapper."""
+    code = leg_sport(leg)
+    if code == "football":
+        return map_leg_to_sportybet(leg, events_for("football"))
+    return _map_us_leg(leg, events_for(code), code)
+
+
 # MSport accepts the identical POST shape and shares Betradar event/market/
 # outcome IDs with SportyBet, so one mapping (from SportyBet's events feed)
 # can book on either. Confirmed live 2026-07-16 (returned a real shareCode).
@@ -478,13 +607,13 @@ def generate_code(legs: list[dict], provider: str = "sportybet") -> dict:
         raise BookingCodeError(
             f"Can't generate codes for '{provider}'. Supported: "
             f"{', '.join(sorted(SHARE_POST_URLS))}")
-    events = fetch_sportybet_events()
-    if not events:
+    events_for = _EventsBySport()
+    if not events_for(leg_sport(legs[0]) if legs else "football"):
         raise BookingCodeError("Couldn't load SportyBet's fixture list.")
 
     mapped, unmapped, selections = [], [], []
     for leg in legs:
-        m = map_leg_to_sportybet(leg, events)
+        m = map_leg(leg, events_for)
         if m:
             selections.append(m["selection"])
             mapped.append({"leg": leg, "as": m["descr"], "odds": m["odds"]})
@@ -528,17 +657,11 @@ def attach_sporty_odds(legs: list[dict]) -> dict:
     total_odds multiplies only the legs SportyBet prices; None when none map
     or the feed is unreachable. Never raises — odds are decoration, not data."""
     out = {"odds": [None] * len(legs), "total_odds": None}
-    try:
-        events = fetch_sportybet_events()
-    except Exception as e:
-        logger.warning(f"SportyBet odds lookup failed: {e}")
-        return out
-    if not events:
-        return out
+    events_for = _EventsBySport()
     total, priced = 1.0, 0
     for i, leg in enumerate(legs):
         try:
-            m = map_leg_to_sportybet(leg, events)
+            m = map_leg(leg, events_for)
             odds = float(m["odds"]) if m and m.get("odds") else None
         except Exception:
             odds = None

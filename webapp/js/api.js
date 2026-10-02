@@ -124,13 +124,7 @@ const API_BASE = (function () {
       :where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
         outline:2px solid #416900; outline-offset:2px; }
       html.dark :where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
-        outline-color:#91db2a; }
-      /* Six sections in the bottom nav since NHL joined (Oct 2026). Measured:
-         no label overlaps at 360px+, but "Consensus" overran its slot at
-         320px (iPhone SE class). Only there, labels drop a size. */
-      @media (max-width: 359px) {
-        nav.md\\:hidden a, nav.md\\:hidden a span:not(.material-symbols-outlined) {
-          font-size: 10px !important; letter-spacing: -0.01em; } }`;
+        outline-color:#91db2a; }`;
     const style = document.createElement("style");
     style.textContent = DARK_CSS;
     document.head.appendChild(style);
@@ -872,7 +866,10 @@ const PotentialProAPI = {
     // Draw-leaning fixtures. The response carries its own `disclosure` string
     // — render it with the list, never the list alone (see models/draws.py).
     drawPicks:   ()          => apiGet("/api/picks/draws"),
-    slip:        (risk, n, leagues, excludePairs, pinnedLegs) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
+    // Recommended NHL / NFL picks (models/us_sports.py), each sport's record separate.
+    sportPicks:  (sports)    => apiGet(`/api/picks/sports?sports=${encodeURIComponent(sports.join(","))}`),
+    slip:        (risk, n, leagues, excludePairs, pinnedLegs, sports) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
+                     (sports && sports.length ? `&sports=${encodeURIComponent(sports.join(","))}` : "") +
                      (leagues && leagues.length ? `&leagues=${encodeURIComponent(leagues.join(","))}` : "") +
                      (excludePairs && excludePairs.length
                         ? `&exclude=${encodeURIComponent(excludePairs.map(p => `${p.home}||${p.away}`).join(";;"))}`
@@ -1137,3 +1134,53 @@ const PotentialProAPI = {
         }).observe(main, {childList: true, subtree: true});
     });
 })();
+
+/* ── Sports (Oct 2026) ──────────────────────────────────────────────────────
+   Picks and the Builder both let you choose sports; the choice is ONE
+   preference so it follows you between the two pages. Stored per viewer in
+   localStorage, wrapped in try/catch: a private window or blocked storage
+   just falls back to the default (all sports). */
+const PP_SPORTS = [
+    {code: "football", label: "Football", icon: "sports_soccer"},
+    {code: "nhl", label: "NHL", icon: "sports_hockey"},
+    {code: "nfl", label: "NFL", icon: "sports_football"},
+];
+function ppSportsGet() {
+    try {
+        const url = new URLSearchParams(location.search).get("sport");
+        if (url && PP_SPORTS.some(s => s.code === url)) return [url];
+        const v = JSON.parse(localStorage.getItem("pp-sports") || "null");
+        if (Array.isArray(v)) {
+            const ok = v.filter(c => PP_SPORTS.some(s => s.code === c));
+            if (ok.length) return ok;
+        }
+    } catch (e) { /* storage unavailable: use the default */ }
+    return PP_SPORTS.map(s => s.code);
+}
+function ppSportsSet(codes) {
+    try { localStorage.setItem("pp-sports", JSON.stringify(codes)); } catch (e) { /* ignore */ }
+}
+/* Chip row. At least one sport stays selected - an empty choice would show
+   an empty page for a reason nobody could see. */
+function ppSportChips(box, selected, onChange) {
+    if (!box) return;
+    const paint = () => box.querySelectorAll(".pp-sport-chip").forEach(b => {
+        const on = selected.includes(b.dataset.sport);
+        b.className = "pp-sport-chip inline-flex items-center gap-xs px-md py-base rounded-full text-label-sm font-bold border transition " +
+            (on ? "bg-primary text-on-primary border-primary" : "border-outline-variant text-on-surface-variant hover:bg-surface-container-high");
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    box.innerHTML = PP_SPORTS.map(s =>
+        `<button type="button" data-sport="${s.code}" class="pp-sport-chip"><span class="material-symbols-outlined text-[16px]" aria-hidden="true">${s.icon}</span>${s.label}</button>`
+    ).join("");
+    box.querySelectorAll(".pp-sport-chip").forEach(b => b.addEventListener("click", () => {
+        const c = b.dataset.sport;
+        const i = selected.indexOf(c);
+        if (i >= 0) { if (selected.length === 1) return; selected.splice(i, 1); }
+        else selected.push(c);
+        ppSportsSet(selected);
+        paint();
+        onChange(selected.slice());
+    }));
+    paint();
+}
