@@ -124,7 +124,13 @@ const API_BASE = (function () {
       :where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
         outline:2px solid #416900; outline-offset:2px; }
       html.dark :where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
-        outline-color:#91db2a; }`;
+        outline-color:#91db2a; }
+      /* Six sections in the bottom nav since NHL joined (Oct 2026). Measured:
+         no label overlaps at 360px+, but "Consensus" overran its slot at
+         320px (iPhone SE class). Only there, labels drop a size. */
+      @media (max-width: 359px) {
+        nav.md\\:hidden a, nav.md\\:hidden a span:not(.material-symbols-outlined) {
+          font-size: 10px !important; letter-spacing: -0.01em; } }`;
     const style = document.createElement("style");
     style.textContent = DARK_CSS;
     document.head.appendChild(style);

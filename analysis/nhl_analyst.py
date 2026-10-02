@@ -1,4 +1,5 @@
-"""nhl_analyst.py - written analysis for upcoming NHL games. PRIVATE PREVIEW.
+"""nhl_analyst.py - written analysis for upcoming NHL games (webapp/hockey.html,
+public since 2 Oct 2026; was a private preview).
 
 Writes shadow_predictions.analysis for NHL games in the next ANALYSE_HOURS,
 from the facts and market comparison models/elo_shadow.py stored beside them
@@ -298,7 +299,7 @@ def run(force: bool = False, dry_run: bool = False) -> int:
         logger.info(f"  analysed {r['home_team']} v {r['away_team']}")
     conn.close()
     if not dry_run:
-        logger.success(f"NHL analysis: {written} of {len(rows)} games written (private preview).")
+        logger.success(f"NHL analysis: {written} of {len(rows)} games written.")
     return 0
 
 

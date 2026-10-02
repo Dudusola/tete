@@ -250,8 +250,8 @@ generate predictions on demand.
                           The analyst may quote goalie numbers but a regex rejects any starter
                           claim ("gets the start", "expected to start"...). Daily OPTIONAL step,
                           before the shadow step. Cloud reachability of api-web.nhle.com UNPROBED.
-- models/nhl_preview.py   Payload for GET /api/preview/nhl -> webapp/hockey.html (PRIVATE: linked from
-                          nowhere, noindex). Upcoming games + all markets vs the book + analysis +
+- models/nhl_preview.py   Payload for GET /api/preview/nhl -> webapp/hockey.html (PUBLIC since 2 Oct
+                          2026, "NHL" in every nav; was private/noindex). Upcoming games + all markets vs the book + analysis +
                           facts; finished games with the verdict graded; the preview's OWN record,
                           never mixed into football's. db/shadow_report.py grades each NHL market
                           family against the book (paired log loss) + the verdicts' flat-stake P/L.
@@ -1697,9 +1697,17 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     NFL, NBA, NHL and MLB; no model, odds, markets or picks for any of them.**
     **UPDATE 29 Sep 2026 (NHL, Boss's call: "private preview, NHL only"):** NHL
     now has priced markets (moneyline, 60-min 1X2, puck line, totals), facts-only
-    AI analysis and a verdict per game — on the PRIVATE page webapp/hockey.html
-    only. Still NOT public: the serving bar is unchanged — `db/shadow_report.py`
-    must show the markets holding up against the book over a few hundred games.
+    AI analysis and a verdict per game on webapp/hockey.html.
+    **PUBLIC since 2 Oct 2026** (Boss: "I can't be waiting for 3 weeks"; chose
+    "analysis + labelled alerts"). What made that honest rather than premature:
+    models/nhl_market_backtest.py answered the edge question on 5,000 past games
+    instead of waiting for live ones — NO proven edge — so the page is framed as
+    ANALYSIS, not tips: an "Experimental · separate from our football record"
+    tag, a disclosure that states the backtest, and leans only on 10+ point
+    moneyline disagreements, labelled experimental. The NHL record is reported
+    on that page only, never blended into football's (docs/basketball.md §5.6).
+    Do NOT upgrade the leans to tips unless the live ledger (db/shadow_report.py)
+    and a re-run backtest both support it.
     Starting goalies are the biggest known gap (the book has them, we don't);
     api-web.nhle.com is the candidate source. NFL/MLB get spread + total lines
     recorded but no markets or analysis yet.
