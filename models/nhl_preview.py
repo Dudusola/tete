@@ -74,7 +74,25 @@ def _backtest() -> dict | None:
                          for k, v in p.get("held_out", {}).items()}}
 
 
+REQUIRED_COLUMNS = {"markets_json", "facts_json", "analysis", "analysis_at"}
+
+
+def _empty(reason: str) -> dict:
+    return {"disclosure": DISCLOSURE, "status": reason, "upcoming": [], "recent": [],
+            "record": {"bets": 0, "won": 0, "lost": 0, "units": 0.0},
+            "backtest": _backtest()}
+
+
 def build(conn) -> dict:
+    # The API serves whatever ledger it last synced, and only the PIPELINE
+    # migrates it. Right after a deploy that adds columns, the served ledger
+    # can predate them: on 2 Oct 2026 this endpoint 500'd on "no such column:
+    # s.markets_json" until the next workflow ran init_db(). Say so instead
+    # (bug #21's shape: schema that may not exist yet must not crash a reader).
+    cols = {r[1] for r in conn.execute("PRAGMA table_info(shadow_predictions)")}
+    if not REQUIRED_COLUMNS <= cols:
+        return _empty("The NHL data has not reached this server yet - it arrives "
+                      "with the next hourly ledger update.")
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     rows = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.kickoff_utc, m.live_state,

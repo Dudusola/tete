@@ -337,7 +337,7 @@ async function load() {
             : "no verdicts graded yet"}</span>`;
 
     if (!d.upcoming.length) {
-        box.innerHTML = `<div class="rounded-xl border border-outline-variant p-md text-on-surface-variant">No NHL games in the next few days have been priced yet.</div>`;
+        box.innerHTML = `<div class="rounded-xl border border-outline-variant p-md text-on-surface-variant">${esc(d.status || "No NHL games in the next few days have been priced yet.")}</div>`;
     } else {
         const days = [];
         for (const g of d.upcoming) {
