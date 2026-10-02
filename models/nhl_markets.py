@@ -214,14 +214,24 @@ def market_label(key: str, home: str, away: str) -> tuple[str, str]:
     return f"Total goals {line} (overtime & shootout count)", f"{side.title()} {line}"
 
 
-def verdict(markets: dict, facts: dict, home: str, away: str) -> tuple[str, str | None]:
-    """The verdict, decided HERE rather than by the writer.
+# A lean needs a MONEYLINE disagreement at least this big. Set by
+# models/nhl_market_backtest.py (2 Oct 2026, 5,000 past games, blind seasons):
+# every smaller edge, and every puck-line and totals edge, LOST money against
+# the bookmaker (-3% to -7%, roughly its margin). Only at 10+ points did the
+# market then move our way more often than not (62% / 68% in two separate
+# eras, +4 pts on average) - information, but betting it at the open was
+# +19% on 154 bets with an interval of -11% to +49%: NOT proven profit.
+LEAN_POINTS = 10.0
 
-    Left to the LLM, a +3.2-point edge in opening week came back "moderate".
-    So the selection is the largest positive edge, the strength follows the
-    size of that edge, and opening week caps it at slight - the ratings have
-    not seen a single game of the new rosters. The writer may downgrade to no
-    bet if the risk it finds is serious; it may never upgrade.
+
+def verdict(markets: dict, facts: dict, home: str, away: str) -> tuple[str, str | None]:
+    """The verdict, decided HERE rather than by the writer (who once called a
+    +3.2-point edge "moderate"). The writer may soften it to no bet; never
+    strengthen it.
+
+    Rules come from the backtest, not taste: moneyline only, 10+ points only,
+    and never on a team's first game of the season (the ratings have not seen
+    the new roster; the backtest's signal was measured in-season).
     """
     best = None
     for it in markets.get("items", []):
@@ -233,11 +243,19 @@ def verdict(markets: dict, facts: dict, home: str, away: str) -> tuple[str, str 
     if best is None or best[0] < AGREE_POINTS:
         return "no bet - the price looks right", None
     gap, it = best
-    strength = "slight" if gap < 6 else "moderate" if gap < 10 else "strong"
-    if facts["home"].get("new_season") or facts["away"].get("new_season"):
-        strength = "slight"
+    ml = max((((i["p"] - i["market_p"]) * 100, i) for i in markets.get("items", [])
+              if i["key"].startswith("ml_") and i.get("market_p") is not None),
+             default=None, key=lambda t: t[0])
+    first_game = facts["home"].get("new_season") or facts["away"].get("new_season")
+    if ml and ml[0] >= LEAN_POINTS and not first_game:
+        _, sel = market_label(ml[1]["key"], home, away)
+        return (f"experimental lean: {sel} at {ml[1]['odds']} (edge {ml[0]:+.1f} points)",
+                ml[1]["key"])
     _, sel = market_label(it["key"], home, away)
-    return f"{strength} lean: {sel} at {it['odds']} (edge {gap:+.1f} points)", it["key"]
+    why = ("first game of the season - the ratings have not seen the new roster"
+           if ml and ml[0] >= LEAN_POINTS else
+           "too small to beat the bookmaker's margin in 5,000 past games")
+    return f"no bet - our biggest edge ({sel}, {gap:+.1f} points) is {why}", None
 
 
 # ------------------------------------------------------------------ fitting

@@ -215,6 +215,21 @@ generate predictions on demand.
                           `verdict()` picks the largest edge >= 3 pts, strength by size, capped at
                           "slight" in opening week. Refit: `python models/nhl_markets.py` ->
                           data/sports_history/nhl_markets.json (NOT refit daily; do it each summer).
+- models/nhl_market_backtest.py  DOES IT BEAT THE BOOKMAKER? answered on PAST seasons (2 Oct 2026,
+                          because live grading needs weeks). Historical NHL open/close moneylines,
+                          puck lines and totals from sportsbookreviewsonline.com (2010-11 to Nov
+                          2022) -> data/sports_history/nhl_odds_sbr.csv. EVERYTHING refitted on
+                          2012-2018 only, scored once on 2019-2023 (5,001 games), joined on both
+                          franchise ids + date +-1 + the final score. Result: the book is BETTER
+                          than us on moneyline (close AND open) and puck line, LEVEL on totals; every
+                          flat-bet rule at the close loses -3..-10% (~the margin). The one signal: on
+                          10+ pt moneyline disagreements with the OPEN, the line then moves our way
+                          62% (2012-18) / 68% (2019-23), ~+4 pts - information, but betting it at the
+                          open is +19% on 154 bets, CI -11..+49: NOT proven. Hence LEAN_POINTS=10,
+                          moneyline only, in nhl_markets.verdict(). A parser bug dated the two
+                          January-start seasons (2012-13 lockout, 2020-21) a year early and silently
+                          dropped ~1,700 games; the first, wrong run showed a "+20% at 8 pts" lead
+                          that vanished once fixed. **Count the unjoined rows before reading a result.**
 - models/nhl_form.py      The FACTS an NHL analysis may use: last 10 (W-L-OTL, with how many were
                           playoff games), home/road last 10, streak, rest/back-to-back, last 5
                           meetings, rating rank. Point-in-time; shootout "goal" removed from GF/GA.
