@@ -312,16 +312,17 @@ async function handleCommand(env, chatId, text) {
   );
 }
 
-/* Start daily.yml via workflow_dispatch. GitHub answers 204 on success.
+/* Start a workflow via workflow_dispatch. GitHub answers 204 on success.
    Never throws: a failed trigger is logged, and GitHub's own (late) schedule
-   still runs the pipeline that day, so this degrades to the old behaviour
-   rather than to no pipeline at all. */
-async function triggerDailyPipeline(env) {
+   still runs the workflow, so this degrades to the old behaviour rather than
+   to no run at all. `inputs` must match what the workflow declares - GitHub
+   rejects (422) inputs a workflow does not define, so closing.yml gets none. */
+async function dispatchWorkflow(env, file, inputs) {
   if (!env.DISPATCH_TOKEN) {
-    console.log("cron: DISPATCH_TOKEN not set - leaving it to GitHub's schedule");
+    console.log(`cron: DISPATCH_TOKEN not set - leaving ${file} to GitHub's schedule`);
     return;
   }
-  const url = `https://api.github.com/repos/${env.REPO}/actions/workflows/daily.yml/dispatches`;
+  const url = `https://api.github.com/repos/${env.REPO}/actions/workflows/${file}/dispatches`;
   try {
     const res = await fetch(url, {
       method: "POST",
@@ -332,19 +333,30 @@ async function triggerDailyPipeline(env) {
         "User-Agent": "potentialpro-worker",
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ ref: "main", inputs: { trigger: "worker-cron" } }),
+      body: JSON.stringify(inputs ? { ref: "main", inputs } : { ref: "main" }),
     });
     console.log(res.status === 204
-      ? "cron: daily.yml dispatched"
-      : `cron: dispatch FAILED ${res.status} ${await res.text()}`);
+      ? `cron: ${file} dispatched`
+      : `cron: ${file} dispatch FAILED ${res.status} ${await res.text()}`);
   } catch (err) {
-    console.log(`cron: dispatch error ${err}`);
+    console.log(`cron: ${file} dispatch error ${err}`);
   }
 }
 
 export default {
   async scheduled(controller, env, ctx) {
-    // Two crons share this handler (wrangler.toml); controller.cron says which.
+    // Three crons share this handler (wrangler.toml); controller.cron says which.
+    if (controller.cron === "20 * * * *") {
+      // closing.yml records the last pre-kickoff price (CLV) and every NHL /
+      // NFL / MLB line change. Its GitHub schedule says hourly but ran every
+      // 3-6 HOURS on 1-2 Oct 2026 (23:13, 02:16, 08:34, then nothing), so
+      // closes were captured hours early or not at all - and ESPN deletes
+      // odds once a game ends, so those are lost for good. Same fix as
+      // daily.yml: Cloudflare's cron is on time, GitHub's stays as a backup
+      // (repeat runs only store prices that changed).
+      ctx.waitUntil(dispatchWorkflow(env, "closing.yml"));
+      return;
+    }
     if (controller.cron === "*/10 * * * *") {
       ctx.waitUntil(
         fetch(`${env.API_BASE}/healthz`, { headers: { "User-Agent": "potentialpro-keepwarm" } })
@@ -353,7 +365,7 @@ export default {
       );
       return;
     }
-    ctx.waitUntil(triggerDailyPipeline(env));
+    ctx.waitUntil(dispatchWorkflow(env, "daily.yml", { trigger: "worker-cron" }));
   },
 
   async fetch(request, env, ctx) {

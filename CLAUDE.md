@@ -1377,7 +1377,7 @@ unknown until the honest ledger matures (`db/edge_report.py`).
   | Worker (bot + the cron above) | `deploy-worker.yml`, on any push touching `worker/` |
   | API keep-warm (Render free tier sleeps after ~15 min) | Worker cron `*/10 * * * *` pings /healthz |
   | Evening results sweep | `results.yml`, cron 22:00 UTC |
-  | Closing prices (CLV) | `closing.yml`, hourly at :20 (~0.6 min/run) |
+  | Closing prices (CLV) + NHL/NFL/MLB lines | `closing.yml`, dispatched at :20 every hour by the Worker cron (since 2 Oct 2026 - GitHub's own hourly cron ran every 3-6 h in practice and stays as a backup) (~1-3 min/run) |
   | API redeploy | Render, on every push to main |
   | Web app deploy + cache-bust | `deploy-webapp.yml`, on any push touching `webapp/` |
   The only human step left is a one-time pair of Cloudflare secrets; until they
