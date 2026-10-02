@@ -47,7 +47,8 @@ from datetime import datetime, timezone
 from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from db.database import get_connection
+from db.database import get_connection, init_db
+from models import nhl_form, nhl_markets
 from models.elo import HIST, MEAN, load, run_elo, win_prob
 
 MODEL_VERSION = "elo_v1"
@@ -57,6 +58,7 @@ FEEDS = {"nfl": "american_football", "nba": "basketball",
 
 
 def ensure_table(conn) -> None:
+    init_db()   # the NHL columns (markets_json, facts_json...) live there
     conn.execute("""
         CREATE TABLE IF NOT EXISTS shadow_predictions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -85,6 +87,61 @@ def ratings_for(feed: str, params: dict):
     return ratings, name_to_id, last
 
 
+def _fair(a: float | None, b: float | None) -> float | None:
+    """Margin-free probability of side a from a two-way pair of decimal odds."""
+    if not a or not b:
+        return None
+    return round((1 / a) / (1 / a + 1 / b), 4)
+
+
+def _latest(conn, match_id: str, market: str):
+    return conn.execute("""
+        SELECT * FROM market_lines WHERE match_id = ? AND market = ?
+        ORDER BY id DESC LIMIT 1
+    """, [match_id, market]).fetchone()
+
+
+def nhl_markets_for(conn, match_id: str, p_home: float, exp_total: float,
+                    params: dict) -> tuple[list, dict]:
+    """Every priced market for one NHL game, ours beside the bookmaker's.
+
+    Returns (items, movement). A market the book is not quoting at a line we
+    priced keeps market_p = None - it is never matched to a neighbouring line.
+    """
+    ours = nhl_markets.price(p_home, exp_total, params)
+    book = {}                       # key -> (decimal odds, fair probability)
+    movement = {}
+    ml = _latest(conn, match_id, "moneyline")
+    if ml:
+        book["ml_home"] = (ml["odds_home"], _fair(ml["odds_home"], ml["odds_away"]))
+        book["ml_away"] = (ml["odds_away"], _fair(ml["odds_away"], ml["odds_home"]))
+        movement["moneyline"] = {"open": [ml["open_home"], ml["open_away"]],
+                                 "now": [ml["odds_home"], ml["odds_away"]]}
+    sp = _latest(conn, match_id, "spread")
+    if sp and sp["line"] in (-1.5, 1.5):
+        h = "pl_home_-1.5" if sp["line"] == -1.5 else "pl_home_+1.5"
+        a = "pl_away_+1.5" if sp["line"] == -1.5 else "pl_away_-1.5"
+        book[h] = (sp["odds_home"], _fair(sp["odds_home"], sp["odds_away"]))
+        book[a] = (sp["odds_away"], _fair(sp["odds_away"], sp["odds_home"]))
+        movement["puck_line"] = {"home_line": sp["line"], "open_home_line": sp["open_line"],
+                                 "open": [sp["open_home"], sp["open_away"]],
+                                 "now": [sp["odds_home"], sp["odds_away"]]}
+    tot = _latest(conn, match_id, "total")
+    if tot and tot["line"] in nhl_markets.TOTAL_LINES:
+        o, u = f"over_{tot['line']}", f"under_{tot['line']}"
+        book[o] = (tot["odds_over"], _fair(tot["odds_over"], tot["odds_under"]))
+        book[u] = (tot["odds_under"], _fair(tot["odds_under"], tot["odds_over"]))
+    if tot:
+        movement["total"] = {"line": tot["line"], "open_line": tot["open_line"],
+                             "open": [tot["open_over"], tot["open_under"]],
+                             "now": [tot["odds_over"], tot["odds_under"]]}
+    items = []
+    for key, p in ours.items():
+        odds, fair = book.get(key, (None, None))
+        items.append({"key": key, "p": p, "market_p": fair, "odds": odds})
+    return items, movement
+
+
 def run() -> int:
     params_all = json.load(open(os.path.join(HIST, "elo_params.json"), encoding="utf-8"))
     conn = get_connection()
@@ -92,6 +149,9 @@ def run() -> int:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     now_s = now.strftime("%Y-%m-%d %H:%M")
     total = written = skipped = 0
+    nhl_params = nhl_markets.load_params()
+    if not nhl_params:
+        logger.warning("nhl: no fitted market params - run models/nhl_markets.py")
 
     for feed, sport in FEEDS.items():
         params = params_all.get(feed, {}).get("params")
@@ -99,6 +159,16 @@ def run() -> int:
             logger.warning(f"{feed}: no tuned Elo params - run models/elo.py")
             continue
         ratings, name_to_id, last_played = ratings_for(feed, params)
+        nhl = feed == "nhl" and nhl_params
+        if nhl:
+            nhl_state = nhl_markets.current_rates(nhl_params, params)
+            nhl_games = nhl_form.load_games()
+            # Ranks on the ratings a game is actually predicted with: after the
+            # off-season revert when the history has not reached the new season.
+            gap = (now - datetime.strptime(last_played, "%Y-%m-%d")).days
+            ranked = {t: (r * (1 - params["revert"]) + MEAN * params["revert"]
+                          if gap > NEW_SEASON_GAP_DAYS else r) for t, r in ratings.items()}
+            nhl_ranks = nhl_form.rating_ranks(ranked, nhl_games)
         games = conn.execute("""
             SELECT match_id, home_team, away_team, kickoff_utc FROM matches
             WHERE sport = ? AND kickoff_utc > ?
@@ -127,12 +197,22 @@ def run() -> int:
                 inv = [1 / line["odds_home"], 1 / line["odds_away"]] + \
                       ([1 / line["odds_draw"]] if line["odds_draw"] else [])
                 mp = round(inv[0] / sum(inv), 4)
+            markets_json = facts_json = None
+            if nhl:
+                exp_total = nhl_markets.expected_total(nhl_state, hid, aid, g["kickoff_utc"][:10])
+                items, movement = nhl_markets_for(conn, g["match_id"], p_home, exp_total, nhl_params)
+                markets_json = json.dumps({"version": nhl_params.get("version", "nhl_mk_v1"),
+                                           "exp_total": round(exp_total, 2), "items": items})
+                facts = nhl_form.build(hid, aid, g["kickoff_utc"][:10], nhl_games,
+                                       ranked, nhl_ranks)
+                facts["market_movement"] = movement
+                facts_json = json.dumps(facts)
             conn.execute("""
                 INSERT INTO shadow_predictions
                 (match_id, model_version, predicted_at, home_rating, away_rating, p_home,
                  market_p_home, market_odds_home, market_odds_away, market_odds_draw,
-                 market_observed_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 market_observed_at, markets_json, facts_json)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT (match_id, model_version) DO UPDATE SET
                   predicted_at = excluded.predicted_at, home_rating = excluded.home_rating,
                   away_rating = excluded.away_rating, p_home = excluded.p_home,
@@ -140,11 +220,14 @@ def run() -> int:
                   market_odds_home = excluded.market_odds_home,
                   market_odds_away = excluded.market_odds_away,
                   market_odds_draw = excluded.market_odds_draw,
-                  market_observed_at = excluded.market_observed_at
+                  market_observed_at = excluded.market_observed_at,
+                  markets_json = excluded.markets_json,
+                  facts_json = excluded.facts_json
             """, [g["match_id"], MODEL_VERSION, now.strftime("%Y-%m-%d %H:%M:%S"),
                   round(rh, 1), round(ra, 1), round(p_home, 4), mp,
                   line["odds_home"] if line else None, line["odds_away"] if line else None,
-                  line["odds_draw"] if line else None, line["observed_at"] if line else None])
+                  line["odds_draw"] if line else None, line["observed_at"] if line else None,
+                  markets_json, facts_json])
             written += 1
     conn.commit()
     conn.close()

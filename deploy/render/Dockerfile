@@ -30,7 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # deploy for 10 minutes without ever reaching production (Aug 2026).
 COPY api/__init__.py api/server.py            ./api/
 COPY db/__init__.py db/database.py db/calibration_health.py ./db/
-COPY models/__init__.py models/markets.py models/goals_model.py models/consensus.py models/leagues.py models/live_scores.py models/gradeability.py models/draws.py models/team_match.py models/tiers.py models/sports.py models/settle.py ./models/
+COPY models/__init__.py models/markets.py models/goals_model.py models/consensus.py models/leagues.py models/live_scores.py models/gradeability.py models/draws.py models/team_match.py models/tiers.py models/sports.py models/settle.py models/elo.py models/nhl_markets.py models/nhl_preview.py ./models/
 COPY scrapers/__init__.py scrapers/booking_codes.py ./scrapers/
 COPY deploy/render/sync_ledger.py deploy/render/app_entry.py ./
 
@@ -44,6 +44,7 @@ COPY data/league_codes.json ./data/league_codes.json
 # and look exactly like a working deploy. Worse than the trap above, which at
 # least dies visibly.
 COPY data/goals_ratings.json ./data/goals_ratings.json
+COPY data/sports_history/nhl_markets.json ./data/sports_history/nhl_markets.json
 
 # The web app. api/server.py already mounts this at "/" when the directory
 # exists — but the directory never existed in the image, so the mount silently

@@ -16,7 +16,10 @@ It therefore does four things and refuses a fifth:
     4. distinguishes "the feed is empty" from "no games are scheduled"
 
     5. (27 Sep 2026) records every pre-game MONEYLINE change into
-       `market_lines` - its own table, never scraped_predictions (see below)
+       `market_lines` - its own table, never scraped_predictions (see below).
+       Since 29 Sep 2026 also the SPREAD (puck line / run line) and the TOTAL,
+       each with its line, because those are the markets US sports are
+       actually bet on and ESPN deletes them once a game is final.
 
     NOT: predictions. NOT: markets derived from them.
 
@@ -313,6 +316,8 @@ def _parse_event(ev: dict, feed: Feed) -> dict | None:
     kickoff_utc = (ev.get("date") or "").replace("T", " ").replace("Z", "")[:16]
     return {
         "line": _moneyline(comp),
+        "spread": _spread(comp),
+        "total": _total(comp),
         "match_id": f"{ID_PREFIX[feed.sport]}_{event_id}",
         "sport": feed.sport,
         "draws_possible": feed.draws_possible,
@@ -364,32 +369,111 @@ def _moneyline(comp: dict) -> dict | None:
     return None
 
 
-def _record_line(conn, e: dict, now: datetime) -> bool:
-    """Append a price observation if it differs from the last one stored.
+def _line_number(text) -> float | None:
+    """'-1.5' / '+1.5' / 'o5.5' / 'u5.5' -> the number, or None."""
+    if text is None:
+        return None
+    try:
+        return float(str(text).lstrip("ou"))
+    except ValueError:
+        return None
+
+
+def _two_way(comp: dict, key: str, sides: tuple) -> dict | None:
+    """A line-plus-two-prices market (odds[].pointSpread or odds[].total).
+
+    Probed 29 Sep 2026 on the NHL: pointSpread.{home,away}.{open,close}.
+    {line,odds} and total.{over,under}.{open,close}.{line,odds}, American odds,
+    'close' being the CURRENT price until the game starts - the same convention
+    as the moneyline. The line comes from the FIRST side (home / over), because
+    the pair is priced at one line; a response whose two sides disagree on the
+    line is malformed and skipped rather than half-stored.
+    """
+    first, second = sides
+    for o in comp.get("odds") or []:
+        if not isinstance(o, dict):
+            continue
+        mk = o.get(key) or {}
+
+        def leg(side, when):
+            q = (mk.get(side) or {}).get(when) or {}
+            dec = _american_to_decimal(q.get("odds"))
+            return (round(dec, 3) if dec else None), _line_number(q.get("line"))
+        a, a_line = leg(first, "close")
+        b, b_line = leg(second, "close")
+        if not (a and b) or a_line is None or b_line is None:
+            continue
+        # spread: home -1.5 pairs with away +1.5; total: o5.5 with u5.5.
+        if abs(a_line) != abs(b_line):
+            continue
+        oa, oa_line = leg(first, "open")
+        ob, _ = leg(second, "open")
+        return {"provider": (o.get("provider") or {}).get("name"),
+                "line": a_line, "a": a, "b": b,
+                "open_line": oa_line, "open_a": oa, "open_b": ob}
+    return None
+
+
+def _spread(comp: dict) -> dict | None:
+    """Puck line / run line / point spread. `line` is the HOME side's line."""
+    return _two_way(comp, "pointSpread", ("home", "away"))
+
+
+def _total(comp: dict) -> dict | None:
+    """Full-game total. `a` is the over price, `b` the under."""
+    return _two_way(comp, "total", ("over", "under"))
+
+
+# market -> (event key, columns compared/stored, how to read them from the event)
+_MARKETS = {
+    "moneyline": ("line", ("odds_home", "odds_away", "odds_draw",
+                           "open_home", "open_away", "open_draw"),
+                  lambda x: (x["home"], x["away"], x["draw"],
+                             x["open_home"], x["open_away"], x["open_draw"])),
+    "spread": ("spread", ("line", "odds_home", "odds_away",
+                          "open_line", "open_home", "open_away"),
+               lambda x: (x["line"], x["a"], x["b"],
+                          x["open_line"], x["open_a"], x["open_b"])),
+    "total": ("total", ("line", "odds_over", "odds_under",
+                        "open_line", "open_over", "open_under"),
+              lambda x: (x["line"], x["a"], x["b"],
+                         x["open_line"], x["open_a"], x["open_b"])),
+}
+
+
+def _record_line(conn, e: dict, now: datetime) -> int:
+    """Append a price observation per market if it differs from the last one.
 
     Only BEFORE the game: an in-play price is a different market. Unchanged
-    prices are skipped so hourly runs do not bloat the table.
+    prices are skipped so hourly runs do not bloat the table. Returns how many
+    rows were written (0-3).
     """
-    line = e.get("line")
-    if not line or e["live_state"] != "pre" or not e["kickoff_utc"]:
-        return False
-    last = conn.execute("""
-        SELECT odds_home, odds_away, odds_draw FROM market_lines
-        WHERE match_id = ? AND market = 'moneyline' ORDER BY id DESC LIMIT 1
-    """, [e["match_id"]]).fetchone()
-    if last and (last[0], last[1], last[2]) == (line["home"], line["away"], line["draw"]):
-        return False
+    if e["live_state"] != "pre" or not e["kickoff_utc"]:
+        return 0
     kickoff = datetime.strptime(e["kickoff_utc"], "%Y-%m-%d %H:%M")
-    conn.execute("""
-        INSERT INTO market_lines
-        (match_id, source, provider, market, observed_at, mins_before,
-         odds_home, odds_away, odds_draw, open_home, open_away, open_draw)
-        VALUES (?, 'espn', ?, 'moneyline', ?, ?, ?, ?, ?, ?, ?, ?)
-    """, [e["match_id"], line["provider"], now.strftime("%Y-%m-%d %H:%M:%S"),
-          int((kickoff - now).total_seconds() // 60),
-          line["home"], line["away"], line["draw"],
-          line["open_home"], line["open_away"], line["open_draw"]])
-    return True
+    written = 0
+    for market, (key, cols, read) in _MARKETS.items():
+        m = e.get(key)
+        if not m:
+            continue
+        values = read(m)
+        current = cols[:3]     # the live price (and line); open_* never change
+        last = conn.execute(f"""
+            SELECT {", ".join(current)} FROM market_lines
+            WHERE match_id = ? AND market = ? ORDER BY id DESC LIMIT 1
+        """, [e["match_id"], market]).fetchone()
+        if last and tuple(last) == values[:3]:
+            continue
+        conn.execute(f"""
+            INSERT INTO market_lines
+            (match_id, source, provider, market, observed_at, mins_before,
+             {", ".join(cols)})
+            VALUES (?, 'espn', ?, ?, ?, ?, {", ".join("?" * len(cols))})
+        """, [e["match_id"], m["provider"], market,
+              now.strftime("%Y-%m-%d %H:%M:%S"),
+              int((kickoff - now).total_seconds() // 60), *values])
+        written += 1
+    return written
 
 
 def store(events: list, dry_run: bool = False) -> dict:
@@ -434,8 +518,8 @@ def store(events: list, dry_run: bool = False) -> dict:
                   1 if e["completed"] else 0, e["match_id"]])
             counts["updated"] += 1
 
-        if _record_line(conn, e, datetime.now(timezone.utc).replace(tzinfo=None)):
-            counts["lines"] += 1
+        counts["lines"] += _record_line(
+            conn, e, datetime.now(timezone.utc).replace(tzinfo=None))
 
         if not e["completed"]:
             continue
