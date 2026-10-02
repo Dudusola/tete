@@ -24,4 +24,9 @@ API_BASE = "https://potentialpro-api.onrender.com"
 # costs 144 tiny requests a day; one always-on service is ~744h/month, inside
 # Render's 750 free hours as long as it is the ONLY free service.
 [triggers]
-crons = ["0 6 * * *", "*/10 * * * *"]
+# "20 * * * *" starts closing.yml ON TIME - GitHub's hourly schedule for it
+# ran every 3-6 hours in practice (see the handler in index.js). It shares
+# the ledger's concurrency group, and GitHub cancels a PENDING run when a
+# newer one queues; closing takes ~1-3 min and the 06:00 daily is normally
+# done by 06:20, and daily.yml's 08:50 backup covers the rare collision.
+crons = ["0 6 * * *", "*/10 * * * *", "20 * * * *"]
