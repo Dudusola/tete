@@ -20590,7 +20590,12 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401891817,2026-10-01,2026-10-01 23:00,2027,2,New Jersey Devils,Philadelphia Flyers,11,15,3,2,H,OT,2,2,0
 401891819,2026-10-01,2026-10-01 23:00,2027,2,New York Rangers,Tampa Bay Lightning,13,20,5,1,H,REG,5,1,0
 401891777,2026-10-02,2026-10-02 01:00,2027,2,Calgary Flames,Seattle Kraken,3,124292,1,6,A,REG,1,6,0
+401891803,2026-10-02,2026-10-02 22:30,2027,2,Detroit Red Wings,New York Rangers,5,13,0,2,A,REG,0,2,0
 401891816,2026-10-02,2026-10-02 00:00,2027,2,Nashville Predators,Minnesota Wild,27,30,1,3,A,REG,1,3,0
 401891823,2026-10-02,2026-10-02 02:00,2027,2,San Jose Sharks,Florida Panthers,18,26,4,3,H,OT,3,3,0
 401891828,2026-10-02,2026-10-02 01:30,2027,2,Utah Mammoth,Chicago Blackhawks,129764,4,6,0,H,REG,6,0,0
 401891829,2026-10-02,2026-10-02 02:00,2027,2,Vancouver Canucks,Edmonton Oilers,22,6,7,9,A,REG,7,9,0
+401892432,2026-10-02,2026-10-02 23:00,2027,2,Carolina Hurricanes,Washington Capitals,7,23,2,5,A,REG,2,5,0
+401891782,2026-10-03,2026-10-03 01:00,2027,2,Dallas Stars,St. Louis Blues,9,19,0,4,A,REG,0,4,0
+401891831,2026-10-03,2026-10-03 00:00,2027,2,Winnipeg Jets,Boston Bruins,28,1,3,4,A,OT,3,3,0
+401892433,2026-10-03,2026-10-03 02:00,2027,2,Vegas Golden Knights,Anaheim Ducks,37,25,3,4,A,REG,3,4,0
