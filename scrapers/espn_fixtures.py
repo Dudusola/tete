@@ -101,10 +101,11 @@ def _fetch(job):
         return slug, None
 
 
-def fetch_fixtures(last_day: int = DEFAULT_DAYS) -> tuple[list, int]:
-    """(fixtures, ok_requests) for days FIRST_DAY..last_day inclusive."""
+def fetch_fixtures(last_day: int = DEFAULT_DAYS,
+                   first_day: int = FIRST_DAY) -> tuple[list, int]:
+    """(fixtures, ok_requests) for days first_day..last_day inclusive."""
     days = [date.today() + timedelta(days=d)
-            for d in range(FIRST_DAY, last_day + 1)]
+            for d in range(first_day, last_day + 1)]
     session = requests.Session()
     jobs = [(slug, day, session) for slug in sorted(ALL_LEAGUES) for day in days]
     with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
@@ -215,8 +216,9 @@ def store(fixtures: list, dry_run: bool = False) -> dict:
     return counts
 
 
-def run(last_day: int = DEFAULT_DAYS, dry_run: bool = False) -> int:
-    fixtures, ok = fetch_fixtures(last_day)
+def run(last_day: int = DEFAULT_DAYS, dry_run: bool = False,
+        first_day: int = FIRST_DAY) -> int:
+    fixtures, ok = fetch_fixtures(last_day, first_day)
     if ok == 0:
         logger.error("Every ESPN fixture request failed - feed unreachable.")
         return 1
@@ -224,11 +226,11 @@ def run(last_day: int = DEFAULT_DAYS, dry_run: bool = False) -> int:
         # Distinguishable from a dead feed, same rule as espn_basketball.py:
         # a genuinely empty schedule is not a scraper failure.
         logger.warning(f"ESPN reachable ({ok} responses) but no upcoming "
-                       f"fixtures in +{FIRST_DAY}..+{last_day}.")
+                       f"fixtures in +{first_day}..+{last_day}.")
         return 0
     counts = store(fixtures, dry_run=dry_run)
     logger.success(
-        f"ESPN fixtures +{FIRST_DAY}..+{last_day}: {len(fixtures)} found, "
+        f"ESPN fixtures +{first_day}..+{last_day}: {len(fixtures)} found, "
         f"{counts['inserted']} new, {counts['existing']} already known, "
         f"{counts['priced']} priced")
     return 0
@@ -238,9 +240,16 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--days", type=int, default=DEFAULT_DAYS,
                     help=f"last day ahead to fetch (default {DEFAULT_DAYS})")
+    # --first-day 0: take TODAY and TOMORROW as well. The +2 default exists to
+    # leave those days to PredictZ, and since ~30 Sep 2026 PredictZ blocks
+    # GitHub's IPs outright (probed at 06:00 and 19:15 UTC - not time of day),
+    # so in the cloud those days were simply empty. run_daily.py passes 0
+    # whenever PredictZ is skipped (PP_SKIP_PREDICTZ=1).
+    ap.add_argument("--first-day", type=int, default=FIRST_DAY,
+                    help=f"first day ahead to fetch (default {FIRST_DAY})")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
-    return run(args.days, args.dry_run)
+    return run(args.days, args.dry_run, args.first_day)
 
 
 if __name__ == "__main__":

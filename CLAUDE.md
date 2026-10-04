@@ -1260,6 +1260,25 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     true. "Latest per match" is only the definition of what we predicted if
     every row was a prediction.**
 
+34. **PredictZ blocks GitHub's IPs - five red mornings in a row (found 4 Oct
+    2026).** PredictZ wrote nothing after 29 Sep. Every 06:00 run failed its
+    DEGRADED step and source_health ("predictz has written nothing in 2 days"),
+    and the 'backup' GitHub cron did not help: its guard skips once today has
+    run, red or not. Probed: Cloudflare-blocked from Actions at 06:00 AND 19:15
+    UTC (so NOT the old time-of-day effect), while the same scraper got 36
+    matches from Boss's connection the same evening. predictz.py had not
+    changed since August - the block is theirs. FIX: PP_SKIP_PREDICTZ=1 in
+    daily.yml (same treatment as Forebet), dropped from source_health's
+    expected set when skipped, and ESPN fixtures run from +0 when it is.
+    **What was actually lost, measured:** NOT today's ESPN games - all 26 of
+    today/tomorrow's ESPN fixtures were already in the ledger, inserted at
+    +2..+5. The loss is PredictZ's leagues that ESPN does not cover; football
+    still produced 74-76 predictions (9-13 served) on 3-4 Oct from ESPN alone.
+    Getting them back needs a non-datacenter IP (a scheduled local run feeding
+    the ledger, or a paid proxy) - Boss's call, and it must not break the
+    one-writer rule. **A green 'backup' run is not a second attempt if its
+    guard skips: check what the backup actually DID, not just its colour.**
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
@@ -1902,7 +1921,8 @@ unknown until the honest ledger matures (`db/edge_report.py`).
   budget — it has been tested to exhaustion.
 - **GitHub Actions IP reality (probed 6 Aug 2026, twice, same result):**
   Forebet = BLOCKED (0 rows, both today and tomorrow pages);
-  PredictZ = WORKS (166 matches — Firefox stealth survives datacenter IPs);
+  PredictZ = WORKS (166 matches — Firefox stealth survives datacenter IPs)
+  **— NO LONGER: blocked from Actions since ~30 Sep 2026, see bug #34;**
   football-data.org API = WORKS; ESPN API = WORKS. So the cloud can run
   everything EXCEPT Forebet fixture scraping. Re-probe with the
   "Probe scrapers" workflow before assuming this still holds.

@@ -159,6 +159,10 @@ jobs:
           # runners are shared Azure IPs (support, 28 Sep 2026). Off until it
           # runs from a dedicated-IP server - see run_daily.py.
           PP_SKIP_APIFOOTBALL: '1'
+          # PredictZ Cloudflare-blocks GitHub's IPs since ~30 Sep 2026 (probed
+          # 06:00 and 19:15 UTC; it still works from a home connection). ESPN
+          # takes today/tomorrow instead - see run_daily.py.
+          PP_SKIP_PREDICTZ: '1'
           PYTHONUTF8: '1'
           PYTHONIOENCODING: utf-8
         run: python run_daily.py
