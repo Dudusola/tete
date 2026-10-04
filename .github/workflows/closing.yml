@@ -86,6 +86,21 @@ jobs:
           PYTHONUTF8: '1'
         run: python models/elo_shadow.py
 
+      - name: Write analysis for NHL/NFL picks that have none (or stale)
+        # Hourly so a pick gets its write-up soon after it is first priced,
+        # not at the next 06:00 run. Only MISSING or 18h+ old text is written,
+        # and only for served (HIGH/MEDIUM) picks, so most hours make zero or a
+        # handful of provider calls. Prose is explanation, never the pick.
+        continue-on-error: true
+        env:
+          DB_PATH: ./db/sports_predictor.db
+          PYTHONUTF8: '1'
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+          AI_PROVIDER: gemini
+          GEMINI_MODEL: gemini-3.5-flash-lite
+        run: python analysis/nhl_analyst.py
+
       - name: Commit the updated ledger
         if: always()
         run: |

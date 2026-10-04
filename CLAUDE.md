@@ -233,13 +233,19 @@ generate predictions on demand.
 - models/nhl_form.py      The FACTS an NHL analysis may use: last 10 (W-L-OTL, with how many were
                           playoff games), home/road last 10, streak, rest/back-to-back, last 5
                           meetings, rating rank. Point-in-time; shootout "goal" removed from GF/GA.
-- analysis/nhl_analyst.py Prose for the private preview, from facts_json/markets_json only. Three
-                          guards, each added after Gemini broke the rule on day one: the h2h TALLY
-                          is precomputed leader-first ("Florida won two of five" when they won three;
-                          "Boston's 3-2 edge" when Boston trailed 2-3); the VERDICT is decided in code
-                          (it rated a +3.2 edge "moderate"); and `unsupported_figures()` rejects any
-                          score/record/decimal not in the evidence (caught an invented "3-6-0"),
-                          retries once, then stores NOTHING. Daily OPTIONAL step.
+- analysis/nhl_analyst.py Prose for NHL AND NFL picks (the card's "Details"), from facts_json/
+                          markets_json only. Since 4 Oct 2026 it EXPLAINS THE CARD'S OWN PICK
+                          (us_sports' moneyline side + tier) - the old edge verdict ("no bet unless
+                          10+ pts") was live under cards recommending a bet, a contradiction in our
+                          own voice. The bookmaker's view is stated per pick (less convinced by 5+
+                          PERCENTAGE points -> said plainly; "points" alone was misread in the NFL as
+                          the spread). Guards, each added after Gemini broke a rule: the h2h TALLY is
+                          precomputed leader-first ("Florida won two of five" when they won three;
+                          "Boston's 3-2 edge" when Boston trailed 2-3); `unsupported_figures()`
+                          rejects any score/record/decimal not in the evidence (caught an invented
+                          "3-6-0") and any starting-goalie claim, retries once, then stores NOTHING.
+                          Served (HIGH/MEDIUM) picks only, 72h ahead, rewritten when 18h old or older
+                          than PROMPT_SINCE. Daily OPTIONAL step AND hourly in closing.yml.
 - scrapers/nhl_goalies.py NHL goalies per game from api-web.nhle.com (no key) into `nhl_goalies`.
                           Probed 29 Sep 2026: pre-game the API lists each team's goalies with LAST
                           season's numbers but NEVER the starter (confirmed at warm-ups, after the

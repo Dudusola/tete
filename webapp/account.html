@@ -221,12 +221,18 @@ async function render() {
     let graded = 0, won = 0, staked = 0, profit = 0, stakedGraded = 0;
     const html = rows.map(r => {
         const res = results[r.match_id];
-        const status = !res ? "pending" : (res.outcome === OUTCOME[r.selection] ? "won" : "lost");
-        if (status !== "pending") graded++;
+        // An NHL/NFL moneyline includes overtime, so a tie can only be an NFL
+        // tie - and a two-way moneyline on a tie is VOID (stake back), never a
+        // loss. Football keeps its Draw outcome. Void is not counted as graded.
+        const voidTie = res && res.outcome === "D" && /^(NFL|NHL)$/.test(r.league || "")
+                        && r.selection !== "Draw";
+        const status = !res ? "pending" : voidTie ? "void"
+                     : (res.outcome === OUTCOME[r.selection] ? "won" : "lost");
+        if (status === "won" || status === "lost") graded++;
         if (status === "won") won++;
         const stake = r.stake != null ? Number(r.stake) : null;
         if (stake != null) staked += stake;
-        if (stake != null && r.odds && status !== "pending") {
+        if (stake != null && r.odds && (status === "won" || status === "lost")) {
             stakedGraded += stake;
             profit += status === "won" ? stake * (Number(r.odds) - 1) : -stake;
         }
@@ -234,6 +240,8 @@ async function render() {
             ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-bold bg-secondary-container text-on-secondary-container"><span class="material-symbols-outlined text-[16px]" aria-hidden="true">check_circle</span>WON</span>`
             : status === "lost"
             ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-bold bg-error-container text-on-error-container"><span class="material-symbols-outlined text-[16px]" aria-hidden="true">cancel</span>LOST</span>`
+            : status === "void"
+            ? `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-bold bg-surface-container-high text-on-surface-variant" title="Tie - a moneyline pays the stake back">VOID</span>`
             : `<span class="inline-flex items-center gap-1 px-2 py-1 rounded-full text-label-sm font-bold bg-surface-container-high text-on-surface-variant">PENDING</span>`;
         const score = res ? ` • FT ${res.home_goals}–${res.away_goals}` : "";
         const when = r.kickoff_utc ? ` • ${escapeHtml(kickoffLabel(r.kickoff_utc.slice(0, 10), null, r.kickoff_utc))}` : "";

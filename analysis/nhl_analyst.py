@@ -1,5 +1,8 @@
-"""nhl_analyst.py - written analysis for upcoming NHL games (webapp/hockey.html,
-public since 2 Oct 2026; was a private preview).
+"""nhl_analyst.py - written analysis for upcoming NHL AND NFL picks (the
+"Details" panel of each card on the Picks page). Since 4 Oct 2026 it explains
+the card's OWN recommendation (models/us_sports.py) instead of deciding a
+verdict of its own - the old edge-based verdict could say "no bet" under a
+card that recommended a bet. Was the NHL private preview's writer before that.
 
 Writes shadow_predictions.analysis for NHL games in the next ANALYSE_HOURS,
 from the facts and market comparison models/elo_shadow.py stored beside them
@@ -36,32 +39,54 @@ from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection, init_db
-from models.nhl_markets import AGREE_POINTS, market_label, verdict
 
-ANALYSE_HOURS = 36
+ANALYSE_HOURS = 72      # NFL slates are posted days ahead; hourly runs keep up
 STALE_HOURS = 18        # rewrite if older - prices and form move
+# Analyses written before the recommendation-based prompt carried the old
+# edge verdict ("no bet ...") and could contradict the card - rewrite them.
+PROMPT_SINCE = "2026-10-04 19:00:00"   # just before the new prompt shipped
+SPORTS_SQL = "('ice_hockey', 'american_football')"
 
 
 
-def _rec(r: dict) -> str:
+# Per-sport wording. NHL records are W-L-OTL (an overtime loss earned a point
+# and is not a regulation defeat); an NFL overtime loss is just a loss, and a
+# tie is possible.
+SPORT = {
+    "ice_hockey": {"name": "ice hockey", "league": "NHL", "unit": "goals",
+                   "venue": "home ice",
+                   "unknown": "confirmed starting goalies, injuries, line combinations, travel"},
+    "american_football": {"name": "American football", "league": "NFL", "unit": "points",
+                          "venue": "home field",
+                          "unknown": "quarterback availability, injuries, weather"},
+}
+
+
+def _rec(r: dict, sport: str = "ice_hockey") -> str:
     if not r or not r.get("n"):
         return "no games"
-    s = f"{r['w']}-{r['l']}-{r['otl']} (W-L-OTL) in {r['n']} games"
+    unit = SPORT[sport]["unit"]
+    if sport == "ice_hockey":
+        s = f"{r['w']}-{r['l']}-{r['otl']} (W-L-OTL) in {r['n']} games"
+    else:
+        s = (f"{r['w']}-{r['l']}" + (f"-{r['t']} (W-L-T)" if r.get("t") else " (W-L)")
+             + f" in {r['n']} games")
     if r.get("playoff"):
         s += f", {r['playoff']} of them playoff games"
-    return s + f", scoring {r['gf_pg']:.2f} and conceding {r['ga_pg']:.2f} per game"
+    return s + f", scoring {r['gf_pg']:.2f} and conceding {r['ga_pg']:.2f} {unit} per game"
 
 
-def _streak(s: str | None) -> str:
+def _streak(s: str | None, sport: str = "ice_hockey") -> str:
     """'W3' -> 'Won their last 3.' - the code is jargon the writer repeats."""
     if not s:
         return ""
     n = int(s[1:])
     if s[0] == "W":
         return f"Won their last {n}." if n > 1 else "Won their last game."
-    return (f"Lost their last {n} (overtime losses included)." if n > 1
-            else "Lost their last game.")
-
+    if s[0] == "T":
+        return "Tied their last game."
+    ot = " (overtime losses included)" if sport == "ice_hockey" else ""
+    return f"Lost their last {n}{ot}." if n > 1 else "Lost their last game."
 
 
 def _ordinal(n) -> str:
@@ -70,7 +95,24 @@ def _ordinal(n) -> str:
     return f"{n}{'th' if 10 <= n % 100 <= 20 else {1: 'st', 2: 'nd', 3: 'rd'}.get(n % 10, 'th')}"
 
 
-def facts_block(home: str, away: str, facts: dict, markets: dict) -> str:
+def recommendation(p_home: float, markets: dict, home: str, away: str) -> dict:
+    """The SAME pick the card shows (models/us_sports.py): the moneyline side
+    the model rates likelier, its football-style tier, and the book's view.
+    The prose explains this pick - it never decides its own (on 2 Oct 2026 the
+    old edge-based verdict could say "no bet" under a card recommending one)."""
+    from models.us_sports import tier
+    side = "ml_home" if p_home >= 0.5 else "ml_away"
+    it = next((i for i in markets.get("items", []) if i["key"] == side), {})
+    p = it.get("p", p_home if side == "ml_home" else 1 - p_home)
+    mp = it.get("market_p")
+    return {"team": home if side == "ml_home" else away, "tier": tier(p),
+            "odds": it.get("odds"),
+            "gap": None if mp is None else round((p - mp) * 100, 1)}
+
+
+def facts_block(home: str, away: str, facts: dict, markets: dict,
+                sport: str = "ice_hockey") -> str:
+    cfg = SPORT[sport]
     h, a = facts["home"], facts["away"]
     out = []
     if h.get("new_season") or a.get("new_season"):
@@ -78,13 +120,13 @@ def facts_block(home: str, away: str, facts: dict, markets: dict) -> str:
                    f"(last games played: {home} on {h.get('last_game')}, {away} on {a.get('last_game')}). "
                    f"Summer trades, signings and injuries are NOT in these numbers - say so.")
     out.append(f"- Power rating: {home} {_ordinal(h.get('rank'))} of {h.get('of')}, "
-               f"{away} {_ordinal(a.get('rank'))} of {a.get('of')} (home ice is worth a little extra).")
-    out.append(f"- {home}, last {h['last10']['n']}: {_rec(h['last10'])}. {_streak(h.get('streak'))}")
-    out.append(f"- {away}, last {a['last10']['n']}: {_rec(a['last10'])}. {_streak(a.get('streak'))}")
-    out.append(f"- {home} in their last home games: {_rec(h['venue10'])}.")
-    out.append(f"- {away} in their last road games: {_rec(a['venue10'])}.")
+               f"{away} {_ordinal(a.get('rank'))} of {a.get('of')} ({cfg['venue']} is worth a little extra).")
+    out.append(f"- {home}, last {h['last10']['n']}: {_rec(h['last10'], sport)}. {_streak(h.get('streak'), sport)}")
+    out.append(f"- {away}, last {a['last10']['n']}: {_rec(a['last10'], sport)}. {_streak(a.get('streak'), sport)}")
+    out.append(f"- {home} in their last home games: {_rec(h['venue10'], sport)}.")
+    out.append(f"- {away} in their last road games: {_rec(a['venue10'], sport)}.")
     if h.get("season", {}).get("n") or a.get("season", {}).get("n"):
-        out.append(f"- This season so far: {home} {_rec(h['season'])}; {away} {_rec(a['season'])}.")
+        out.append(f"- This season so far: {home} {_rec(h['season'], sport)}; {away} {_rec(a['season'], sport)}.")
     for side, name in ((h, home), (a, away)):
         if side.get("back_to_back"):
             out.append(f"- {name} played YESTERDAY (second night of a back-to-back).")
@@ -96,11 +138,9 @@ def facts_block(home: str, away: str, facts: dict, markets: dict) -> str:
             f"{' (' + g['decided_in'] + ', won by ' + g['winner'] + ')' if g['decided_in'] in ('OT', 'SO') else ''}"
             f"{' [playoffs]' if g['playoff'] else ''}" for g in facts["h2h"])
         out.append(f"- Last {len(facts['h2h'])} meetings, newest first: {games}.")
-        # The tally is COMPUTED, not left to the writer: given the list alone,
-        # Gemini wrote "Florida won two of the last five" when they won three
-        # (29 Sep 2026) - bug #28's lesson that counts must be handed over.
-        # Leader FIRST: "Boston won 2, Rangers won 3" came back as "Boston's
-        # 3-2 edge". A sentence that names the leader cannot be flipped that way.
+        # The tally is COMPUTED and stated leader-first: given the list alone,
+        # Gemini miscounted ("Florida won two of five" - they won three) and
+        # flipped a 2-3 into "Boston's 3-2 edge" (29 Sep 2026, bug #28's lesson).
         n = len(facts["h2h"])
         hw = sum(g["winner"] == home for g in facts["h2h"])
         aw = n - hw
@@ -118,27 +158,19 @@ def facts_block(home: str, away: str, facts: dict, markets: dict) -> str:
         m = mv["moneyline"]
         out.append(f"- Bookmaker moneyline: {home} {m['now'][0]} / {away} {m['now'][1]} "
                    f"(opened {m['open'][0]} / {m['open'][1]}).")
-    if mv.get("puck_line"):
-        m = mv["puck_line"]
-        out.append(f"- Bookmaker puck line: {home} {m['home_line']:+} at {m['now'][0]}, "
-                   f"{away} {-m['home_line']:+} at {m['now'][1]}"
-                   f"{' (the home line has moved from ' + format(m['open_home_line'], '+') + ')' if m.get('open_home_line') not in (None, m['home_line']) else ''}.")
+    line = mv.get("puck_line") or mv.get("spread")
+    if line:
+        what = "puck line" if sport == "ice_hockey" else "point spread"
+        moved = line.get("open_home_line") not in (None, line["home_line"])
+        out.append(f"- Bookmaker {what}: {home} {line['home_line']:+} at {line['now'][0]}, "
+                   f"{away} {-line['home_line']:+} at {line['now'][1]}"
+                   + (f" (the home line has moved from {line['open_home_line']:+})" if moved else "")
+                   + ".")
     if mv.get("total"):
         m = mv["total"]
-        out.append(f"- Bookmaker total: {m['line']} goals, over {m['now'][0]} / under {m['now'][1]}"
-                   f"{' (opened at ' + str(m['open_line']) + ')' if m.get('open_line') not in (None, m['line']) else ''}.")
-
-    rows = []
-    for it in markets.get("items", []):
-        if it.get("market_p") is None:
-            continue
-        group, sel = market_label(it["key"], home, away)
-        gap = (it["p"] - it["market_p"]) * 100
-        rows.append((gap, f"  {sel} [{group}] at {it['odds']}: OUR EDGE {gap:+.1f} points"))
-    if rows:
-        out.append("- Where our numbers differ from the bookmaker's (positive = we rate it "
-                   "likelier than the price implies):")
-        out.extend(r for _, r in sorted(rows, key=lambda r: -r[0]))
+        moved = m.get("open_line") not in (None, m["line"])
+        out.append(f"- Bookmaker total: {m['line']} {cfg['unit']}, over {m['now'][0]} / under {m['now'][1]}"
+                   + (f" (opened at {m['open_line']})" if moved else "") + ".")
     gk = facts.get("goalies")
     if gk:
         for side, name in (("home", home), ("away", away)):
@@ -159,38 +191,57 @@ def facts_block(home: str, away: str, facts: dict, markets: dict) -> str:
                            f"records, newest first: {', '.join(recent)}.")
         out.append("- TONIGHT'S STARTING GOALIES ARE NOT CONFIRMED (teams announce at "
                    "warm-ups). Never say who will start.")
-    out.append("- UNKNOWN to us: confirmed starting goalies, injuries, line combinations, "
-               "travel. The bookmaker knows all of these.")
+    out.append(f"- UNKNOWN to us: {cfg['unknown']}. The bookmaker knows all of these.")
     return "\n".join(out)
 
 
-def build_prompt(home: str, away: str, facts: dict, markets: dict) -> str:
-    call, _ = verdict(markets, facts, home, away)
-    return f"""You are an ice hockey analyst. Analyse this game in ONE paragraph of
+def build_prompt(home: str, away: str, facts: dict, markets: dict,
+                 sport: str = "ice_hockey", p_home: float = 0.5) -> str:
+    cfg = SPORT[sport]
+    rec = recommendation(p_home, markets, home, away)
+    gap = rec["gap"]
+    if gap is None:
+        market_read = "No bookmaker price is available for this pick - say so in one short clause."
+        book = ""
+    elif gap <= -5:
+        market_read = (f"The bookmaker is LESS convinced: it rates this pick's chance {abs(gap):.0f} "
+                       f"PERCENTAGE points lower than we do. Say so plainly - it is the main reason for caution.")
+        book = f" Bookmaker price {rec['odds']}."
+    elif gap >= 5:
+        market_read = (f"We rate this pick's chance {gap:.0f} PERCENTAGE points higher than the "
+                       f"bookmaker's price implies. Say so, without calling it value or a sure thing.")
+        book = f" Bookmaker price {rec['odds']}."
+    else:
+        market_read = ("The bookmaker broadly agrees with this pick (its implied chance is within 5 "
+                       "PERCENTAGE points of ours). Say so briefly, without mentioning that threshold.")
+        book = f" Bookmaker price {rec['odds']}."
+    risk_extra = ("Then say that tonight's starting goalies are not confirmed yet and can swing "
+                  "an NHL game." if sport == "ice_hockey" else
+                  "Then say that quarterback and injury news is not in these figures and can "
+                  "swing an NFL game.")
+    tier = rec["tier"].lower()
+    return f"""You are an {cfg['name']} analyst. Explain this pick in ONE paragraph of
 4 or 5 sentences, under 150 words, in plain English.
 
-MATCH: {home} (home) vs {away}
+MATCH: {home} (home) vs {away} ({cfg['league']})
+
+RECOMMENDATION (already decided - explain it, never change or contradict it):
+{rec['team']} to win, overtime counts. {rec['tier'].title()} confidence.{book}
 
 EVIDENCE - every fact you are allowed to use:
-{facts_block(home, away, facts, markets)}
-
-VERDICT (already decided - explain it, do not change it): {call}
+{facts_block(home, away, facts, markets, sport)}
 
 Write:
-1. Which side the evidence favours and why - quote the specific figures (rating
-   ranks, W-L-OTL records, goals per game, the home/road split, the meetings
-   tally).
-2. The market read: where our edge is largest, in points, and in which market -
-   or, if every edge is under {AGREE_POINTS:.0f} points, that we broadly agree with the price.
-3. A RISK: a figure in the evidence that argues against the verdict (a goalie
-   figure counts). Then say that tonight's starting goalies are not confirmed
-   yet and can swing an NHL game.
-4. The VERDICT above, in substance. You may soften it to "no bet" if the risk
-   you found is serious; never make it stronger.
+1. Why the evidence points to {rec['team']} - quote the specific figures (rating
+   ranks, records, {cfg['unit']} per game, the home/road split, the meetings tally).
+2. The market read: {market_read}
+3. A RISK: a figure in the evidence that argues against {rec['team']}. {risk_extra}
+4. Close by restating the recommendation and its {tier} confidence. Never say
+   "no bet", never make it sound stronger than {tier} confidence.
 
 RULES - these matter more than style:
 - Do not address the reader or mention who they are; just analyse the game.
-- Use ONLY the figures above. Invent NOTHING: no injuries, goalies, trades,
+- Use ONLY the figures above. Invent NOTHING: no injuries, players, trades,
   coaches, standings, streaks or storylines that are not in the evidence.
 - Goalies: you may name a team's listed goalies and quote their numbers, but
   NEVER say or imply who will start tonight ("X gets the start", "expected to
@@ -198,9 +249,8 @@ RULES - these matter more than style:
 - If the OPENING WEEK warning is present, say plainly that the form is last
   season's and rosters have changed since.
 - Never name a model, rating system, provider or data source. Do not quote our
-  win percentages; quote bookmaker prices and edges in points instead.
-- When you mention the puck line or a 60-minute result, explain it in a few
-  words the first time (e.g. "the -1.5 puck line, a win by two or more").
+  win percentages; quote the bookmaker's price, and any gap as "percentage
+  points" - never plain "points", which in the NFL means the score.
 - No hype: never "lock", "banker", "sure", "guaranteed"."""
 
 
@@ -246,16 +296,17 @@ def targets(conn, force: bool) -> list:
     now = datetime.now(timezone.utc).replace(tzinfo=None)
     horizon = (now + timedelta(hours=ANALYSE_HOURS)).strftime("%Y-%m-%d %H:%M")
     stale = (now - timedelta(hours=STALE_HOURS)).strftime("%Y-%m-%d %H:%M:%S")
-    return conn.execute("""
-        SELECT s.id, m.home_team, m.away_team, m.kickoff_utc,
+    return conn.execute(f"""
+        SELECT s.id, m.sport, m.home_team, m.away_team, m.kickoff_utc, s.p_home,
                s.facts_json, s.markets_json, s.analysis_at
         FROM shadow_predictions s JOIN matches m ON m.match_id = s.match_id
-        WHERE m.sport = 'ice_hockey' AND s.facts_json IS NOT NULL
+        WHERE m.sport IN {SPORTS_SQL} AND s.facts_json IS NOT NULL
           AND m.kickoff_utc > ? AND m.kickoff_utc <= ?
           AND (m.live_state IS NULL OR m.live_state = 'pre')
-          AND (? OR s.analysis IS NULL OR s.analysis_at < ?)
+          AND (? OR s.analysis IS NULL OR s.analysis_at < ? OR s.analysis_at < ?)
         ORDER BY m.kickoff_utc
-    """, [now.strftime("%Y-%m-%d %H:%M"), horizon, 1 if force else 0, stale]).fetchall()
+    """, [now.strftime("%Y-%m-%d %H:%M"), horizon, 1 if force else 0, stale,
+          PROMPT_SINCE]).fetchall()
 
 
 def run(force: bool = False, dry_run: bool = False) -> int:
@@ -263,16 +314,22 @@ def run(force: bool = False, dry_run: bool = False) -> int:
     conn = get_connection()
     rows = targets(conn, force)
     if not rows:
-        logger.info("NHL analysis: nothing due.")
+        logger.info("NHL/NFL analysis: nothing due.")
         return 0
     from analysis.gemma_analyst import UNAVAILABLE, complete, check_ollama_running
     if not dry_run and not check_ollama_running():
-        logger.warning("NHL analysis: no AI provider reachable - skipped.")
+        logger.warning("NHL/NFL analysis: no AI provider reachable - skipped.")
         return 0
-    written = 0
+    written = skipped_low = 0
     for r in rows:
-        prompt = build_prompt(r["home_team"], r["away_team"],
-                              json.loads(r["facts_json"]), json.loads(r["markets_json"] or "{}"))
+        markets = json.loads(r["markets_json"] or "{}")
+        # Only SERVED picks get prose (the card shows nothing else); a LOW
+        # game would cost a provider call for text nobody sees.
+        if recommendation(r["p_home"], markets, r["home_team"], r["away_team"])["tier"] == "LOW":
+            skipped_low += 1
+            continue
+        prompt = build_prompt(r["home_team"], r["away_team"], json.loads(r["facts_json"]),
+                              markets, r["sport"], r["p_home"])
         if dry_run:
             print("=" * 78, "\n", prompt)
             continue
@@ -299,7 +356,9 @@ def run(force: bool = False, dry_run: bool = False) -> int:
         logger.info(f"  analysed {r['home_team']} v {r['away_team']}")
     conn.close()
     if not dry_run:
-        logger.success(f"NHL analysis: {written} of {len(rows)} games written.")
+        served = len(rows) - skipped_low
+        logger.success(f"NHL/NFL analysis: {written} of {served} served picks written "
+                       f"({skipped_low} LOW-confidence games skipped - not shown on Picks).")
     return 0
 
 
