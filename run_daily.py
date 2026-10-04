@@ -293,7 +293,9 @@ def source_health(conn) -> list[str]:
     # apifootball is deliberately absent: the account is suspended, the step is
     # OPTIONAL, and expecting rows from it would fire a "source has gone
     # silent" alert every single day. Add it back the day the account works.
-    expected = {"predictz", "espn"}
+    expected = {"espn"}
+    if os.getenv("PP_SKIP_PREDICTZ", "").strip() != "1":
+        expected.add("predictz")
     if os.getenv("PP_SKIP_FOREBET", "").strip() != "1":
         expected.add("forebet")
 
@@ -388,10 +390,18 @@ def run_pipeline() -> list:
     # from slightly older form — it does not touch the ledger.
     run_step("Refresh training CSVs", ["scrapers/refresh_csvs.py"], OPTIONAL)
 
-    # DEGRADED: PredictZ is the ONLY fixture source that survives in the cloud
-    # now that Forebet is IP-blocked. If it fails, today has no new fixtures.
-    fixture_sources["predictz"] = run_step(
-        "Scrape PredictZ fixtures", ["scrapers/predictz.py"], DEGRADED)
+    # PredictZ: DEGRADED where it can be reached, SKIPPED in the cloud.
+    # Since ~30 Sep 2026 it Cloudflare-blocks GitHub's IPs outright - probed at
+    # 06:00 AND 19:15 UTC, so not the old time-of-day effect - while it still
+    # works from Boss's own connection. A permanent, known block failing a
+    # DEGRADED step turned every morning run red for five days (bug #14's
+    # noise trap: a daily red hides the real one). Same treatment as Forebet.
+    skip_predictz = os.getenv("PP_SKIP_PREDICTZ", "").strip() == "1"
+    if skip_predictz:
+        logger.info("⏭  Skipping PredictZ (PP_SKIP_PREDICTZ=1 — IP-blocked here)")
+    else:
+        fixture_sources["predictz"] = run_step(
+            "Scrape PredictZ fixtures", ["scrapers/predictz.py"], DEGRADED)
 
     # PredictZ has exactly two pages, today and tomorrow, so until this step
     # existed `matches` never held more than two days of football and the app
@@ -403,8 +413,11 @@ def run_pipeline() -> list:
     # inserts from +2 so the two sources never write the same day, and the
     # day-boundary duplicates it does create (today's +2 is tomorrow's +1) are
     # exactly what the deduper below is for.
+    # With PredictZ skipped nothing owns +0/+1, so ESPN takes them too (it adds
+    # the short-notice games; the rest were already inserted at +2..+5).
+    espn_args = ["scrapers/espn_fixtures.py"] + (["--first-day", "0"] if skip_predictz else [])
     fixture_sources["espn-fixtures"] = run_step(
-        "ESPN fixtures (+2..+5)", ["scrapers/espn_fixtures.py"], DEGRADED)
+        f"ESPN fixtures (+{0 if skip_predictz else 2}..+5)", espn_args, DEGRADED)
 
     # OPTIONAL (demoted 11 Aug 2026, Boss's call, and the evidence supports it).
     #
