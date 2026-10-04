@@ -188,6 +188,10 @@ def picks(conn, codes: list) -> dict:
                 "home_team": r["home_team"], "away_team": r["away_team"],
                 "match_date": r["match_date"], "kickoff_utc": r["kickoff_utc"],
                 "best_bet": pk["team"], "best_bet_market": MONEYLINE,
+                # What My Record stores and grades (account.html compares it
+                # with results.outcome). The moneyline includes overtime, and
+                # so does the stored final, so "Home Win" is exactly this bet.
+                "track_selection": "Home Win" if pk["key"] == "ml_home" else "Away Win",
                 "best_bet_label": f"{pk['team']} to win (overtime counts)",
                 "best_bet_prob": pk["p"], "confidence": t,
                 "home_win_prob": round(r["p_home"], 4), "away_win_prob": round(1 - r["p_home"], 4),

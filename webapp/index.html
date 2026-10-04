@@ -224,10 +224,11 @@ function expectedGoalsLine(p) {
 }
 
 /* NHL / NFL card - the football card's shape (badge, recommendation, ring,
-   bookmaker check, details) so a mixed feed reads as one list. Differences
-   are deliberate: no Track button (My Record cannot grade these yet), the
+   bookmaker check, details, Track) so a mixed feed reads as one list. The
    sport is named in the meta line, and "overtime counts" is spelled out
-   because a 60-minute 1X2 is a different bet on SportyBet. */
+   because a 60-minute 1X2 is a different bet on SportyBet. Track stores the
+   pick as "Home Win"/"Away Win" (p.track_selection), which My Record grades
+   against the final score - overtime included, exactly like this moneyline. */
 function renderSportCard(p) {
     const prob = Math.round((p.best_bet_prob || 0) * 100);
     const started = hasKickedOff(p);
@@ -249,13 +250,19 @@ function renderSportCard(p) {
       <div class="${badgeClasses(p.confidence)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${p.confidence}</div>
       <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold"
             title="Kept separate from our football record">experimental</span>
+      ${!started && p.track_selection
+        ? `<button type="button" class="pp-track-btn inline-flex items-center gap-xs px-sm py-base rounded-full text-label-sm font-bold border border-outline-variant text-on-surface-variant hover:border-secondary"
+                  data-track="${escapeHtml(p.match_id)}" data-sel="${escapeHtml(p.track_selection)}" aria-pressed="false"
+                  title="Add this pick to your own record (My Record)">
+             <span class="material-symbols-outlined text-[14px]" aria-hidden="true">bookmark_add</span><span class="pp-track-label">Track</span></button>`
+        : ""}
     </div>
   </div>
   <div class="bg-surface p-sm rounded-lg border border-outline-variant mb-md flex justify-between items-center">
     <div>
       <div class="text-label-sm text-on-surface-variant mb-base">Recommendation</div>
       <div class="text-body-lg font-semibold text-primary">${escapeHtml(p.best_bet)} to win</div>
-      <div class="text-label-sm text-on-surface-variant mt-base">Moneyline · overtime${p.sport === "nhl" ? " and shootout" : ""} count</div>
+      <div class="text-label-sm text-on-surface-variant mt-base">Moneyline · ${p.sport === "nhl" ? "overtime and shootout count" : "overtime counts"}</div>
     </div>
     <div class="text-right flex flex-col items-end">
       <div class="text-label-sm text-on-surface-variant mb-base">Probability</div>
@@ -565,7 +572,9 @@ document.addEventListener("click", async (e) => {
     b.disabled = true;
     try {
         if (PPAuth.isTracked(b.dataset.track, b.dataset.sel)) await PPAuth.untrack(b.dataset.track, b.dataset.sel);
-        else if (pick) await PPAuth.track(pick);
+        // NHL/NFL picks are stored as "Home Win"/"Away Win" so My Record can
+        // grade them like football's (see renderSportCard).
+        else if (pick) await PPAuth.track(pick.track_selection ? {...pick, best_bet: pick.track_selection} : pick);
     } catch (err) {
         console.error(err);
         showToast("Couldn't update your record — try again.");

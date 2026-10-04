@@ -604,7 +604,7 @@ def run_pipeline() -> list:
     # reason as the two above - explanation, never the prediction - and the
     # markets it explains are already stored by the shadow step. Its readers
     # are one unlisted page; a missed day just shows "written the day before".
-    run_step("NHL analysis", ["analysis/nhl_analyst.py"], OPTIONAL)
+    run_step("NHL/NFL analysis", ["analysis/nhl_analyst.py"], OPTIONAL)
 
     # OPTIONAL: this step only PRINTS a report — the consensus the API serves
     # is computed live by build_consensus(). Nothing downstream reads it.
