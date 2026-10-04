@@ -1281,8 +1281,9 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     +2..+5. The loss is PredictZ's leagues that ESPN does not cover; football
     still produced 74-76 predictions (9-13 served) on 3-4 Oct from ESPN alone.
     Getting them back needs a non-datacenter IP (a scheduled local run feeding
-    the ledger, or a paid proxy) - Boss's call, and it must not break the
-    one-writer rule. **A green 'backup' run is not a second attempt if its
+    the ledger, or a paid proxy ~$50/mo). **DECIDED 4 Oct 2026, Boss: "leave
+    it."** ESPN is the cloud's only football fixture source; do not re-propose
+    a local run or proxy unless ESPN coverage itself becomes the problem. **A green 'backup' run is not a second attempt if its
     guard skips: check what the backup actually DID, not just its colour.**
 
 ## Decisions & their reasoning
