@@ -4411,3 +4411,17 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401872962,2026-09-28,2026-09-28 00:20,2026,2,Denver Broncos,Los Angeles Rams,7,14,30,26,H,REG,30,26,0
 401872963,2026-09-29,2026-09-29 00:15,2026,2,Chicago Bears,Philadelphia Eagles,3,21,27,7,H,REG,27,7,0
 401872964,2026-10-02,2026-10-02 00:15,2026,2,Cleveland Browns,Pittsburgh Steelers,5,23,27,24,H,REG,27,24,0
+401872965,2026-10-04,2026-10-04 13:30,2026,2,Washington Commanders,Indianapolis Colts,28,11,13,30,A,REG,13,30,1
+401872966,2026-10-04,2026-10-04 17:00,2026,2,New York Giants,Arizona Cardinals,19,22,36,24,H,REG,36,24,0
+401872967,2026-10-04,2026-10-04 17:00,2026,2,Houston Texans,Dallas Cowboys,34,6,30,34,A,REG,30,34,0
+401872968,2026-10-04,2026-10-04 17:00,2026,2,Tampa Bay Buccaneers,Green Bay Packers,27,9,14,17,A,REG,14,17,0
+401872969,2026-10-04,2026-10-04 17:00,2026,2,Cincinnati Bengals,Jacksonville Jaguars,4,30,17,22,A,REG,17,22,0
+401872970,2026-10-04,2026-10-04 17:00,2026,2,Philadelphia Eagles,Los Angeles Rams,21,14,20,24,A,REG,20,24,0
+401872971,2026-10-04,2026-10-04 17:00,2026,2,Buffalo Bills,New England Patriots,2,17,26,29,A,REG,26,29,0
+401872972,2026-10-04,2026-10-04 17:00,2026,2,Chicago Bears,New York Jets,3,20,23,12,H,REG,23,12,0
+401872973,2026-10-04,2026-10-04 17:00,2026,2,Baltimore Ravens,Tennessee Titans,33,10,24,18,H,REG,24,18,0
+401872974,2026-10-04,2026-10-04 20:05,2026,2,Minnesota Vikings,Miami Dolphins,16,15,15,10,H,REG,15,10,0
+401872975,2026-10-04,2026-10-04 20:25,2026,2,San Francisco 49ers,Denver Broncos,25,7,24,14,H,REG,24,14,0
+401872976,2026-10-04,2026-10-04 20:25,2026,2,Las Vegas Raiders,Kansas City Chiefs,13,12,27,30,A,REG,27,30,0
+401872977,2026-10-04,2026-10-04 20:25,2026,2,Seattle Seahawks,Los Angeles Chargers,26,24,30,23,H,REG,30,23,0
+401872978,2026-10-05,2026-10-05 00:20,2026,2,Carolina Panthers,Detroit Lions,29,8,32,26,H,REG,32,26,0
