@@ -1283,7 +1283,12 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     Getting them back needs a non-datacenter IP (a scheduled local run feeding
     the ledger, or a paid proxy ~$50/mo). **DECIDED 4 Oct 2026, Boss: "leave
     it."** ESPN is the cloud's only football fixture source; do not re-propose
-    a local run or proxy unless ESPN coverage itself becomes the problem. **A green 'backup' run is not a second attempt if its
+    a local run or proxy unless ESPN coverage itself becomes the problem.
+    **Follow-up (6 Oct):** the mornings stayed red - source_health's "NO source
+    has usable H/D/A percentages ... cannot price anything" counted pct columns
+    only, and ESPN fixture rows carry ODDS with NULL pcts (319 priceable
+    fixtures, 41 served picks, same morning). It now tests odds OR pcts for
+    "can we price", and keeps the pct count for the consensus warning only. **A green 'backup' run is not a second attempt if its
     guard skips: check what the backup actually DID, not just its colour.**
 
 ## Decisions & their reasoning
