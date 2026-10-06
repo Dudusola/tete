@@ -78,6 +78,8 @@ generate predictions on demand.
 - Closing-line value:   `python db/clv_report.py` (does the price move toward our picks?)
 - Calibration check:    `python db/calibration_health.py` (tiers, bands, sign test, eras — run it,
                         don't re-derive item 4 by hand)
+- "Anything to refine?": `python db/refine_report.py` (segments with an earlier/later-half
+                        stability check, plus the model+bookmaker blend tested out of sample)
 - Non-soccer ledger:    `python scrapers/espn_ledger.py [--feed nfl|nba|nhl|mlb] [--dry-run]`
 - Non-soccer history:   `python scrapers/sports_history.py` (update) / `--feed mlb --full` (rebuild)
 - **Testing anything that writes the DB: use a COPY** — `cp db/sports_predictor.db <scratch>/t.db`
@@ -1580,7 +1582,19 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    tier (HIGH → 5/13). **Boost DISABLED in rf_v1e**; the protective HIGH→MEDIUM
    demote is kept. Re-enable only if a matured ledger shows agreement-with-model
    wins. index.html still renders the chips; boosted picks simply won't occur.
-4. **CALIBRATION — LATEST: 27 Sep 2026, 452 graded HIGH+MEDIUM picks, via
+4. **REFINE REVIEW — 6 Oct 2026 (Boss: "look at the records and refine"). Result:
+   NOTHING CHANGED, on evidence.** 395 served graded: HIGH 77.5% (claim 75.0),
+   MEDIUM 61.0% (60.6); ROI -0.2% [-7.8, +7.5] at pick-time prices; CLV -0.57
+   [-1.39, +0.25]. `db/refine_report.py` (new) found one stable lead: price
+   1.50-1.80 below claim in both halves, significant in neither. MEDIUM ROI was
+   +6.0% then -15.9% by half - noise, do NOT drop MEDIUM on it. A model+bookmaker
+   blend (weights book 0.90 / model 0.32) did not beat the model out of sample
+   (-0.0042, CI [-0.0101, +0.0020]) - the market carries almost all the
+   information, so a blend would just copy it. Thin-history MEDIUM (bug #27) was
+   re-checked on post-25-Aug picks only: 5/9 - too few to replicate yet.
+   Re-run refine_report.py when the served record has doubled (~800).
+
+   **CALIBRATION — LATEST: 27 Sep 2026, 452 graded HIGH+MEDIUM picks, via
    `python db/calibration_health.py`. The tiers HOLD their claims:**
      HIGH   166/219  75.8%  claim 74.6%  CI [69.7, 81.0]
      MEDIUM 141/233  60.5%  claim 60.7%  CI [54.1, 66.6]
