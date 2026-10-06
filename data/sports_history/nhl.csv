@@ -20617,3 +20617,7 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401891778,2026-10-05,2026-10-05 00:00,2027,2,Anaheim Ducks,Florida Panthers,25,26,3,2,H,OT,2,2,0
 401891824,2026-10-05,2026-10-05 00:00,2027,2,Seattle Kraken,Calgary Flames,124292,3,6,1,H,REG,6,1,0
 401892444,2026-10-05,2026-10-05 01:00,2027,2,Vancouver Canucks,Vegas Golden Knights,22,37,2,3,A,REG,2,3,0
+401892445,2026-10-05,2026-10-05 23:00,2027,2,Tampa Bay Lightning,Philadelphia Flyers,20,15,4,1,H,REG,4,1,0
+401892446,2026-10-05,2026-10-05 23:30,2027,2,Boston Bruins,Ottawa Senators,1,14,1,4,A,REG,1,4,0
+401892447,2026-10-05,2026-10-05 23:30,2027,2,Pittsburgh Penguins,Winnipeg Jets,16,28,2,3,A,REG,2,3,0
+401892448,2026-10-06,2026-10-06 00:00,2027,2,Dallas Stars,San Jose Sharks,9,18,5,0,H,REG,5,0,0
