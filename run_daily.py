@@ -321,6 +321,22 @@ def source_health(conn) -> list[str]:
     """, [today]).fetchall()
     opinionated = [s for s, n in usable if n > 0]
 
+    # "Can the app price anything?" is a question about ODDS, not percentages.
+    # predict.py prices from real bookmaker odds (bug #7) and only falls back
+    # to a source's percentages; espn_fixtures.py writes odds and leaves the pct
+    # columns NULL. Testing pcts alone reported "cannot price anything" every
+    # morning from 5 Oct 2026 while 319 upcoming fixtures had full odds and 41
+    # picks were served - bug #6's lesson again: test what the app USES.
+    priceable = conn.execute("""
+        SELECT COUNT(DISTINCT p.match_id)
+        FROM scraped_predictions p
+        JOIN matches m ON m.match_id = p.match_id
+        WHERE m.match_date >= ?
+          AND ((p.odds_home IS NOT NULL AND p.odds_draw IS NOT NULL AND p.odds_away IS NOT NULL)
+               OR (p.home_win_pct IS NOT NULL AND p.draw_pct IS NOT NULL
+                   AND p.away_win_pct IS NOT NULL))
+    """, [today]).fetchone()[0]
+
     # Severity by COUNT, not by a flat "fewer than 2 is bad".
     #
     #   0 sources -> the app cannot show a probability at all. Broken. Fail.
@@ -336,15 +352,16 @@ def source_health(conn) -> list[str]:
     #
     # Make this a failure again the day a second opinionated source is back;
     # the Consensus page already tells USERS why it is empty via `diagnosis`.
-    if not opinionated:
+    if not priceable:
         problems.append(
-            "NO source has usable H/D/A percentages on upcoming matches - "
-            "the app cannot price anything")
+            "NO upcoming match has bookmaker odds or H/D/A percentages from any "
+            "source - the app cannot price anything")
     elif len(opinionated) < 2:
         logger.warning(
-            f"consensus unavailable: only {', '.join(opinionated)} has usable "
-            f"H/D/A percentages (need 2+ to cross-check). Known state while "
-            f"API-Football is suspended - not failing the run for it.")
+            f"consensus unavailable: {', '.join(opinionated) or 'no source'} has usable "
+            f"H/D/A percentages (need 2+ to cross-check; {priceable} upcoming "
+            f"matches are priceable). Known state since API-Football and PredictZ "
+            f"went dark in the cloud - not failing the run for it.")
     return problems
 
 
