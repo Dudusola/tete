@@ -125,6 +125,26 @@ def _index(data: dict) -> dict:
     return _INDEX
 
 
+_STEMS: dict | None = None
+
+
+def _candidates(name: str, data: dict) -> list:
+    global _STEMS
+    from models.team_match import normalise
+    if _STEMS is None:
+        _STEMS = {}
+        for orig in (data.get("teams") or {}):
+            for w in normalise(orig).split():
+                _STEMS.setdefault(w[:3], []).append(orig)
+    seen, out = set(), []
+    for w in normalise(name).split():
+        for orig in _STEMS.get(w[:3], []):
+            if orig not in seen:
+                seen.add(orig)
+                out.append(orig)
+    return out
+
+
 def team_rating(name: str, data: dict | None = None) -> dict | None:
     """Attack/defence for one team, or None if we have no usable history.
 
@@ -164,7 +184,11 @@ def team_rating(name: str, data: dict | None = None) -> dict | None:
 
     from models.team_match import team_sim
     best = best_score = second = None
-    for orig in (data.get("teams") or {}):
+    # Only rated teams sharing a 3-letter word start (7 Oct 2026, speed): the
+    # full scan made the first Builder request after a deploy take ~37 s
+    # (250k comparisons). A name scoring >= NAME_SIM_MIN always shares one;
+    # verified identical on every football team name in the ledger.
+    for orig in _candidates(name, data):
         s = team_sim(name, orig)
         if best_score is None or s > best_score:
             best, second, best_score = orig, best_score, s
