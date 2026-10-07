@@ -275,6 +275,21 @@ generate predictions on demand.
                           (Moneyline, 60-Minute Result, Puck Line, Spread, Over/Under Goals/Points) are
                           a CONTRACT with scrapers/booking_codes.US_SPORTS. settle_leg() grades tracked
                           NHL/NFL slip legs with the same grade() as the record (NFL push = void).
+- NHL/NFL IMPROVEMENT TESTS (6-7 Oct 2026, Boss: "make it better"). All on held-out seasons:
+  models/elo_plus.py      rest days / back-to-backs and faster early-season K: NO measurable gain
+                          in either sport (NHL -0.0013 [-0.0033,+0.0007]; NFL +0.0003). Not shipped.
+  models/line_move_backtest.py  Picks the price moved AGAINST before the game (NHL fair prob -5+ pts,
+                          NFL spread 3+ pts): 6-12 pts under claim in BOTH eras of BOTH sports
+                          (NHL -10.8/-6.1, NFL -12.1/-9.9); significant in none (rare: ~2-8% of picks).
+  models/nfl_qb.py        Starting QB per game from nflverse (joins on ESPN id, 4426/4427). A backup
+                          costs ~70 Elo (~2.8 pts of spread); held out -0.0053 [-0.0139,+0.0036]
+                          overall, 0.6199 -> 0.6032 on the 182 affected games. NOT significant.
+                          `live_status()` = regular starter (last 6 starts) + ESPN injury status.
+  SHIPPED as WARNINGS, never changed probabilities (models/us_sports.warnings): "price moved
+  against this pick" and "QB news: X (this pick's / the opponent's regular starter) is listed Out".
+  record() keeps warned picks APART ("warned") so the live ledger can confirm or kill them.
+  Rejected on reasoning first: "only recommend when we agree with the book" (Boss) - raises hit rate
+  by keeping easy favourites, deletes the only disagreements with signal, copies the book.
 - models/nfl_markets.py   NFL moneyline (Elo) / spread / total at the BOOK's lines. Margin = normal
                           x KEY-NUMBER weights by |margin| (fitted 2011-23: 3 -> x2.54, 7 -> x1.75;
                           14.6% of games end by exactly 3), mu solved so P(home win) == Elo's.

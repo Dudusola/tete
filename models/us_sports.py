@@ -65,6 +65,52 @@ DISCLOSURE = {
 }
 
 
+# Warning thresholds, from models/line_move_backtest.py (6 Oct 2026): picks
+# the price moved against by this much went 6-12 points under their claim in
+# BOTH eras of BOTH sports (not significant in any one - hence a WARNING on
+# the card, never a changed or pulled pick). NHL: margin-free moneyline
+# probability, points. NFL: point spread, points.
+MOVE_AGAINST = {"nhl": 5.0, "nfl": 3.0}
+QB_WARN = ("Out", "Doubtful", "Questionable", "Injured Reserve", "Suspension")
+
+
+def _fair(a, b):
+    return None if not a or not b else (1 / a) / (1 / a + 1 / b)
+
+
+def warnings(code: str, facts: dict, pick_key: str) -> list:
+    """Visible cautions for a pick: [{"type", "text"}]. Computed from the
+    stored facts (the latest pre-kickoff observation), so the card and the
+    record's warned-pick tally use the same definition."""
+    out = []
+    home_pick = pick_key == "ml_home"
+    mv = (facts or {}).get("market_movement") or {}
+    if code == "nhl" and mv.get("moneyline"):
+        o, n = mv["moneyline"]["open"], mv["moneyline"]["now"]
+        fo, fn = _fair(o[0], o[1]), _fair(n[0], n[1])
+        if fo is not None and fn is not None:
+            moved = 100 * ((fo - fn) if home_pick else (fn - fo))
+            if moved >= MOVE_AGAINST["nhl"]:
+                out.append({"type": "price", "text": f"Price has moved against this pick "
+                            f"since it opened ({moved:.0f} points)"})
+    if code == "nfl" and mv.get("spread"):
+        sp = mv["spread"]
+        if sp.get("open_home_line") is not None and sp.get("home_line") is not None:
+            d = sp["home_line"] - sp["open_home_line"]
+            moved = d if home_pick else -d
+            if moved >= MOVE_AGAINST["nfl"]:
+                out.append({"type": "price", "text": f"The spread has moved {moved:g} points "
+                            f"against this pick since it opened"})
+    if code == "nfl":
+        for side in ("home", "away"):
+            q = ((facts or {}).get("qb") or {}).get(side) or {}
+            if q.get("status") in QB_WARN:
+                whose = "this pick's" if (side == "home") == home_pick else "the opponent's"
+                out.append({"type": "qb", "text": f"QB news: {q['regular']} ({whose} regular "
+                            f"starter) is listed {q['status']}"})
+    return out
+
+
 def tier(p: float) -> str:
     return "HIGH" if p >= HIGH else "MEDIUM" if p >= MEDIUM else "LOW"
 
@@ -135,6 +181,7 @@ def record(conn, code: str) -> dict:
     cfg = SPORTS[code]
     won = lost = void = 0
     by_tier = {"HIGH": [0, 0], "MEDIUM": [0, 0]}
+    warned = [0, 0]           # picks that carried a warning when they kicked off
     for r in _rows(conn, cfg["sport"], upcoming=False):
         if r["home_goals"] is None:
             continue
@@ -151,10 +198,18 @@ def record(conn, code: str) -> dict:
         lost += 1 - g
         by_tier[t][0] += g
         by_tier[t][1] += 1
+        facts = json.loads(r["facts_json"]) if r["facts_json"] else {}
+        # Only warnings against THIS pick count (an injured opponent QB helps it).
+        if any(w["type"] == "price" or "this pick's" in w["text"]
+               for w in warnings(code, facts, pk["key"])):
+            warned[0] += g
+            warned[1] += 1
     n = won + lost
     return {"sport": code, "graded": n, "won": won, "lost": lost, "void": void,
             "hit_pct": round(won / n * 100, 1) if n else None,
-            "tiers": {t: {"won": w, "graded": g} for t, (w, g) in by_tier.items()}}
+            "tiers": {t: {"won": w, "graded": g} for t, (w, g) in by_tier.items()},
+            # Kept apart so the live record can confirm or kill the warnings.
+            "warned": {"won": warned[0], "graded": warned[1]}}
 
 
 def picks(conn, codes: list) -> dict:
@@ -198,6 +253,7 @@ def picks(conn, codes: list) -> dict:
                 "book_odds": pk["odds"], "book_probability": pk["market_p"], "market_gap": gap,
                 "expected_total": mk.get("exp_total"),
                 "markets": markets,
+                "warnings": warnings(code, facts, pk["key"]),
                 "analysis": r["analysis"],
                 "form": {s: (facts.get(s) or {}).get("last10") for s in ("home", "away")},
                 # WHICH side has not played yet - the card must not imply both.

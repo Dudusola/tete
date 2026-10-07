@@ -523,6 +523,12 @@ def run_pipeline() -> list:
     # which copies the goalie facts into each game's facts_json.
     run_step("NHL goalies (NHL API)", ["scrapers/nhl_goalies.py"], OPTIONAL)
 
+    # OPTIONAL: who has started at QB for each NFL team (nflverse), so the
+    # shadow step can tell a team's REGULAR starter and warn when ESPN lists
+    # him Out. A missed day only means slightly older starts; the injury
+    # status itself is fetched live, hourly, by models/elo_shadow.py.
+    run_step("NFL quarterback starts (nflverse)", ["models/nfl_qb.py", "--refresh"], OPTIONAL)
+
     # DEGRADED: shadow Elo predictions for NFL/NBA/NHL/MLB - written ONLY to
     # shadow_predictions, which nothing serves. It is the evidence clock for
     # "does Elo beat the market?" (db/shadow_report.py); a missed day is a day

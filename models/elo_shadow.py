@@ -208,6 +208,10 @@ def run() -> int:
                 nhl_state = nhl_markets.current_rates(nhl_params, params)
             else:
                 nfl_state = nfl_markets.current_rates(nfl_params, params)
+                # Regular starting QB per team + ESPN injury status, once per run
+                # (models/nfl_qb.py). {} if a source is down: no warning, no guess.
+                from models.nfl_qb import live_status
+                qb_status = live_status()
             nhl_games = nhl_form.load_games(feed)
             # Ranks on the ratings a game is actually predicted with: after the
             # off-season revert when the history has not reached the new season.
@@ -264,6 +268,8 @@ def run() -> int:
                 facts = nhl_form.build(hid, aid, g["kickoff_utc"][:10], nhl_games,
                                        ranked, nhl_ranks)
                 facts["market_movement"] = movement
+                facts["qb"] = {side: qb_status.get(team) for side, team in
+                               (("home", g["home_team"]), ("away", g["away_team"]))}
                 facts_json = json.dumps(facts)
             conn.execute("""
                 INSERT INTO shadow_predictions

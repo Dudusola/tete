@@ -276,6 +276,9 @@ function renderSportCard(p) {
     </div>
   </div>
   ${marketCheck(p)}
+  ${(p.warnings || []).map(w => `<div class="flex items-start gap-xs mb-sm px-sm py-1 rounded-lg bg-error-container text-on-error-container text-label-sm"
+        title="${w.type === "price" ? "Picks the price moved this far against went 6-12 points under their claim on past seasons. A caution, not a change to the pick." : "Our numbers cannot see quarterback news; the bookmaker can."}">
+      <span class="material-symbols-outlined text-[16px]" aria-hidden="true">${w.type === "qb" ? "personal_injury" : "trending_down"}</span><span>${escapeHtml(w.text)}</span></div>`).join("")}
   ${(p.first_game_teams || []).length ? `<p class="text-label-sm text-on-surface-variant mb-sm">${escapeHtml(p.first_game_teams.join(" and "))}: first game of the season, so the rating has not seen ${p.first_game_teams.length > 1 ? "either" : "this"} new roster yet.</p>` : ""}
   <div class="border-t border-outline-variant pt-sm">
     <button type="button" aria-expanded="false" class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary rounded"
