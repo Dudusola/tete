@@ -1,0 +1,14 @@
+{
+ "backup_cost_elo": 70,
+ "regular_window": 6,
+ "held_out": {
+  "games": 570,
+  "affected": 182,
+  "diff": -0.00534,
+  "ci": [
+   -0.01392,
+   0.00357
+  ],
+  "verdict": "no measurable difference"
+ }
+}

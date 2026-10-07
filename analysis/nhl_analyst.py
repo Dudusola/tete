@@ -191,7 +191,17 @@ def facts_block(home: str, away: str, facts: dict, markets: dict,
                            f"records, newest first: {', '.join(recent)}.")
         out.append("- TONIGHT'S STARTING GOALIES ARE NOT CONFIRMED (teams announce at "
                    "warm-ups). Never say who will start.")
-    out.append(f"- UNKNOWN to us: {cfg['unknown']}. The bookmaker knows all of these.")
+    qb = facts.get("qb") or {}
+    known_qb = False
+    for side, name in (("home", home), ("away", away)):
+        q = qb.get(side) or {}
+        if q.get("regular"):
+            known_qb = True
+            status = q.get("status") or "not on the injury report"
+            out.append(f"- {name}'s regular starting quarterback {q['regular']}: {status}.")
+    unknown = (cfg["unknown"].replace("quarterback availability, ", "") if known_qb
+               else cfg["unknown"])
+    out.append(f"- UNKNOWN to us: {unknown}. The bookmaker knows all of these.")
     return "\n".join(out)
 
 
