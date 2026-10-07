@@ -297,6 +297,16 @@ generate predictions on demand.
                           and every total 40.5..50.5; key-number model beats a plain normal on exact
                           margins. Pushes are VOID. No QB/injury/weather data - expect big gaps to
                           the book early in a season (Washington 57% vs book 37%, 2 Oct).
+- Booking FOOTBALL name cleaning (7 Oct 2026, Boss: "some matches are not being picked with
+                          SportyBet"): SportyBet decorates names ("SE Palmeiras SP v EC Bahia BA",
+                          "CSD Independiente del Valle", "PAE PS Kalamata", "Betis"). The mapper now
+                          ALSO tries SportyBet names with club-form prefixes dropped, and a Brazilian
+                          state code dropped ONLY if the base name is unique in the feed ("Botafogo
+                          FC SP" vs "Botafogo FR RJ" are different clubs - their codes stay), plus
+                          _SPORTY_ALIASES for one-offs ("Real Betis"->"Betis"). SportyBet side only;
+                          models/team_match.py untouched. Measured: served picks bookable 46->50/51,
+                          all fixtures 306->317/420, every one of the 11 changed mappings checked by
+                          hand, zero previously-mapped fixtures moved; code QEC1CT decoded back right.
 - Booking NHL/NFL (scrapers/booking_codes.US_SPORTS): SportyBet FULL-GAME ids only - NHL 406 winner,
                           410 handicap, 412 total (all "incl. overtime and penalties"), 1 = 60-min 1X2
                           (from our 60-Minute Result only); NFL 219/223/225 "incl. overtime". Mapped by
