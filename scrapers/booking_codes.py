@@ -401,6 +401,59 @@ def _wanted_outcome(leg: dict) -> tuple | None:
     return None   # Result & Goals combos: not offered for booking
 
 
+# ── SportyBet's own spellings (7 Oct 2026) ────────────────────────────────
+# Boss: "some matches are not being picked with SportyBet". Measured: 4 of 5
+# unbookable upcoming picks WERE on SportyBet under decorated names -
+# "SE Palmeiras SP v EC Bahia BA", "CSD Independiente del Valle v SD Aucas",
+# "PAOK v PAE PS Kalamata", "Betis v Osasuna" (ours: "Real Betis"). These
+# helpers clean SPORTYBET's side only, inside this mapper: the shared matcher
+# (models/team_match.py) is untouched, so the odds/kickoff paths behave as before.
+#
+# Club-form prefixes never distinguish two clubs, so they are dropped. A
+# Brazilian STATE code can ("Botafogo FC SP" and "Botafogo FR RJ" are different
+# clubs in the same feed), so it is dropped ONLY when the remaining name is
+# unique among the feed's Brazilian teams - otherwise it stays and the strict
+# pair_score decides, exactly as before.
+_CLUB_FORM = {"SE", "EC", "CSD", "SD", "PAE", "PS", "CA", "CR", "CS", "CD", "AD",
+              "FC", "FR", "FB", "AC", "SC", "AS", "SV", "KV", "AFC", "CF"}
+_BR_STATES = {"AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS",
+              "MG", "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC",
+              "SP", "SE", "TO"}
+# Ours -> SportyBet, for one-offs no rule should cover ("Real" matters in
+# Real Madrid; only Betis drops it on SportyBet).
+_SPORTY_ALIASES = {"Real Betis": "Betis"}
+
+
+def _br_base(name: str) -> str:
+    toks = name.split()
+    if len(toks) > 1 and toks[-1] in _BR_STATES:
+        toks = toks[:-1]
+    return " ".join(t for t in toks if t not in _CLUB_FORM).lower()
+
+
+def _sporty_unique_bases(events: list[dict]) -> set:
+    """Brazilian base names that belong to exactly ONE SportyBet team name."""
+    seen = {}
+    for ev in events:
+        if "Brasil" not in (ev.get("_tournament") or ""):
+            continue
+        for n in (ev.get("homeTeamName"), ev.get("awayTeamName")):
+            if n:
+                seen.setdefault(_br_base(n), set()).add(n)
+    return {b for b, names in seen.items() if len(names) == 1}
+
+
+def _sporty_clean(name: str, tournament: str | None, unique_br: set) -> str:
+    toks = name.split()
+    if "Brasil" in (tournament or "") and len(toks) > 1 and toks[-1] in _BR_STATES:
+        if _br_base(name) in unique_br:
+            toks = toks[:-1]          # unique without the state -> safe to drop
+        else:
+            return name               # the state code is what tells two clubs apart
+    kept = [t for t in toks if t not in _CLUB_FORM]
+    return " ".join(kept) if kept else name
+
+
 def map_leg_to_sportybet(leg: dict, events: list[dict]) -> dict | None:
     """Find the SportyBet event + market + outcome for one of our slip legs.
     Market/outcome translation is deterministic (no cross-market fuzzing) —
@@ -425,9 +478,20 @@ def map_leg_to_sportybet(leg: dict, events: list[dict]) -> dict | None:
     # right trade on this path. A missed leg is a visible shortfall the user
     # can act on; a wrong leg is their money on a fixture we never predicted.
     best_ev, best_s = None, 0.0
+    home = _SPORTY_ALIASES.get(leg.get("home_team") or "", leg.get("home_team") or "")
+    away = _SPORTY_ALIASES.get(leg.get("away_team") or "", leg.get("away_team") or "")
+    unique = _sporty_unique_bases(events)
     for ev in events:
-        s = _pair_score(leg.get("home_team") or "", leg.get("away_team") or "",
-                        ev.get("homeTeamName") or "", ev.get("awayTeamName") or "")
+        eh, ea = ev.get("homeTeamName") or "", ev.get("awayTeamName") or ""
+        s = _pair_score(home, away, eh, ea)
+        # SportyBet's own spellings carry club-form prefixes and (Brazil) state
+        # codes our sources never use - try the cleaned names too, keep the best.
+        ch = _sporty_clean(eh, ev.get("_tournament"), unique)
+        ca = _sporty_clean(ea, ev.get("_tournament"), unique)
+        if (ch, ca) != (eh, ea):
+            s2 = _pair_score(home, away, ch, ca)
+            if s2 is not None and (s is None or s2 > s):
+                s = s2
         if s is not None and s > best_s:
             best_ev, best_s = ev, s
     if not best_ev:
