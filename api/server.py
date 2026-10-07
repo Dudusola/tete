@@ -40,7 +40,7 @@ from models.tiers import TIER_BANDS
 # picks feed and — worse — inside the published accuracy. See models/sports.py.
 from models.sports import FOOTBALL, sport_sql
 from models.settle import settle as settle_leg
-from scrapers.booking_codes import attach_sporty_odds
+from scrapers.booking_codes import attach_sporty_odds, fetch_sportybet_events
 from models.leagues import pretty_league
 from models.gradeability import overall_coverage
 from db.calibration_health import tier_calibration
@@ -411,6 +411,30 @@ def _attach_expected_goals(picks: list) -> None:
                                    "total": round(mu[0] + mu[1], 2)}
 
 
+_MARKET_CHECK_CACHE: dict = {}
+
+
+@app.on_event("startup")
+def _prewarm_sportybet() -> None:
+    """Fetch SportyBet's fixture list in the background as soon as the server
+    boots, so the first Picks visitor after a deploy/restart does not wait the
+    ~20 s it takes (models are matched against it on every Picks load)."""
+    import threading
+
+    def _go():
+        # Then run the two heavy endpoints once, so their per-process caches
+        # (team-name resolution in goals_model, the market check) are filled
+        # before a visitor arrives - not by the first visitor after a deploy.
+        for warm in (fetch_sportybet_events, get_picks,
+                     lambda: get_slip(risk="MEDIUM", games=5, leagues=None,
+                                      exclude=None, pin=None, sports="football")):
+            try:
+                warm()
+            except Exception:
+                pass
+    threading.Thread(target=_go, daemon=True).start()
+
+
 def _attach_market_check(picks: list) -> None:
     """Add the bookmaker's price for each pick's own selection, in place.
 
@@ -447,9 +471,20 @@ def _attach_market_check(picks: list) -> None:
                 return f"{p['away_team']} Win"
             return bb                      # "Draw" maps as-is
         legs = [{"home_team": p["home_team"], "away_team": p["away_team"],
+                 "match_date": p.get("match_date"), "kickoff_utc": p.get("kickoff_utc"),
                  "market": "Match Result", "selection": _selection(p)}
                 for p in picks]
-        odds = attach_sporty_odds(legs)["odds"]
+        # Reused for 5 minutes - the same freshness as the SportyBet events
+        # cache it reads. Without it every visitor re-ran the full matching.
+        import time as _t
+        key = tuple((l["home_team"], l["away_team"], l["selection"]) for l in legs)
+        hit = _MARKET_CHECK_CACHE.get(key)
+        if hit and _t.time() - hit[0] < 300:
+            odds = hit[1]
+        else:
+            odds = attach_sporty_odds(legs)["odds"]
+            _MARKET_CHECK_CACHE.clear()
+            _MARKET_CHECK_CACHE[key] = (_t.time(), odds)
     except Exception:
         return
 
@@ -604,6 +639,7 @@ def get_slip(
         # FULL-GAME market ids (scrapers/booking_codes.US_SPORTS).
         return attach_sporty_odds([
             {"home_team": l.home_team, "away_team": l.away_team, "league": l.league,
+             "match_date": l.match_date, "kickoff_utc": l.kickoff_utc,
              "market": l.market, "selection": l.selection} for l in slip])
 
     # A leg SportyBet won't price whose kickoff we can't verify as future is

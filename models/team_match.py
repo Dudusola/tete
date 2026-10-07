@@ -59,6 +59,7 @@ territory. Switching them over is a deliberate change that wants its own
 before/after count on the ledger, not a drive-by.
 """
 
+import functools
 import re
 import unicodedata
 
@@ -85,6 +86,10 @@ _NOISE = {"fc", "cf", "sc", "afc", "ac", "club", "de", "the",
           "st", "saint", "sainte", "santo"}
 
 
+# Memoised (7 Oct 2026): both functions are pure, and /api/picks compared the
+# same few thousand names hundreds of thousands of times per request - 560k
+# difflib ratios, ~35 s locally and a timeout on Render's free CPU.
+@functools.lru_cache(maxsize=65536)
 def normalise(name: str) -> str:
     """Lowercase, strip accents and punctuation, drop noise words."""
     s = unicodedata.normalize("NFKD", name or "")
@@ -94,6 +99,7 @@ def normalise(name: str) -> str:
     return " ".join(tokens) or s.strip()
 
 
+@functools.lru_cache(maxsize=262144)
 def team_sim(a: str, b: str) -> float:
     """Similarity that understands abbreviations.
 

@@ -176,9 +176,13 @@ _SPORT_CACHES = {}                               # sport_id -> same shape
 _EVENTS_TTL = 300   # odds move, but event/market IDs are stable - 5 min is safe
 
 
+_REFRESHING = set()                  # sport ids with a background refresh running
+
+
 def fetch_sportybet_events(pages: int = 0, page_size: int = 100,
                            sport_id: str = "sr:sport:1",
-                           market_ids: str = GEN_MARKET_IDS) -> list[dict]:
+                           market_ids: str = GEN_MARKET_IDS,
+                           _background: bool = False) -> list[dict]:
     """Flatten SportyBet's upcoming events (with main markets) for one sport.
     Football by default; NHL/NFL pass their sport id and FULL-GAME market ids
     (US_SPORTS below). Each event carries `_tournament` so a mapper can refuse
@@ -202,6 +206,25 @@ def fetch_sportybet_events(pages: int = 0, page_size: int = 100,
              else _SPORT_CACHES.setdefault(sport_id, {"at": 0.0, "events": []}))
     if cache["events"] and _time.time() - cache["at"] < _EVENTS_TTL:
         return cache["events"]
+    # STALE-WHILE-REVALIDATE (7 Oct 2026). A full fetch is ~20 pages and took
+    # ~15-20 s; with a 5-minute TTL, the first visitor after every expiry waited
+    # for it, on Render's free CPU on top of the matching. Once we HAVE a list,
+    # an expired one is served instantly and refreshed in a background thread;
+    # only the very first fetch after a boot blocks (and the API prewarms that).
+    if cache["events"] and not _background:
+        if sport_id not in _REFRESHING:
+            _REFRESHING.add(sport_id)
+            import threading
+
+            def _refresh():
+                try:
+                    fetch_sportybet_events(pages, page_size, sport_id, market_ids,
+                                           _background=True)
+                finally:
+                    _REFRESHING.discard(sport_id)
+            threading.Thread(target=_refresh, daemon=True).start()
+        return cache["events"]
+
     def fetch_page(page: int) -> list[dict]:
         d = None
         for attempt in (1, 2):   # one retry - a single failed page must not
@@ -431,8 +454,15 @@ def _br_base(name: str) -> str:
     return " ".join(t for t in toks if t not in _CLUB_FORM).lower()
 
 
+_UNIQUE_CACHE = {"key": None, "val": set()}
+
+
 def _sporty_unique_bases(events: list[dict]) -> set:
-    """Brazilian base names that belong to exactly ONE SportyBet team name."""
+    """Brazilian base names that belong to exactly ONE SportyBet team name.
+    Computed once per events list, not once per leg."""
+    key = (id(events), len(events))
+    if _UNIQUE_CACHE["key"] == key:
+        return _UNIQUE_CACHE["val"]
     seen = {}
     for ev in events:
         if "Brasil" not in (ev.get("_tournament") or ""):
@@ -440,7 +470,77 @@ def _sporty_unique_bases(events: list[dict]) -> set:
         for n in (ev.get("homeTeamName"), ev.get("awayTeamName")):
             if n:
                 seen.setdefault(_br_base(n), set()).add(n)
-    return {b for b, names in seen.items() if len(names) == 1}
+    val = {b for b, names in seen.items() if len(names) == 1}
+    _UNIQUE_CACHE.update(key=key, val=val)
+    return val
+
+
+_INDEX_CACHE = {"key": None, "home": {}, "away": {}}
+
+
+def _stems(name: str) -> set:
+    """3-letter starts of each normalised word ("Man United" -> man, uni)."""
+    from models.team_match import normalise
+    return {w[:3] for w in normalise(name).split() if len(w) >= 2}
+
+
+def _candidate_events(leg: dict, events: list[dict]) -> list[dict]:
+    """Same-day events that share a word start with the leg on BOTH sides.
+
+    pair_score demands both teams be similar, and every true match measured
+    shares a 3-letter word start per side ("Man United"/"Manchester United",
+    "Wolves"/"Wolverhampton", "Kalamata"/"PAE PS Kalamata"). Scoring only those
+    took /api/picks from ~1,000 comparisons per pick on a weekend to a handful.
+    Indexed once per events list; SportyBet's CLEANED names are indexed too.
+    If nothing qualifies, the full same-day list is scored - the old behaviour.
+    """
+    key = (id(events), len(events))
+    if _INDEX_CACHE["key"] != key:
+        unique = _sporty_unique_bases(events)
+        hi, ai = {}, {}
+        for i, ev in enumerate(events):
+            t = ev.get("_tournament")
+            for nm, idx in ((ev.get("homeTeamName") or "", hi), (ev.get("awayTeamName") or "", ai)):
+                for st in _stems(nm) | _stems(_sporty_clean(nm, t, unique)):
+                    idx.setdefault(st, set()).add(i)
+        _INDEX_CACHE.update(key=key, home=hi, away=ai)
+    hs = set().union(*[_INDEX_CACHE["home"].get(x, set()) for x in _stems(leg.get("home_team") or "")] or [set()])
+    as_ = set().union(*[_INDEX_CACHE["away"].get(x, set()) for x in _stems(leg.get("away_team") or "")] or [set()])
+    both = hs & as_
+    day = _same_day_events(leg, events)
+    if not both:
+        return day
+    picked = [events[i] for i in sorted(both)]
+    day_ids = {id(e) for e in day}
+    return [e for e in picked if id(e) in day_ids] or day
+
+
+def _same_day_events(leg: dict, events: list[dict]) -> list[dict]:
+    """Only events within a day of the leg's kickoff (7 Oct 2026, speed).
+
+    A leg can only be a SportyBet fixture on (about) the same date, so scoring
+    all ~1,400 events was pure waste: /api/picks ran ~109k pair comparisons per
+    request and timed out on Render. +-1 day absorbs timezone/date-filing
+    differences (bug #2's rule). A leg with no date, or no event in the window,
+    falls back to ALL events - exactly the old behaviour, never fewer matches.
+    """
+    from datetime import date, datetime, timedelta, timezone
+    raw = (leg.get("kickoff_utc") or leg.get("match_date") or "")[:10]
+    try:
+        d = date.fromisoformat(raw)
+    except ValueError:
+        return events
+    lo, hi = d - timedelta(days=1), d + timedelta(days=1)
+    out = []
+    for ev in events:
+        ms = ev.get("estimateStartTime")
+        if not ms:
+            out.append(ev)            # unknown start: keep, never drop silently
+            continue
+        ed = datetime.fromtimestamp(ms / 1000, tz=timezone.utc).date()
+        if lo <= ed <= hi:
+            out.append(ev)
+    return out or events
 
 
 def _sporty_clean(name: str, tournament: str | None, unique_br: set) -> str:
@@ -481,7 +581,8 @@ def map_leg_to_sportybet(leg: dict, events: list[dict]) -> dict | None:
     home = _SPORTY_ALIASES.get(leg.get("home_team") or "", leg.get("home_team") or "")
     away = _SPORTY_ALIASES.get(leg.get("away_team") or "", leg.get("away_team") or "")
     unique = _sporty_unique_bases(events)
-    for ev in events:
+    lookup = dict(leg, home_team=home, away_team=away)      # aliases applied
+    for ev in _candidate_events(lookup, events):
         eh, ea = ev.get("homeTeamName") or "", ev.get("awayTeamName") or ""
         s = _pair_score(home, away, eh, ea)
         # SportyBet's own spellings carry club-form prefixes and (Brazil) state
@@ -595,7 +696,7 @@ def _map_us_leg(leg: dict, events: list[dict], code: str) -> dict | None:
         return None
 
     best_ev, best_s = None, 0.0
-    for ev in events:
+    for ev in _same_day_events(leg, events):
         if ev.get("_tournament") != cfg["tournament"]:
             continue                                       # never an AHL/college game
         s = _pair_score(home, away, ev.get("homeTeamName") or "", ev.get("awayTeamName") or "")
