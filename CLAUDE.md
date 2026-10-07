@@ -1305,7 +1305,17 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     has usable H/D/A percentages ... cannot price anything" counted pct columns
     only, and ESPN fixture rows carry ODDS with NULL pcts (319 priceable
     fixtures, 41 served picks, same morning). It now tests odds OR pcts for
-    "can we price", and keeps the pct count for the consensus warning only. **A green 'backup' run is not a second attempt if its
+    "can we price", and keeps the pct count for the consensus warning only.
+    **Second follow-up (7 Oct) - the real cost of losing PredictZ:** ESPN spells
+    clubs in full ("Manchester United", "Wolverhampton Wanderers") where the
+    football-data.co.uk history abbreviates ("Man United", "Wolves"), and PredictZ
+    had used the short forms. The 0.95 matcher correctly refused, so 120 PRICED
+    fixtures in 10 days (EPL, all EFL divisions, 2. Bundesliga, Ligue 1, MLS...)
+    were never predicted ("93 skipped - teams not in historical data") and served
+    picks fell to 0-2 a day. FIX: 65 hand-checked ESPN->history pairs in
+    TEAM_ALIASES, each target confirmed in team_history, no shared targets ->
+    107 of the 120 became predictable. **When a source changes, re-check the
+    name funnel: priced fixtures -> predicted -> served, not just "rows landed".** **A green 'backup' run is not a second attempt if its
     guard skips: check what the backup actually DID, not just its colour.**
 
 ## Decisions & their reasoning
