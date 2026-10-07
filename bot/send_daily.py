@@ -38,6 +38,10 @@ load_dotenv()
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+# The health report is for Boss, not subscribers. It goes to the same chat as
+# the picks unless HEALTH_CHAT_ID is set - set it the day the picks chat
+# becomes a public channel.
+HEALTH_CHAT_ID = os.getenv("HEALTH_CHAT_ID", "").strip() or CHAT_ID
 
 
 # Telegram hard-rejects a sendMessage body over 4096 characters with
@@ -101,6 +105,13 @@ def main() -> int:
 
     if args.dry_run:
         print(text)
+        try:
+            import sqlite3
+            from db.daily_health import message
+            print()
+            print(message(sqlite3.connect(os.getenv("DB_PATH", "./db/sports_predictor.db"))))
+        except Exception as e:
+            print(f"(health report failed: {e})")
         return 0
 
     if not TOKEN or not CHAT_ID:
@@ -111,7 +122,28 @@ def main() -> int:
         return 1
 
     logger.success(f"Daily picks sent ({len(picks)} picks)")
+    send_health()
     return 0
+
+
+def send_health() -> None:
+    """The daily health report (db/daily_health.py), as a SEPARATE message.
+    Never fails the picks push: a broken report is logged and skipped."""
+    try:
+        import sqlite3
+        from db.daily_health import message
+        conn = sqlite3.connect(os.getenv("DB_PATH", "./db/sports_predictor.db"))
+        text = message(conn)
+        conn.close()
+        r = requests.post(f"https://api.telegram.org/bot{TOKEN}/sendMessage",
+                          json={"chat_id": HEALTH_CHAT_ID, "text": text,
+                                "parse_mode": "Markdown"}, timeout=20)
+        if r.ok:
+            logger.success("Daily health report sent")
+        else:
+            logger.warning(f"Health report not sent: HTTP {r.status_code} {r.text[:120]}")
+    except Exception as e:
+        logger.warning(f"Health report skipped: {e}")
 
 
 if __name__ == "__main__":

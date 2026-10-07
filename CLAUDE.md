@@ -78,6 +78,11 @@ generate predictions on demand.
 - Closing-line value:   `python db/clv_report.py` (does the price move toward our picks?)
 - Calibration check:    `python db/calibration_health.py` (tiers, bands, sign test, eras — run it,
                         don't re-derive item 4 by hand)
+- Daily health:         `python db/daily_health.py` - also sent to Telegram after the picks every
+                        morning (bot/send_daily.py; HEALTH_CHAT_ID overrides the chat). Football
+                        funnel priced -> predicted -> served (warns < 80% predicted: the 7 Oct name
+                        collapse ran at 69%), SportyBet-bookable share, last-week grading, data age,
+                        NHL/NFL counts. Thresholds = measured normal minus a margin, so it stays quiet.
 - "Anything to refine?": `python db/refine_report.py` (segments with an earlier/later-half
                         stability check, plus the model+bookmaker blend tested out of sample)
 - Non-soccer ledger:    `python scrapers/espn_ledger.py [--feed nfl|nba|nhl|mlb] [--dry-run]`
