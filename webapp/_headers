@@ -1,0 +1,30 @@
+# Cloudflare Pages response headers (8 Oct 2026).
+#
+# Before this file every asset was served "max-age=0, must-revalidate", so each
+# page view re-asked for api.js, auth.js, app.css and the logo: ~6 round trips
+# of ~500 ms each, measured, before the page's own script could start.
+#
+# js/ and css/ are referenced as ?v=<content hash> (deploy-webapp.yml stamps
+# it), so a changed file is a NEW URL and can never be served stale. They are
+# NOT marked immutable for a year on purpose: a manual `wrangler pages deploy`
+# skips the stamping, and a year-long cache would then be the stale-api.js
+# ("Couldn't book") bug for a year. One hour fresh, then served instantly
+# while it revalidates in the background, bounds that case to a single load.
+#
+# HTML, sw.js and config.js keep the default (always revalidate): they are the
+# files that decide which versions everything else loads.
+
+/js/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=604800
+
+/css/*
+  Cache-Control: public, max-age=3600, stale-while-revalidate=604800
+
+/icons/*
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/logo*.png
+  Cache-Control: public, max-age=86400, stale-while-revalidate=604800
+
+/manifest.json
+  Cache-Control: public, max-age=3600, stale-while-revalidate=86400

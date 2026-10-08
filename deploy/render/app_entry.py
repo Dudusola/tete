@@ -11,7 +11,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from sync_ledger import fetch_ledger, start_background_refresh
+from sync_ledger import DB_PATH, fetch_ledger, index_ledger, start_background_refresh
 
 if __name__ == "__main__":
     # The ledger ships in the image (it's committed to the repo), so a failed
@@ -24,6 +24,7 @@ if __name__ == "__main__":
         print("[boot] refresh unavailable — serving the ledger baked into the "
               "image at build time (set GITHUB_TOKEN to enable refresh)",
               flush=True)
+        index_ledger(DB_PATH)          # the baked copy may predate the indexes
     start_background_refresh()
 
     import uvicorn

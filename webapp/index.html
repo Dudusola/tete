@@ -8,9 +8,13 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="PotentialPro"/>
-<title>PotentialPro - Today's Picks</title>
+<title>PotentialPro - Upcoming Picks</title>
+<!-- Open the API and font connections while the page parses, not after its
+     scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
+<link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
 <style>
 /* No theme() calls in here. Tailwind only resolves theme() inside a
    <style type="text/tailwindcss"> block; in a plain <style> it is invalid CSS
@@ -66,8 +70,8 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
      be hidden md:block, which meant a phone never saw "Today's Picks". -->
 <main class="max-w-container-max mx-auto px-gutter md:px-lg py-md md:py-xl">
 <header class="mb-lg md:mb-xl">
-<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Today's Picks</h1>
-<p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">The model's picks for today. Every one is graded against the final score.</p>
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Upcoming Picks</h1>
+<p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">The model's picks for the next few days, soonest first. Every one is graded against the final score.</p>
 </header>
 
 <!-- Sports. One preference shared with the Builder (ppSportChips in api.js).
@@ -190,9 +194,9 @@ function marketCheck(p) {
     <span class="text-on-surface-variant">Our model <strong class="text-primary">${ours}%</strong></span>
     <span class="text-on-surface-variant">·</span>
     <span class="text-on-surface-variant">${bookName} <strong class="text-primary">${p.book_odds}</strong> (${book}%)</span>
-    <span class="${wide ? "text-error font-bold" : "text-on-surface-variant"}"
-          title="${wide ? "We disagree with the market by more than 15 points — treat with caution" : "In line with the market"}">
-      ${gap > 0 ? "+" : ""}${gap}
+    <span class="tabular-nums ${wide ? "text-error font-bold" : "text-on-surface-variant"}"
+          title="${wide ? "We disagree with the market by more than 15 points — treat with caution" : "Our probability minus the bookmaker's, in percentage points"}">
+      ${gap === 0 ? "same as market" : `${gap > 0 ? "+" : ""}${gap} vs market`}
     </span>
   </div>`;
 }
@@ -429,6 +433,15 @@ function renderStatStrip(picks, stats) {
        keeps its denominator and the every-prediction figure, and leads to the
        page that proves it. */
     const n = picks.length;
+    /* The feed runs up to five days ahead (ESPN fixtures, PR #18), so "66
+       picks today" was false on most days - measured 8 Oct: the list ran to
+       Tue 13 Oct. Say "upcoming", and count today's separately (the reader's
+       own local day, which is what "today" means to them). */
+    const todayStr = new Date().toDateString();
+    const nToday = picks.filter(p => {
+        const d = kickoffDate(p.match_date, p.kickoff_time, p.kickoff_utc);
+        return d && d.toDateString() === todayStr;
+    }).length;
     const recordLine = stats && stats.scored_picks
         ? ` Picks we serve have won <strong class="text-primary tabular-nums">${acc}</strong>
              <span class="tabular-nums">(${stats.correct} of ${stats.scored_picks} graded${all ? `;${all.replace(" · ", " ")}` : ""})</span>.
@@ -436,7 +449,7 @@ function renderStatStrip(picks, stats) {
         : "";
     document.getElementById("stat-strip").innerHTML =
         `<p class="text-body-md text-on-surface-variant max-w-prose">
-           <strong class="text-primary">${n} ${n === 1 ? "pick" : "picks"} today</strong>${high ? `, ${high} with high confidence` : ""}.${recordLine}
+           <strong class="text-primary">${n} upcoming ${n === 1 ? "pick" : "picks"}</strong>${nToday && nToday < n ? ` (${nToday} today)` : nToday === n && n ? " (all today)" : ""}${high ? `, ${high} with high confidence` : ""}.${recordLine}
          </p>`;
 }
 
@@ -458,6 +471,9 @@ let DRAW_CONSIDERED = 0;
 let DRAW_DISCLOSURE = "";
 let CURRENT_TIER = "ALL";
 let CURRENT_LEAGUE = "ALL";
+let LEAGUES_EXPANDED = false;
+// Eight chips are two rows on a desktop but five on a phone, so phones get four.
+const LEAGUE_CHIPS_SHOWN = window.matchMedia("(min-width: 640px)").matches ? 8 : 4;
 let UPDATED_AT = null;
 
 function paintTierChips() {
@@ -482,15 +498,33 @@ function buildLeagueChips() {
     });
     if (counts.size < 2) { box.innerHTML = ""; return; }   // one league: pointless
     const names = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    /* Biggest leagues first, the rest behind "+N more". On 8 Oct all 34 chips
+       showed at once: six rows on desktop, a full phone screen, and the first
+       pick pushed below the fold by a filter most visitors never touch. The
+       selected league always stays visible, even if it is in the hidden set. */
+    const shown = LEAGUES_EXPANDED ? names
+        : names.filter(([n], i) => i < LEAGUE_CHIPS_SHOWN || n === CURRENT_LEAGUE);
+    const hidden = names.length - shown.length;
     box.innerHTML =
         `<button data-league="ALL" class="league-chip px-md py-base rounded-full text-label-sm font-bold border border-outline-variant transition">All leagues</button>` +
-        names.map(([n, c]) =>
+        shown.map(([n, c]) =>
             `<button data-league="${escapeHtml(n)}" class="league-chip px-md py-base rounded-full text-label-sm border border-outline-variant transition">${escapeHtml(n)} (${c})</button>`
-        ).join("");
+        ).join("") +
+        (hidden > 0
+            ? `<button type="button" id="league-more" class="px-md py-base rounded-full text-label-sm font-semibold text-secondary border border-dashed border-outline-variant transition">+${hidden} more</button>`
+            : "");
     box.querySelectorAll(".league-chip").forEach(ch =>
         ch.addEventListener("click", () => {
             CURRENT_LEAGUE = ch.dataset.league; paintLeagueChips(); renderFeed();
         }));
+    const more = document.getElementById("league-more");
+    if (more) more.addEventListener("click", () => {
+        LEAGUES_EXPANDED = true;
+        buildLeagueChips();
+        // The button removes itself; hand keyboard focus to the first chip it revealed.
+        const first = box.querySelectorAll(".league-chip")[shown.length + 1];
+        if (first) first.focus();
+    });
     paintLeagueChips();
 }
 

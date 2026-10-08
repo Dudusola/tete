@@ -1343,6 +1343,39 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     name funnel: priced fixtures -> predicted -> served, not just "rows landed".** **A green 'backup' run is not a second attempt if its
     guard skips: check what the backup actually DID, not just its colour.**
 
+35. **The site was slow on a WARM server - measured, then fixed at four layers
+    (8 Oct 2026).** "Waking the prediction server" showed on a server the Worker
+    pings every 10 min. Live: /api/stats 2.6 s, /fixtures 2.1-3.1 s, /slip 1.9 s;
+    Render's free CPU is ~7x slower than a laptop, and a page's parallel calls
+    queue behind each other until one passes the 5 s notice threshold.
+    - **No indexes.** The only index was on market_lines, so every
+      `MAX(id) ... WHERE match_id = ?` (the rule from bugs #3/#11/#20) scanned
+      its table once per match. `db/database.py READ_INDEXES`: stats 437->45 ms,
+      tiers 260->16, trend 253->19, picks 137->41, every response byte-identical.
+      Created by init_db (daily pipeline) AND by the API's ledger sync on each
+      downloaded copy, so speed never depends on which writer touched the file.
+      Adding them changed one query's ORDER - `_predictions_with_goals` had no
+      ORDER BY and relied on rowid scan order, which build_slip's tie-breaks
+      depend on (item 9). Pinned to `ORDER BY m.id`; fixtures output verified
+      identical to pre-index. **An index can change the order of a query with
+      no ORDER BY. If order matters, say so in SQL.**
+    - **No response cache.** `api/cache.py`: GET answers cached as encoded bytes,
+      keyed by endpoint + args + LEDGER VERSION (file mtime+size; the sync swaps
+      it atomically), plus a per-endpoint TTL for clock-dependent answers
+      (picks 30 s, slip/fixtures 60 s, stats 10 min). Single-flight lock per
+      key; ETag + 304; Cache-Control. Hits ~7 ms. A new ledger shows on the next
+      request (tested). /healthz reports hit/miss counts. The sync now sends
+      If-None-Match, so an unchanged ledger is a 304 and does NOT flush the cache.
+    - **Static assets revalidated every view** (`max-age=0`, ~6 x 500 ms).
+      `webapp/_headers`: js/css 1 h + stale-while-revalidate (NOT a year/
+      immutable: a manual unstamped deploy would then serve stale api.js for a
+      year - the "Couldn't book" bug). Preconnect to the API and gstatic.
+    - **The icon font was 1,137,972 bytes.** Subset via `&icon_names=` to ~70 KB,
+      same axes, zero visual change (checked: every icon on 6 pages renders as a
+      glyph). The list is DERIVED by `tools/icon_subset.py` (source tokens ∩
+      official names), re-run on every deploy. **Never build an icon name from
+      pieces** - the scanner only sees whole names, same as the Tailwind rule.
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate

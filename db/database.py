@@ -315,9 +315,38 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # already exists
 
+    ensure_read_indexes(conn)
+
     conn.commit()
     conn.close()
     logger.success("✅ Database initialized")
+
+
+# Read-path indexes (8 Oct 2026). Until then the only index was on
+# market_lines, so every "latest prediction per match" lookup
+# (MAX(id) WHERE match_id = ?) - the rule from bugs #3/#11/#20, used by nearly
+# every query the API runs - scanned the whole table, once per match. Measured
+# on the ledger copy: /api/stats 437 -> 45 ms, /stats/tiers 260 -> 16 ms,
+# /stats/trend 253 -> 19 ms, /picks 137 -> 41 ms, every response byte-identical
+# before and after. Render's free CPU is ~7x slower than a laptop, so these
+# were whole seconds on the live site. (match_id, id) answers MAX(id) per match
+# from the index alone. ~0.6 MB on a 4.4 MB ledger.
+READ_INDEXES = (
+    "CREATE INDEX IF NOT EXISTS idx_model_predictions_match "
+    "ON model_predictions(match_id, id)",
+    "CREATE INDEX IF NOT EXISTS idx_scraped_predictions_match "
+    "ON scraped_predictions(match_id, source, id)",
+    "CREATE INDEX IF NOT EXISTS idx_matches_sport_date "
+    "ON matches(sport, match_date)",
+)
+
+
+def ensure_read_indexes(conn) -> None:
+    """Create the read-path indexes. Idempotent. Also called by the API's
+    ledger sync on every downloaded copy, so serving speed never depends on
+    which writer last touched the committed file."""
+    for ddl in READ_INDEXES:
+        conn.execute(ddl)
 
 
 def insert_match(match_data: dict) -> bool:
