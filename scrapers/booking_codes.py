@@ -21,6 +21,7 @@ import sys
 import time as _time
 from datetime import datetime
 
+import re
 import requests
 from loguru import logger
 
@@ -100,7 +101,7 @@ def _decode_sporty_like(code: str, url_template: str, label: str) -> list[dict]:
     the same four legs), so they share one parser instead of two that can drift.
     """
     code = code.strip().upper()
-    if not code or len(code) > 20:
+    if not re.fullmatch(r'[A-Z0-9]{3,20}', code):  # also blocks '/', '..', '?' in the URL path
         raise BookingCodeError("That doesn't look like a booking code.")
     try:
         r = requests.get(url_template.format(code=code),
@@ -916,7 +917,7 @@ def decode_msport(code: str) -> list[dict]:
     payload: data.bettableBetSlip[] with event/market/outcome objects.
     (Structure captured from a real code, 2026-07-16.)"""
     code = code.strip().upper()
-    if not code or len(code) > 20:
+    if not re.fullmatch(r'[A-Z0-9]{3,20}', code):  # also blocks '/', '..', '?' in the URL path
         raise BookingCodeError("That doesn't look like a booking code.")
     try:
         r = requests.get(MSPORT_URL.format(code=code), headers=HEADERS,
@@ -986,7 +987,7 @@ def decode_bet9ja(code: str) -> list[dict]:
     code; unknown payloads are dumped to data/raw/ so the parser can be
     extended, same playbook as MSport."""
     code = code.strip().upper()
-    if not code or len(code) > 20:
+    if not re.fullmatch(r'[A-Z0-9]{3,20}', code):  # also blocks '/', '..', '?' in the URL path
         raise BookingCodeError("That doesn't look like a booking code.")
     try:
         r = requests.get(BET9JA_COUPON_URL, params={"couponCode": code},
@@ -1072,7 +1073,7 @@ def decode_betano(code: str) -> list[dict]:
     call as Bet9ja: decode yes, convert no.
     """
     code = code.strip().upper()
-    if not code or len(code) > 24:
+    if not re.fullmatch(r'[A-Z0-9]{3,24}', code):  # also blocks '/', '..', '?' in the URL path
         raise BookingCodeError("That doesn't look like a booking code.")
     try:
         r = requests.get(BETANO_URL.format(code=code),

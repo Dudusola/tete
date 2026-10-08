@@ -30,6 +30,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
 from api.cache import cached, not_modified_middleware, stats as cache_stats, ledger_version
+from api.security import limits_middleware, cap, MAX_LEGS
 from models.markets import (derive_markets, build_slip, accumulator_probability,
                             kickoff_passed, teams_key)
 from models.goals_model import expected_goals
@@ -69,13 +70,21 @@ app = FastAPI(
 # Allow the future web app (any origin during dev) to call this API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],          # tighten to your domain before going live
-    allow_methods=["*"],
-    allow_headers=["*"],
+    # Our own site (incl. Pages preview deploys) and local dev only. The API
+    # has no cookies or private data, so "*" leaked nothing - but it let any
+    # site build on our server's CPU and our IP's standing with the
+    # bookmakers. The Render origin serves the webapp same-origin (no CORS).
+    allow_origin_regex=r"^https://([a-z0-9-]+\.)?potentialpro\.pages\.dev$"
+                       r"|^http://(localhost|127\.0\.0\.1)(:\d+)?$",
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "If-None-Match"],
 )
 # ETag -> 304. Registered AFTER CORS, so it wraps it and every 304 it builds
 # still carries the CORS headers (see api/cache.py).
 app.middleware("http")(not_modified_middleware)
+# Size cap + per-IP rate limits (api/security.py). Outermost, so a rejected
+# request costs nothing downstream.
+app.middleware("http")(limits_middleware)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -1145,6 +1154,7 @@ def results_lookup(match_ids: List[str] = Body(..., embed=True)):
 
 @app.post("/api/slip/settle")
 def slip_settle(legs: List[dict] = Body(..., embed=True)):
+    cap(legs, MAX_LEGS, "legs")
     """Settle the legs of accumulators a user tracks in My Record.
 
     Each leg: {match_id, market, selection, home_team, away_team} - exactly
@@ -1190,6 +1200,7 @@ def slip_settle(legs: List[dict] = Body(..., embed=True)):
 
 @app.post("/api/slip/odds")
 def slip_odds(legs: List[dict] = Body(..., embed=True)):
+    cap(legs, MAX_LEGS, "legs")
     """SportyBet prices for a hand-built slip (the Checker's legs carry none),
     so a tracked accumulator records the price at the moment it was tracked.
     Best effort: a leg SportyBet doesn't list comes back null."""
@@ -1200,6 +1211,7 @@ def slip_odds(legs: List[dict] = Body(..., embed=True)):
 
 @app.post("/api/slip/check")
 def check_slip(legs: List[dict] = Body(..., embed=True)):
+    cap(legs, MAX_LEGS, "legs")
     """Score a user-assembled slip.
     Each leg: {match_id, selection}. Returns each leg's probability +
     the combined accumulator probability. Legs we can't find are flagged."""
@@ -1422,6 +1434,7 @@ def booking_merge(sources: List[dict] = Body(...),
     Duplicate fixtures are dropped and reported — two slips backing different
     outcomes of the same match cannot both win.
     """
+    cap(sources, 10, "codes")
     try:
         return {"ok": True, **merge_codes(sources, to_provider)}
     except BookingCodeError as e:
@@ -1435,6 +1448,7 @@ def booking_generate(legs: List[dict] = Body(..., embed=True),
     bookmaker (SportyBet, MSport, football.com — one shared Betradar mapping).
     Each leg: {home_team, away_team, market, selection}. Legs the bookmaker
     doesn't list (small leagues, started games) come back as `unmapped`."""
+    cap(legs, MAX_LEGS, "legs")
     try:
         res = generate_code(legs, provider)
     except BookingCodeError as e:

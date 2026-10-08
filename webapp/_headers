@@ -28,3 +28,18 @@
 
 /manifest.json
   Cache-Control: public, max-age=3600, stale-while-revalidate=86400
+
+# Browser security headers, every page (8 Oct 2026).
+#   X-Frame-Options / frame-ancestors: nobody can frame the site and trick a
+#     tap onto "Book" or "Delete account" (clickjacking).
+#   nosniff: a file is only ever run as the type we serve it as.
+#   Referrer-Policy: other sites see our origin, never a page's query string.
+#   Permissions-Policy: the app uses none of these; say so.
+# No full Content-Security-Policy yet: the pages use inline scripts and
+# handlers, so a CSP needs nonces first or it would break the site.
+/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
