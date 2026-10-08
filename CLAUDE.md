@@ -312,6 +312,16 @@ generate predictions on demand.
                           models/team_match.py untouched. Measured: served picks bookable 46->50/51,
                           all fixtures 306->317/420, every one of the 11 changed mappings checked by
                           hand, zero previously-mapped fixtures moved; code QEC1CT decoded back right.
+                          KICKOFF ANCHOR (8 Oct): if pair_score finds nothing, accept the ONE SportyBet
+                          game within 90 min of our kickoff where one team matches >= 0.92 and the other
+                          >= 0.35 ("Man Utd v Tottenham", "PSG v Le Mans FC", "Liverpool v Man City") -
+                          a team cannot play twice at once. Squad qualifiers still zero the score; two
+                          candidates = no match. Upcoming fixtures mapped 321 -> 366, all 45 checked.
+                          BUILDER (8 Oct, Boss: "some legs are not getting priced"): get_slip drops a
+                          leg's MARKET when the game is listed but that market/line isn't (falls back to
+                          the fixture's next-best market via build_slip(exclude_options)), and swaps an
+                          UNLISTED game only if the slip keeps its length; bankers never touched.
+                          18 test slips: 0 of 120 legs unpriced; 10-leg mixed slip booked UE6WL9 10/10.
 - Booking NHL/NFL (scrapers/booking_codes.US_SPORTS): SportyBet FULL-GAME ids only - NHL 406 winner,
                           410 handicap, 412 total (all "incl. overtime and penalties"), 1 = 60-min 1X2
                           (from our 60-Minute Result only); NFL 219/223/225 "incl. overtime". Mapped by

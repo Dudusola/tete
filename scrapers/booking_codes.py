@@ -554,6 +554,59 @@ def _sporty_clean(name: str, tournament: str | None, unique_br: set) -> str:
     return " ".join(kept) if kept else name
 
 
+ANCHOR_MINUTES = 90       # same kickoff, within this many minutes
+ANCHOR_STRONG = 0.92      # one side must match this well...
+ANCHOR_WEAK = 0.35        # ...and the other at least this (abbreviations score low)
+
+
+def _kickoff_anchored(leg: dict, events: list[dict], unique: set) -> dict | None:
+    """Fallback when pair_score finds nothing: the same game under an
+    abbreviation ("Manchester United v Tottenham Hotspur" / "Man Utd v
+    Tottenham", "Paris Saint-Germain" / "PSG").
+
+    The evidence is the KICKOFF: a team cannot play two games at once, so one
+    side matching strongly plus a SportyBet game starting at the same time is
+    the same fixture, even when the other name is abbreviated past what any
+    string similarity accepts. Guards, each against a real failure mode:
+      - the leg must carry an exact kickoff (kickoff_utc), else no fallback;
+      - team_sim returns 0 when squad qualifiers differ (Women / U21 / II), so
+        "Arsenal" can never anchor "Arsenal Women" at the same hour;
+      - the other side must still be loosely similar (>= ANCHOR_WEAK) - an
+        unrelated opponent is a different game;
+      - EXACTLY one candidate, or nothing: two plausible games is a guess.
+    Measured 8 Oct 2026: 65 upcoming fixtures were on SportyBet under such
+    names and unmatched; every newly matched pair was checked by hand.
+    """
+    from datetime import datetime, timezone
+    from models.team_match import team_sim
+    ko = leg.get("kickoff_utc")
+    if not ko or len(ko) < 16:
+        return None
+    try:
+        t0 = datetime.strptime(ko[:16], "%Y-%m-%d %H:%M").replace(tzinfo=timezone.utc)
+    except ValueError:
+        return None
+    home, away = leg.get("home_team") or "", leg.get("away_team") or ""
+    found = []
+    for ev in events:
+        ms = ev.get("estimateStartTime")
+        if not ms:
+            continue
+        mins = abs((datetime.fromtimestamp(ms / 1000, tz=timezone.utc) - t0).total_seconds()) / 60
+        if mins > ANCHOR_MINUTES:
+            continue
+        t = ev.get("_tournament")
+        eh = [ev.get("homeTeamName") or ""]
+        ea = [ev.get("awayTeamName") or ""]
+        eh.append(_sporty_clean(eh[0], t, unique))
+        ea.append(_sporty_clean(ea[0], t, unique))
+        hs = max(team_sim(home, x) for x in eh)
+        as_ = max(team_sim(away, x) for x in ea)
+        if max(hs, as_) >= ANCHOR_STRONG and min(hs, as_) >= ANCHOR_WEAK:
+            found.append(ev)
+    return found[0] if len(found) == 1 else None
+
+
 def map_leg_to_sportybet(leg: dict, events: list[dict]) -> dict | None:
     """Find the SportyBet event + market + outcome for one of our slip legs.
     Market/outcome translation is deterministic (no cross-market fuzzing) —
@@ -595,6 +648,8 @@ def map_leg_to_sportybet(leg: dict, events: list[dict]) -> dict | None:
                 s = s2
         if s is not None and s > best_s:
             best_ev, best_s = ev, s
+    if not best_ev:
+        best_ev = _kickoff_anchored(lookup, events, unique)
     if not best_ev:
         return None
 

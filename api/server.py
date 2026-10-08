@@ -427,7 +427,7 @@ def _prewarm_sportybet() -> None:
         # before a visitor arrives - not by the first visitor after a deploy.
         for warm in (fetch_sportybet_events, get_picks,
                      lambda: get_slip(risk="MEDIUM", games=5, leagues=None,
-                                      exclude=None, pin=None, sports="football")):
+                                      exclude=None, pin=None, sports="football,nhl,nfl")):
             try:
                 warm()
             except Exception:
@@ -629,10 +629,11 @@ def get_slip(
             if len(parts) == 4:
                 pinned.append({"home_team": parts[0], "away_team": parts[1],
                                "market": parts[2], "selection": parts[3]})
-    def build(extra_excludes):
+    def build(extra_excludes, bad_options=None):
         keys = (exclude_set or set()) | extra_excludes
         return build_slip(all_opts, risk.upper(), games, leagues=league_set,
-                          exclude_keys=keys or None, pinned=pinned)
+                          exclude_keys=keys or None, pinned=pinned,
+                          exclude_options=bad_options or None)
 
     def sporty_for(slip):
         # `league` routes NHL/NFL legs to their own SportyBet feed and its
@@ -649,22 +650,54 @@ def get_slip(
     # passes max; only runs when the odds feed is actually up.
     slip = build(set())
     sporty = sporty_for(slip)
-    suspects = set()   # accumulates across passes or pass 2 re-admits pass 1's
-    for _ in range(2):
+    # UNPRICED LEGS (8 Oct 2026, Boss: "when you build a slip some of them are
+    # not getting priced"). A leg SportyBet won't price is one of three things:
+    #   - the GAME is listed but not this market/line (a +1.5 it doesn't offer,
+    #     a combo it can't book) -> drop that option; the fixture falls back to
+    #     its next-best market;
+    #   - the GAME is not listed at all -> swap in another fixture, but only if
+    #     the slip keeps its length (a shorter slip is worse than one unpriced
+    #     leg, and a game SportyBet lacks can still be bet elsewhere);
+    #   - a game that has probably started (old rule, kept).
+    # Pinned bankers are never touched. Up to 3 passes; only when the feed is up.
+    from scrapers.booking_codes import _EventsBySport, leg_sport, map_leg
+    events_for = _EventsBySport()
+    pinned_keys = {teams_key(p["home_team"], p["away_team"]) for p in pinned}
+    suspects, bad_options, unlisted = set(), set(), set()
+    for _ in range(3):
         if not any(sporty["odds"]):
             break   # feed down/empty — no signal, keep the slip as-is
         today = datetime.now().strftime("%Y-%m-%d")
-        new_suspects = {teams_key(l.home_team, l.away_team)
-                        for l, o in zip(slip, sporty["odds"])
-                        if o is None
-                        and l.match_date <= today   # tomorrow's games are safe — just not mapped
-                        and (not l.kickoff_time
-                             or l.kickoff_time.strip() in ("", "00:00", "0:00"))}
-        new_suspects -= suspects
-        if not new_suspects:
+        new = False
+        for l, o in zip(slip, sporty["odds"]):
+            k = teams_key(l.home_team, l.away_team)
+            if o is not None or k in pinned_keys:
+                continue
+            code = leg_sport({"league": l.league})
+            probe = {"home_team": l.home_team, "away_team": l.away_team, "league": l.league,
+                     "match_date": l.match_date, "kickoff_utc": l.kickoff_utc,
+                     "market": "Match Result" if code == "football" else "Moneyline",
+                     "selection": f"{l.home_team} Win" if code == "football" else l.home_team}
+            if map_leg(probe, events_for):
+                opt = (k, l.market, l.selection)
+                if opt not in bad_options:
+                    bad_options.add(opt)
+                    new = True
+            elif (l.match_date <= today and (not l.kickoff_time
+                  or l.kickoff_time.strip() in ("", "00:00", "0:00"))):
+                if k not in suspects:
+                    suspects.add(k)
+                    new = True
+            elif k not in unlisted:
+                unlisted.add(k)
+                new = True
+        if not new:
             break
-        suspects |= new_suspects
-        slip = build(suspects)
+        candidate = build(suspects | unlisted, bad_options)
+        if len(candidate) < len(slip):
+            # Swapping unlisted games would shorten the slip: keep them.
+            candidate = build(suspects, bad_options)
+        slip = candidate
         sporty = sporty_for(slip)
     combined = accumulator_probability(slip)
 
