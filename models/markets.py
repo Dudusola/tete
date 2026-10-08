@@ -370,7 +370,8 @@ def teams_key(home: str, away: str) -> str:
 def build_slip(all_options: list, risk: str, num_games: int,
                leagues: set | None = None,
                exclude_keys: set | None = None,
-               pinned: list | None = None) -> list:
+               pinned: list | None = None,
+               exclude_options: set | None = None) -> list:
     """Build a slip of num_games selections at the requested risk level.
     One bet per real fixture, deduped across sources by teams + a +/-1 day
     window (so the same match filed a day apart by two sources collapses).
@@ -410,6 +411,11 @@ def build_slip(all_options: list, risk: str, num_games: int,
             continue
         key = _teams_key(opt)
         if exclude_keys and key in exclude_keys:
+            continue
+        # One MARKET of a fixture the bookmaker does not offer (a handicap line
+        # it doesn't list, a combo it can't book): drop that option only, so the
+        # fixture falls back to its next-best market (api/server.get_slip).
+        if exclude_options and (key, opt.market, opt.selection) in exclude_options:
             continue
         if key in pinned_keys:
             continue   # fixture already locked in by a Banker
