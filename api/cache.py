@@ -133,7 +133,11 @@ async def not_modified_middleware(request, call_next):
     if request.method == "GET" and response.status_code == 200:
         etag = response.headers.get("etag")
         inm = request.headers.get("if-none-match")
-        if etag and inm and etag in [t.strip() for t in inm.split(",")]:
+        # WEAK comparison, as RFC 9110 specifies for If-None-Match. Render's
+        # proxy gzips the body and rewrites our ETag to W/"...", so the
+        # browser sends back the weak form; a strict match never fired live.
+        weak = lambda t: t.strip().removeprefix("W/")
+        if etag and inm and weak(etag) in [weak(t) for t in inm.split(",")]:
             # Keep every header but the body's own - in particular the CORS
             # ones: the site is cross-origin, and a 304 without
             # Access-Control-Allow-Origin can fail the browser's check.
