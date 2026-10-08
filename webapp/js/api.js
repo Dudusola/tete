@@ -7,11 +7,20 @@
    3. same-origin :8080 on localhost (the dev default)
    4. same origin (when API is reverse-proxied under the web host)  */
 const API_BASE = (function () {
-    const q = new URLSearchParams(location.search).get("api");
-    if (q) { try { localStorage.setItem("pp-api", q); } catch (e) {} return q.replace(/\/$/, ""); }
-    try { const saved = localStorage.getItem("pp-api"); if (saved) return saved.replace(/\/$/, ""); } catch (e) {}
+    /* ?api= is a LOCAL-DEV switch only. On the live site it was a hijack: any
+       link carrying ?api=https://someone-else was saved to localStorage and
+       pointed that visitor's app - picks, records, booking codes - at a
+       stranger's server until they cleared site data (found 8 Oct 2026). */
+    const local = ["localhost", "127.0.0.1"].includes(location.hostname);
+    if (local) {
+        const q = new URLSearchParams(location.search).get("api");
+        if (q) { try { localStorage.setItem("pp-api", q); } catch (e) {} return q.replace(/\/$/, ""); }
+        try { const saved = localStorage.getItem("pp-api"); if (saved) return saved.replace(/\/$/, ""); } catch (e) {}
+    } else {
+        try { localStorage.removeItem("pp-api"); } catch (e) {}   // undo any earlier hijack
+    }
     if (window.PP_API_BASE) return window.PP_API_BASE.replace(/\/$/, "");
-    if (["localhost", "127.0.0.1"].includes(location.hostname)) return "http://localhost:8080";
+    if (local) return "http://localhost:8080";
     return location.origin;   // deployed same-origin fallback
 })();
 

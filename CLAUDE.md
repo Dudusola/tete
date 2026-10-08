@@ -1376,6 +1376,29 @@ unknown until the honest ledger matures (`db/edge_report.py`).
       official names), re-run on every deploy. **Never build an icon name from
       pieces** - the scanner only sees whole names, same as the Tailwind rule.
 
+36. **Security pass on a public, unauthenticated API (8 Oct 2026).** Clean
+    already: SQL is fully parameterised, every page escapes via the shared
+    escapeHtml, Supabase RLS limits each user to their own rows and
+    delete_my_account pins search_path, no secrets in the repo. Fixed:
+    - **`?api=` hijack (the serious one).** Any link with `?api=<url>` was saved
+      to localStorage and pointed that visitor's app - picks, records, booking
+      codes - at a stranger's server until they cleared site data. Now honoured
+      on localhost only, and a saved value is wiped on the live site.
+    - **Booking codes went into the bookmaker's URL path checked only for
+      length** - `../` could steer our server to other endpoints on that host.
+      Now `[A-Z0-9]{3,N}` only.
+    - `api/security.py`: 256 KB body cap (411 without Content-Length), list
+      caps (40 legs, 10 codes), per-IP token buckets - booking 20/min (each
+      calls a bookmaker FROM OUR IP; see the API-Football shared-IP
+      suspension), slip 60/min, settle/odds/check 60/min. IP from
+      CF-Connecting-IP, else the LAST X-Forwarded-For entry (earlier ones are
+      client-claimed).
+    - CORS: our Pages origin (+ preview subdomains) and localhost, not `*`.
+    - Worker webhook check fails CLOSED when WEBHOOK_SECRET is unset.
+    - Pages: X-Frame-Options DENY / frame-ancestors, nosniff, Referrer-Policy,
+      Permissions-Policy. **No full CSP yet** - inline scripts/handlers need
+      nonces first or a CSP breaks the site. That is the next step.
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate

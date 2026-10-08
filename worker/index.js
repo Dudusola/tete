@@ -375,8 +375,11 @@ export default {
 
     // Telegram echoes the secret we registered with setWebhook. Without this
     // check, anyone who guessed the URL could puppet the bot.
+    // Fail CLOSED: an unset secret used to skip the check entirely, so a
+    // dropped secret would have opened the bot to anyone (verified set and
+    // enforced - 403 - on 8 Oct 2026 before this was tightened).
     if (
-      env.WEBHOOK_SECRET &&
+      !env.WEBHOOK_SECRET ||
       request.headers.get("X-Telegram-Bot-Api-Secret-Token") !== env.WEBHOOK_SECRET
     ) {
       return new Response("forbidden", { status: 403 });
