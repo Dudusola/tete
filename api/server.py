@@ -29,6 +29,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import get_connection
+from api.cache import cached, not_modified_middleware, stats as cache_stats, ledger_version
 from models.markets import (derive_markets, build_slip, accumulator_probability,
                             kickoff_passed, teams_key)
 from models.goals_model import expected_goals
@@ -72,6 +73,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+# ETag -> 304. Registered AFTER CORS, so it wraps it and every 304 it builds
+# still carries the CORS headers (see api/cache.py).
+app.middleware("http")(not_modified_middleware)
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -251,6 +255,11 @@ def _predictions_with_goals() -> list:
           -- delayed or rescheduled matches, and anything already
           -- in play. NULL = unknown, so it stays visible.
           AND (m.live_state IS NULL OR m.live_state = 'pre')
+        -- Explicit, not incidental: this used to be whatever order SQLite
+        -- scanned `matches` in (rowid), and adding an index changed the plan
+        -- and with it the order. build_slip's tie-breaks and the Checker's
+        -- dedupe both depend on it, so it is pinned to the original order.
+        ORDER BY m.id
     """).fetchall()
     conn.close()
     # live_state is a snapshot; age it before it leaves the API.
@@ -285,7 +294,10 @@ def _attach_consensus(picks: list) -> list:
 
 @app.get("/healthz")
 def health():
-    return {"status": "ok", "service": "PotentialPro API"}
+    # Cache counters are here so "is the cache working in production?" is
+    # one curl, not a guess. ledger = (mtime_ns, size) of the served file.
+    return {"status": "ok", "service": "PotentialPro API",
+            "cache": dict(cache_stats), "ledger": ledger_version()}
 
 
 def _started_today() -> list:
@@ -353,6 +365,7 @@ def _started_today() -> list:
 
 
 @app.get("/api/picks")
+@cached(ttl=30, max_age=30)
 def get_picks():
     """Today's HIGH and MEDIUM confidence model picks.
 
@@ -503,6 +516,7 @@ def _attach_market_check(picks: list) -> None:
 
 
 @app.get("/api/picks/all")
+@cached(ttl=60, max_age=60)
 def get_all_picks():
     """All predictions including LOW confidence."""
     picks = _attach_consensus(_model_predictions(only_strong=False))
@@ -510,6 +524,7 @@ def get_all_picks():
 
 
 @app.get("/api/picks/draws")
+@cached(ttl=60, max_age=60)
 def get_draw_picks():
     """Fixtures where a draw is most plausible — a filter, not a tip.
 
@@ -579,6 +594,7 @@ def get_draw_picks():
 
 
 @app.get("/api/slip")
+@cached(ttl=60, max_age=60)
 def get_slip(
     risk: str = Query("MEDIUM", description="LOW, MEDIUM, or HIGH"),
     games: int = Query(5, ge=1, le=20, description="Number of games"),
@@ -763,6 +779,7 @@ def _sport_of_league(league: str | None) -> str:
 
 
 @app.get("/api/picks/sports")
+@cached(ttl=60, max_age=60)
 def get_sport_picks(sports: str = Query("nhl,nfl", description="Comma-separated: nhl, nfl")):
     """Recommended picks for NHL / NFL, football-style (models/us_sports.py):
     one bet per game with the football tiers, the bookmaker's view beside it,
@@ -780,6 +797,7 @@ def get_sport_picks(sports: str = Query("nhl,nfl", description="Comma-separated:
 
 
 @app.get("/api/leagues")
+@cached(ttl=300, max_age=120)
 def get_leagues():
     """Distinct leagues among upcoming (not yet kicked off) predicted matches —
     feeds the league filter on the slip builder."""
@@ -794,6 +812,7 @@ def get_leagues():
 
 
 @app.get("/api/consensus")
+@cached(ttl=300, max_age=120)
 def get_consensus():
     """Cross-source agreement between the live prediction sources.
 
@@ -837,6 +856,7 @@ def get_consensus():
 
 
 @app.get("/api/stats")
+@cached(ttl=600, max_age=120)
 def get_stats():
     """Overall running track record (HIGH+MEDIUM scored picks)."""
     conn = get_connection()
@@ -924,6 +944,7 @@ def get_stats():
 
 
 @app.get("/api/stats/trend")
+@cached(ttl=600, max_age=120)
 def get_stats_trend(weeks: int = Query(8, ge=2, le=26)):
     """Hit rate week by week, so the record shows a DIRECTION not just a total.
 
@@ -982,6 +1003,7 @@ def get_stats_trend(weeks: int = Query(8, ge=2, le=26)):
 
 
 @app.get("/api/stats/tiers")
+@cached(ttl=600, max_age=120)
 def get_stats_by_tier():
     """Accuracy broken down by confidence tier, plus each tier's PROBABILITY BAND.
 
@@ -1034,6 +1056,7 @@ def get_stats_by_tier():
 
 
 @app.get("/api/stats/picks")
+@cached(ttl=600, max_age=120)
 def get_scored_picks(tier: str = Query(None, description="HIGH, MEDIUM, or LOW; omit for all")):
     """Individual scored picks (for drill-down). Most recent first."""
     conn = get_connection()
@@ -1064,6 +1087,7 @@ def get_scored_picks(tier: str = Query(None, description="HIGH, MEDIUM, or LOW; 
             "picks": [dict(r) for r in rows]}
 
 @app.get("/api/fixtures")
+@cached(ttl=60, max_age=60)
 def get_fixtures():
     """All upcoming fixtures with their available markets, for the
     slip-checker UI to let the user hand-pick legs."""
@@ -1419,6 +1443,7 @@ def booking_generate(legs: List[dict] = Body(..., embed=True),
 
 
 @app.get("/api/preview/nhl")
+@cached(ttl=120, max_age=60)
 def preview_nhl():
     """The NHL page (webapp/hockey.html; public since 2 Oct 2026): upcoming games with
     every standard hockey market priced beside the bookmaker's, the facts-only

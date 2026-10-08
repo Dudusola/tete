@@ -27,6 +27,8 @@ on:
     paths:
       - 'webapp/**'
       - 'tools/tailwind/**'
+      - 'tools/icon_subset.py'
+      - 'tools/material_symbols_names.txt'
       - '.github/workflows/deploy-webapp.yml'
   workflow_dispatch:
 
@@ -61,6 +63,16 @@ jobs:
           cmp -s /tmp/committed.css ../../webapp/css/app.css || \
             echo "::warning::committed webapp/css/app.css is stale - run 'npm run build' in tools/tailwind and commit it"
           wc -c ../../webapp/css/app.css
+
+      # The icon font is subset to the icons the pages use (1.14 MB -> ~70 KB).
+      # The list is derived from the source on every deploy, so a newly used
+      # icon can never ship as its ligature text. See tools/icon_subset.py.
+      - name: Subset the icon font to the icons in use
+        run: |
+          python3 tools/icon_subset.py --check || \
+            echo "::warning::committed icon list is stale - run 'python tools/icon_subset.py' and commit"
+          python3 tools/icon_subset.py
+          grep -c "icon_names=" webapp/index.html
 
       # The cache-bust, computed rather than remembered.
       #
