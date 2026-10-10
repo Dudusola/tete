@@ -388,6 +388,15 @@ generate predictions on demand.
                           unknown or soccer) + reg_home_goals/reg_away_goals (27 Sep 2026, bug #31).
 - db/calibration_health.py  Tier/band calibration, sign test and model-era table from the ledger
                           (PR #13). Read-only. Replaces the hand analysis in item 4.
+- db/shrink_backtest.py   Would serving w*model + (1-w)*market-at-pick-time beat the raw model?
+                          Read-only; w chosen on the earlier 60% of the ledger, scored on the rest.
+                          RESULT 10 Oct 2026 (1,335 graded, test 534): NULL. Test log loss 0.9870
+                          (model) vs 0.9867 (pure market) vs 0.9859 (best blend); w=0 minus today
+                          -0.0003, CI [-0.0078, +0.0069]. No served pick ever changes SIDE - a blend
+                          only moves picks across the tier lines - and ROI/CLV differences are deep
+                          inside noise. The model ~= the market on 3-way probabilities, so a shrink
+                          neither helps nor hurts: NOT shipped, no new model era. Re-run when the
+                          ledger has doubled; an edge needs information the price lacks, not a blend.
 - db/dedupe_fixtures.py   merge cross-source duplicate fixtures (fuzzy teams + ±1 day). Handles results UNIQUE(match_id).
 - db/purge_results.py     wipe contaminated results table (used once after the fake-scores fix)
 - db/inspect_scores.py    read-only: show scored picks vs recorded scores
