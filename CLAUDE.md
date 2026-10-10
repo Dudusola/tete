@@ -123,6 +123,17 @@ generate predictions on demand.
                           guard. Read with db/clv_report.py, which scores only picks whose open and
                           close came from the SAME feed (across two books "movement" is just their
                           disagreement) and lists pre-27-Sep picks (no book_source) separately.
+- scrapers/sporty_lines.py SportyBet's OWN price for every upcoming football (1X2), NHL and NFL
+                          (full-game moneyline) fixture, appended to `sporty_lines` on CHANGE -
+                          daily + hourly (closing.yml). Same matcher as booking (map_leg). WHY:
+                          on 8 Oct the model was tied with the market (log loss 0.678 vs 0.676;
+                          an offline blend tied both on 6,671 held-out matches), so model tuning
+                          has no edge left to find; the remaining test is PRICE - does SportyBet
+                          pay more than ESPN's fair price? Untestable before this: 1,096 of 1,103
+                          stored "book" prices were ESPN's, the card's SportyBet number was never
+                          saved. First run: 345/440 football, 10/36 NHL, 10/14 NFL priced; 0 swaps
+                          vs ESPN (median 1 pt apart). SportyBet margin 4.8% vs ESPN 8.2%. Read
+                          with db/sporty_value_report.py; claim nothing until +EV's CI clears 0.
 - scrapers/clubelo.py     THE independent opinion. Elo ratings from api.clubelo.com (free, no key,
                           not behind Cloudflare). GET /Fixtures returns a goal-difference distribution
                           per fixture; summing it gives real H/D/A. Every OTHER source here is derived

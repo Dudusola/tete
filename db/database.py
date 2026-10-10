@@ -315,6 +315,28 @@ def init_db():
         except sqlite3.OperationalError:
             pass  # already exists
 
+    # SportyBet's own price per fixture over time (scrapers/sporty_lines.py).
+    # Its own table: market_lines is ESPN's moneyline history and
+    # scraped_predictions is football's feature path - a SportyBet row in
+    # either would be read as something it is not. Appended on CHANGE only.
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sporty_lines (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            match_id    TEXT NOT NULL,
+            sport       TEXT NOT NULL,          -- football / nhl / nfl
+            market      TEXT NOT NULL,          -- 1X2 (football) / ML (full game incl. OT)
+            event_id    TEXT,                   -- SportyBet's sr:match id
+            odds_home   REAL NOT NULL,
+            odds_draw   REAL,                   -- NULL for two-way moneylines
+            odds_away   REAL NOT NULL,
+            observed_at TEXT NOT NULL,          -- UTC
+            mins_before INTEGER,                -- minutes to kickoff when seen
+            FOREIGN KEY (match_id) REFERENCES matches(match_id)
+        )
+    """)
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_sporty_lines_match "
+                   "ON sporty_lines(match_id, market, id)")
+
     ensure_read_indexes(conn)
 
     conn.commit()
