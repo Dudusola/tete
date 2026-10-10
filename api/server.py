@@ -41,6 +41,7 @@ from models.tiers import TIER_BANDS
 # and nothing filtered on it, so a basketball row would have appeared in the
 # picks feed and — worse — inside the published accuracy. See models/sports.py.
 from models.sports import FOOTBALL, sport_sql
+from models.returns import served_returns
 from models.settle import settle as settle_leg
 from scrapers.booking_codes import attach_sporty_odds, fetch_sportybet_events
 from models.leagues import pretty_league
@@ -917,6 +918,9 @@ def get_stats():
     # interval. Computed by db/calibration_health.py - the same function the
     # command-line report uses - so the Record page and the script agree.
     calibration = tier_calibration(conn)
+    # Would following the served picks have made money, at the price stored
+    # when each was made? Published beside the hit rate (models/returns.py).
+    returns = served_returns(conn)
     conn.close()
 
     total = row["total"] or 0
@@ -949,6 +953,9 @@ def get_stats():
         "coverage": coverage,
         # [{tier, n, won, actual, claim, lo, hi, verdict}] for HIGH and MEDIUM
         "calibration": calibration,
+        # {graded, priced, unpriced, won, hit_pct, avg_odds, breakeven_pct,
+        #  roi_pct, roi_lo, roi_hi, verdict: profit|loss|break_even}
+        "returns": returns,
     }
 
 

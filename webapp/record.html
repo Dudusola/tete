@@ -101,6 +101,33 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 </p>
 </section>
 
+<!-- WHAT THIS IS - AND ISN'T (28 Sep 2026). The hit rate above is true and
+     calibrated, and on its own it invites the wrong conclusion: short odds
+     need a high hit rate just to break even. So the flat-stake return at the
+     prices stored when each pick was made sits right under it, with its
+     range, filled live from /api/stats `returns` (models/returns.py). The
+     wording follows the interval: "break-even" while zero is inside it. -->
+<section id="honest" aria-labelledby="honest-h" class="hidden bg-surface-container-lowest border border-outline-variant rounded-xl p-md md:p-lg">
+  <h2 id="honest-h" class="text-body-lg font-semibold text-primary">What this is — and what it isn't yet</h2>
+  <div class="grid md:grid-cols-2 gap-md md:gap-lg mt-sm text-body-md text-on-surface-variant">
+    <div>
+      <h3 class="text-label-sm font-bold uppercase tracking-wider text-secondary mb-xs">What it is</h3>
+      <ul class="space-y-xs list-disc pl-md">
+        <li id="honest-calibrated"></li>
+        <li>Fully public. Every pick is graded against the real final score, losses included, and only predictions made before kickoff count.</li>
+      </ul>
+    </div>
+    <div>
+      <h3 class="text-label-sm font-bold uppercase tracking-wider text-on-surface-variant mb-xs">What it isn't — yet</h3>
+      <ul class="space-y-xs list-disc pl-md">
+        <li id="honest-money"></li>
+        <li id="honest-guarantee"></li>
+      </ul>
+    </div>
+  </div>
+  <p class="mt-sm text-label-sm text-on-surface-variant">These figures update automatically from the record, so this note changes the moment the numbers do.</p>
+</section>
+
 <!-- Per-tier -->
 <!-- Draw ceiling. Sits between the headline rate and the tier table because it
      is the context that makes both readable: the model never predicts a draw,
@@ -388,6 +415,34 @@ const CAL_VERDICT = {
     over_confident:  "wins LESS often than stated",
     too_few:         "too few picks to judge yet",
 };
+function renderHonest(overall) {
+    const r = overall.returns || {};
+    const cal = overall.calibration || [];
+    const box = document.getElementById("honest");
+    if (!box || r.roi_pct == null) return;
+    const high = cal.find(c => c.tier === "HIGH");
+    const pct = v => `${v > 0 ? "+" : ""}${Number(v).toFixed(1)}%`;
+    document.getElementById("honest-calibrated").innerHTML = high
+        ? `Calibrated. Picks labelled HIGH were given about <strong class="text-primary tabular-nums">${Math.round(high.claim)}%</strong> and have won <strong class="text-primary tabular-nums">${Number(high.actual).toFixed(1)}%</strong>; the chart below shows every level.`
+        : `Calibrated: the chart below shows how often each confidence level has won.`;
+    const verdict = {
+        break_even: "not yet distinguishable from breaking even",
+        profit: "a profit so far, with the whole likely range above zero",
+        loss: "a loss so far, with the whole likely range below zero",
+    }[r.verdict] || "too early to call";
+    document.getElementById("honest-money").innerHTML =
+        `A proven way to make money. Backing every recommended pick with the same stake, at the SportyBet price when it was made, ` +
+        `would have returned <strong class="text-primary tabular-nums">${pct(r.roi_pct)}</strong> over ` +
+        `<span class="tabular-nums">${r.priced.toLocaleString("en")}</span> priced picks: ${verdict} ` +
+        `(likely range <span class="tabular-nums">${pct(r.roi_lo)} to ${pct(r.roi_hi)}</span>). ` +
+        `Most picks are favourites at short odds (average <span class="tabular-nums">${Number(r.avg_odds).toFixed(2)}</span>), ` +
+        `so they must win <span class="tabular-nums">${r.breakeven_pct}%</span> just to break even; they have won <span class="tabular-nums">${r.hit_pct}%</span>.`;
+    const loseEvery = high && high.actual < 100 ? Math.round(100 / (100 - high.actual)) : null;
+    document.getElementById("honest-guarantee").innerHTML =
+        `A guarantee. ${loseEvery ? `Even HIGH picks lose about one in ${loseEvery}.` : "Any pick can lose."} Only stake what you can afford to lose. 18+.`;
+    box.classList.remove("hidden");
+}
+
 function renderCalibration(rows) {
     const section = document.getElementById("calibration-section");
     if (!section || !rows || !rows.length) return;
@@ -477,6 +532,7 @@ async function loadRecord() {
         }
 
         renderCalibration(overall.calibration);
+        renderHonest(overall);
         renderTrend();
 
         const container = document.getElementById("tier-cards");
