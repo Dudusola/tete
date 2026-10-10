@@ -1410,6 +1410,22 @@ unknown until the honest ledger matures (`db/edge_report.py`).
       Permissions-Policy. **No full CSP yet** - inline scripts/handlers need
       nonces first or a CSP breaks the site. That is the next step.
 
+37. **Two football model experiments that did NOT help - don't re-run them
+    (10 Oct 2026).** Both on the same features, RF settings and 80/20 time
+    split as train.py, scored on held-out matches with a real price.
+    - **Market-anchored blend** (log-linear pool, weights fitted on the first
+      half of the test slice, scored on the later 6,671 rows): fitted to
+      market^0.73 x model^0.34; log loss blend 1.0063, market 1.0064, forest
+      1.0074 - all tied within noise. The forest has essentially LEARNED the
+      market (odds are 2/3 of its importance), so there is nothing to blend.
+      Live ledger agrees: model 0.678 vs ESPN's price 0.676 (1,103 picks).
+    - **Train on OPENING odds** (serving sees early prices, training saw
+      closing - a bug #7-shaped mismatch, it seemed): WORSE, +0.0030 log loss
+      [+0.0010, +0.0049] on 7,904 rows. Closing prices teach more than they
+      mislead. Keep closing-first ODDS_COLUMNS.
+    **Football edge, if any, is in PRICE, not the model:** see
+    scrapers/sporty_lines.py and db/sporty_value_report.py.
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate
