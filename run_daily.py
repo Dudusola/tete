@@ -622,6 +622,12 @@ def run_pipeline() -> list:
     run_step("Market snapshot (bookmaker price per pick)",
              ["scrapers/market_snapshot.py"], DEGRADED)
 
+    # DEGRADED: SportyBet's price for EVERY upcoming football/NHL/NFL fixture,
+    # appended on change (scrapers/sporty_lines.py). The data for the one edge
+    # that needs no cleverer model - SportyBet paying more than the fair price.
+    # Like closing prices it can only be captured now. Also runs hourly.
+    run_step("SportyBet lines (every fixture)", ["scrapers/sporty_lines.py"], DEGRADED)
+
     # OPTIONAL: Gemma/Gemini prose is explanation, never the prediction. A
     # pick with no write-up is complete; the next run fills it in.
     run_step("Backfill missing analysis", ["analysis/backfill_analysis.py"],
