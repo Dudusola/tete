@@ -447,9 +447,19 @@ function renderStatStrip(picks, stats) {
              <span class="tabular-nums">(${stats.correct} of ${stats.scored_picks} graded${all ? `;${all.replace(" · ", " ")}` : ""})</span>.
              <a href="record.html" class="text-secondary font-semibold underline underline-offset-2 whitespace-nowrap">See the full record</a>`
         : "";
+    // Hit rate is not profit. Say what following the picks has actually
+    // returned, in words that follow the interval (models/returns.py).
+    const rt = stats && stats.returns;
+    const moneyLine = rt && rt.roi_pct != null
+        ? ` <span class="block mt-xs">${{
+              break_even: "Backing them all at SportyBet prices has roughly broken even so far",
+              profit: "Backing them all at SportyBet prices has made a small profit so far",
+              loss: "Backing them all at SportyBet prices has lost money so far",
+          }[rt.verdict] || "It's too early to say whether backing them pays"} <span class="tabular-nums">(${rt.roi_pct > 0 ? "+" : ""}${rt.roi_pct}%)</span> — <a href="record.html#honest" class="text-secondary font-semibold underline underline-offset-2 whitespace-nowrap">what that means</a>.</span>`
+        : "";
     document.getElementById("stat-strip").innerHTML =
         `<p class="text-body-md text-on-surface-variant max-w-prose">
-           <strong class="text-primary">${n} upcoming ${n === 1 ? "pick" : "picks"}</strong>${nToday && nToday < n ? ` (${nToday} today)` : nToday === n && n ? " (all today)" : ""}${high ? `, ${high} with high confidence` : ""}.${recordLine}
+           <strong class="text-primary">${n} upcoming ${n === 1 ? "pick" : "picks"}</strong>${nToday && nToday < n ? ` (${nToday} today)` : nToday === n && n ? " (all today)" : ""}${high ? `, ${high} with high confidence` : ""}.${recordLine}${moneyLine}
          </p>`;
 }
 

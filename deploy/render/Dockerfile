@@ -30,7 +30,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # deploy for 10 minutes without ever reaching production (Aug 2026).
 COPY api/__init__.py api/server.py api/cache.py api/security.py ./api/
 COPY db/__init__.py db/database.py db/calibration_health.py ./db/
-COPY models/__init__.py models/markets.py models/goals_model.py models/consensus.py models/leagues.py models/live_scores.py models/gradeability.py models/draws.py models/team_match.py models/tiers.py models/sports.py models/settle.py models/elo.py models/nhl_markets.py models/nhl_preview.py models/us_sports.py models/nfl_markets.py ./models/
+COPY models/__init__.py models/markets.py models/goals_model.py models/consensus.py models/leagues.py models/live_scores.py models/gradeability.py models/draws.py models/team_match.py models/tiers.py models/sports.py models/settle.py models/elo.py models/nhl_markets.py models/nhl_preview.py models/us_sports.py models/nfl_markets.py models/returns.py ./models/
 COPY scrapers/__init__.py scrapers/booking_codes.py ./scrapers/
 COPY deploy/render/sync_ledger.py deploy/render/app_entry.py ./
 
