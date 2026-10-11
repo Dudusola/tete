@@ -38840,3 +38840,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401907987,2026-10-08,2026-10-08 00:00,2026,3,New York Yankees,Tampa Bay Rays,10,30,3,4,A,REG,3,4,0
 401908005,2026-10-08,2026-10-08 02:00,2026,3,San Diego Padres,Milwaukee Brewers,25,8,1,3,A,REG,1,3,0
 401907993,2026-10-09,2026-10-09 00:00,2026,3,Chicago White Sox,Cleveland Guardians,4,5,5,9,A,REG,5,9,0
+401907994,2026-10-11,2026-10-11 00:00,2026,3,Cleveland Guardians,Chicago White Sox,5,4,2,0,H,REG,2,0,0

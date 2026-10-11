@@ -20646,4 +20646,18 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892465,2026-10-09,2026-10-09 23:00,2027,2,Detroit Red Wings,Seattle Kraken,5,124292,3,6,A,REG,3,6,0
 401892466,2026-10-09,2026-10-09 23:00,2027,2,Washington Capitals,New York Rangers,23,13,3,1,H,REG,3,1,0
 401892467,2026-10-09,2026-10-09 23:00,2027,2,Columbus Blue Jackets,Pittsburgh Penguins,29,16,3,2,H,SO,2,2,0
+401891805,2026-10-10,2026-10-10 22:00,2027,2,Florida Panthers,Minnesota Wild,26,30,1,4,A,REG,1,4,0
 401892468,2026-10-10,2026-10-10 00:00,2027,2,Winnipeg Jets,Anaheim Ducks,28,25,1,5,A,REG,1,5,0
+401892469,2026-10-10,2026-10-10 17:00,2027,2,Boston Bruins,Philadelphia Flyers,1,15,5,1,H,REG,5,1,0
+401892470,2026-10-10,2026-10-10 19:30,2027,2,New Jersey Devils,Vancouver Canucks,11,22,4,1,H,REG,4,1,0
+401892471,2026-10-10,2026-10-10 20:00,2027,2,San Jose Sharks,Edmonton Oilers,18,6,1,3,A,REG,1,3,0
+401892472,2026-10-10,2026-10-10 23:00,2027,2,Buffalo Sabres,Utah Mammoth,2,129764,1,4,A,REG,1,4,0
+401892473,2026-10-10,2026-10-10 23:00,2027,2,Montreal Canadiens,Detroit Red Wings,10,5,1,0,H,SO,0,0,0
+401892474,2026-10-10,2026-10-10 23:00,2027,2,Ottawa Senators,Nashville Predators,14,27,3,2,H,SO,2,2,0
+401892475,2026-10-10,2026-10-10 23:00,2027,2,Pittsburgh Penguins,Dallas Stars,16,9,2,1,H,SO,1,1,0
+401892476,2026-10-10,2026-10-10 23:00,2027,2,Chicago Blackhawks,Carolina Hurricanes,4,7,2,5,A,REG,2,5,0
+401892477,2026-10-10,2026-10-10 23:00,2027,2,St. Louis Blues,Columbus Blue Jackets,19,29,5,3,H,REG,5,3,0
+401892478,2026-10-10,2026-10-10 23:00,2027,2,Colorado Avalanche,Toronto Maple Leafs,17,21,3,6,A,REG,3,6,0
+401892479,2026-10-10,2026-10-10 23:30,2027,2,New York Islanders,Tampa Bay Lightning,12,20,3,5,A,REG,3,5,0
+401892480,2026-10-11,2026-10-11 02:00,2027,2,Calgary Flames,Anaheim Ducks,3,25,2,4,A,REG,2,4,0
+401892481,2026-10-11,2026-10-11 02:00,2027,2,Vegas Golden Knights,Los Angeles Kings,37,8,2,1,H,OT,1,1,0
