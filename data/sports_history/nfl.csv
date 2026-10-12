@@ -4427,3 +4427,16 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401872978,2026-10-05,2026-10-05 00:20,2026,2,Carolina Panthers,Detroit Lions,29,8,32,26,H,REG,32,26,0
 401872979,2026-10-06,2026-10-06 00:15,2026,2,New Orleans Saints,Atlanta Falcons,18,1,24,45,A,REG,24,45,0
 401872980,2026-10-09,2026-10-09 00:15,2026,2,Dallas Cowboys,Tampa Bay Buccaneers,6,27,16,24,A,REG,16,24,0
+401872981,2026-10-11,2026-10-11 13:30,2026,2,Jacksonville Jaguars,Philadelphia Eagles,30,21,19,17,H,REG,19,17,1
+401872982,2026-10-11,2026-10-11 17:00,2026,2,Miami Dolphins,Cincinnati Bengals,15,4,24,31,A,REG,24,31,0
+401872983,2026-10-11,2026-10-11 17:00,2026,2,New York Jets,Cleveland Browns,20,5,17,12,H,REG,17,12,0
+401872984,2026-10-11,2026-10-11 17:00,2026,2,Tennessee Titans,Houston Texans,10,34,3,26,A,REG,3,26,0
+401872985,2026-10-11,2026-10-11 17:00,2026,2,Pittsburgh Steelers,Indianapolis Colts,23,11,34,22,H,REG,34,22,0
+401872986,2026-10-11,2026-10-11 17:00,2026,2,New England Patriots,Las Vegas Raiders,17,13,45,17,H,REG,45,17,0
+401872987,2026-10-11,2026-10-11 17:00,2026,2,New Orleans Saints,Minnesota Vikings,18,16,13,23,A,REG,13,23,0
+401872988,2026-10-11,2026-10-11 17:00,2026,2,Washington Commanders,New York Giants,28,19,27,27,D,OT,27,27,0
+401872989,2026-10-11,2026-10-11 20:05,2026,2,Los Angeles Chargers,Denver Broncos,24,7,17,23,A,REG,17,23,0
+401872990,2026-10-11,2026-10-11 17:00,2026,2,Green Bay Packers,Chicago Bears,9,3,31,7,H,REG,31,7,0
+401872991,2026-10-11,2026-10-11 20:25,2026,2,Arizona Cardinals,Detroit Lions,22,8,21,45,A,REG,21,45,0
+401872992,2026-10-11,2026-10-11 20:25,2026,2,Seattle Seahawks,San Francisco 49ers,26,25,29,32,A,REG,29,32,0
+401872993,2026-10-12,2026-10-12 00:20,2026,2,Atlanta Falcons,Baltimore Ravens,1,33,23,30,A,OT,23,23,0
