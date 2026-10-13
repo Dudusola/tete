@@ -38842,3 +38842,5 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401907993,2026-10-09,2026-10-09 00:00,2026,3,Chicago White Sox,Cleveland Guardians,4,5,5,9,A,REG,5,9,0
 401907994,2026-10-11,2026-10-11 00:00,2026,3,Cleveland Guardians,Chicago White Sox,5,4,2,0,H,REG,2,0,0
 401908030,2026-10-12,2026-10-12 00:00,2026,3,Milwaukee Brewers,Los Angeles Dodgers,8,19,2,1,H,REG,2,1,0
+401908031,2026-10-12,2026-10-12 21:00,2026,3,Milwaukee Brewers,Los Angeles Dodgers,8,19,7,4,H,REG,7,4,0
+401908023,2026-10-13,2026-10-13 00:00,2026,3,Tampa Bay Rays,Cleveland Guardians,30,5,3,7,A,REG,3,7,0

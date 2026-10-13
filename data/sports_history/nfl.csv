@@ -4440,3 +4440,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401872991,2026-10-11,2026-10-11 20:25,2026,2,Arizona Cardinals,Detroit Lions,22,8,21,45,A,REG,21,45,0
 401872992,2026-10-11,2026-10-11 20:25,2026,2,Seattle Seahawks,San Francisco 49ers,26,25,29,32,A,REG,29,32,0
 401872993,2026-10-12,2026-10-12 00:20,2026,2,Atlanta Falcons,Baltimore Ravens,1,33,23,30,A,OT,23,23,0
+401872994,2026-10-13,2026-10-13 00:15,2026,2,Los Angeles Rams,Buffalo Bills,14,2,34,37,A,OT,34,34,0
