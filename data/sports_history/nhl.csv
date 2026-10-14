@@ -20667,3 +20667,19 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892485,2026-10-12,2026-10-12 17:00,2027,2,Buffalo Sabres,Florida Panthers,2,26,5,3,H,REG,5,3,0
 401892486,2026-10-12,2026-10-12 23:00,2027,2,New Jersey Devils,Ottawa Senators,11,14,1,4,A,REG,1,4,0
 401892487,2026-10-13,2026-10-13 00:00,2027,2,Minnesota Wild,Vegas Golden Knights,30,37,4,2,H,REG,4,2,0
+401892488,2026-10-13,2026-10-13 22:00,2027,2,Detroit Red Wings,New Jersey Devils,5,11,4,5,A,OT,4,4,0
+401892489,2026-10-13,2026-10-13 22:15,2027,2,Columbus Blue Jackets,Florida Panthers,29,26,3,7,A,REG,3,7,0
+401892490,2026-10-13,2026-10-13 22:30,2027,2,Montreal Canadiens,Buffalo Sabres,10,2,4,3,H,SO,3,3,0
+401892491,2026-10-13,2026-10-13 22:45,2027,2,Carolina Hurricanes,Washington Capitals,7,23,4,2,H,REG,4,2,0
+401892492,2026-10-13,2026-10-13 23:00,2027,2,Philadelphia Flyers,Seattle Kraken,15,124292,2,3,A,SO,2,2,0
+401892493,2026-10-13,2026-10-13 23:15,2027,2,New York Rangers,Tampa Bay Lightning,13,20,4,1,H,REG,4,1,0
+401892494,2026-10-13,2026-10-13 23:30,2027,2,Ottawa Senators,St. Louis Blues,14,19,2,7,A,REG,2,7,0
+401892495,2026-10-13,2026-10-13 23:45,2027,2,New York Islanders,Vancouver Canucks,12,22,3,2,H,REG,3,2,0
+401892496,2026-10-14,2026-10-14 00:00,2027,2,Chicago Blackhawks,Pittsburgh Penguins,4,16,5,3,H,REG,5,3,0
+401892497,2026-10-14,2026-10-14 00:15,2027,2,Winnipeg Jets,Minnesota Wild,28,30,5,2,H,REG,5,2,0
+401892498,2026-10-14,2026-10-14 00:45,2027,2,Dallas Stars,Colorado Avalanche,9,17,2,3,A,REG,2,3,0
+401892499,2026-10-14,2026-10-14 00:45,2027,2,Nashville Predators,Vegas Golden Knights,27,37,2,5,A,REG,2,5,0
+401892500,2026-10-14,2026-10-14 01:00,2027,2,Utah Mammoth,Toronto Maple Leafs,129764,21,5,4,H,REG,5,4,0
+401892501,2026-10-14,2026-10-14 01:45,2027,2,Anaheim Ducks,Calgary Flames,25,3,2,4,A,REG,2,4,0
+401892502,2026-10-14,2026-10-14 02:30,2027,2,Los Angeles Kings,Edmonton Oilers,8,6,1,4,A,REG,1,4,0
+401892503,2026-10-14,2026-10-14 03:15,2027,2,San Jose Sharks,Boston Bruins,18,1,3,6,A,REG,3,6,0
