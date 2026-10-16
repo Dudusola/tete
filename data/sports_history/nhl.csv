@@ -20623,7 +20623,7 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401891815,2026-10-06,2026-10-06 23:00,2027,2,Montreal Canadiens,Carolina Hurricanes,10,7,4,6,A,REG,4,6,0
 401892448,2026-10-06,2026-10-06 00:00,2027,2,Dallas Stars,San Jose Sharks,9,18,5,0,H,REG,5,0,0
 401892449,2026-10-06,2026-10-06 23:00,2027,2,Toronto Maple Leafs,Nashville Predators,21,27,5,4,H,OT,4,4,0
-401892450,2026-10-06,2026-10-06 23:00,2027,2,Detroit Red Wings,Ottawa Senators,5,14,5,3,H,,,,0
+401892450,2026-10-06,2026-10-06 23:00,2027,2,Detroit Red Wings,Ottawa Senators,5,14,5,3,H,REG,5,3,0
 401892451,2026-10-06,2026-10-06 23:00,2027,2,New Jersey Devils,Utah Mammoth,11,129764,3,5,A,REG,3,5,0
 401892452,2026-10-06,2026-10-06 23:30,2027,2,New York Rangers,New York Islanders,13,12,5,2,H,REG,5,2,0
 401892453,2026-10-06,2026-10-06 23:00,2027,2,Buffalo Sabres,Minnesota Wild,2,30,3,2,H,OT,2,2,0
@@ -20633,7 +20633,7 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892454,2026-10-07,2026-10-07 01:40,2027,2,Seattle Kraken,Vegas Golden Knights,124292,37,2,6,A,REG,2,6,0
 401892455,2026-10-07,2026-10-07 23:30,2027,2,Winnipeg Jets,Colorado Avalanche,28,17,3,2,H,REG,3,2,0
 401891820,2026-10-08,2026-10-08 23:00,2027,2,Ottawa Senators,Philadelphia Flyers,14,15,2,1,H,REG,2,1,0
-401892456,2026-10-08,2026-10-08 02:00,2027,2,Anaheim Ducks,Edmonton Oilers,25,6,2,5,A,REG,2,5,0
+401892456,2026-10-08,2026-10-08 02:00,2027,2,Anaheim Ducks,Edmonton Oilers,25,6,2,5,A,,,,0
 401892457,2026-10-08,2026-10-08 23:00,2027,2,Boston Bruins,Utah Mammoth,1,129764,6,1,H,REG,6,1,0
 401892458,2026-10-08,2026-10-08 23:00,2027,2,Buffalo Sabres,Dallas Stars,2,9,0,4,A,REG,0,4,0
 401892459,2026-10-08,2026-10-08 23:00,2027,2,Montreal Canadiens,Nashville Predators,10,27,2,5,A,REG,2,5,0
@@ -20685,3 +20685,14 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892503,2026-10-14,2026-10-14 03:15,2027,2,San Jose Sharks,Boston Bruins,18,1,3,6,A,REG,3,6,0
 401892504,2026-10-14,2026-10-14 23:30,2027,2,Washington Capitals,Montreal Canadiens,23,10,5,4,H,REG,5,4,0
 401892505,2026-10-15,2026-10-15 00:30,2027,2,Colorado Avalanche,Dallas Stars,17,9,2,3,A,SO,2,2,0
+401892506,2026-10-15,2026-10-15 23:00,2027,2,Toronto Maple Leafs,Buffalo Sabres,21,2,4,5,A,OT,4,4,0
+401892507,2026-10-15,2026-10-15 23:00,2027,2,Ottawa Senators,New York Islanders,14,12,2,1,H,SO,1,1,0
+401892508,2026-10-15,2026-10-15 23:30,2027,2,Detroit Red Wings,Philadelphia Flyers,5,15,2,1,H,REG,2,1,0
+401892509,2026-10-15,2026-10-15 23:00,2027,2,Tampa Bay Lightning,Seattle Kraken,20,124292,4,3,H,OT,3,3,0
+401892510,2026-10-15,2026-10-15 23:00,2027,2,Florida Panthers,Vancouver Canucks,26,22,3,2,H,OT,2,2,0
+401892511,2026-10-15,2026-10-15 23:00,2027,2,New Jersey Devils,New York Rangers,11,13,7,1,H,REG,7,1,0
+401892512,2026-10-16,2026-10-16 00:00,2027,2,Chicago Blackhawks,Winnipeg Jets,4,28,4,3,H,OT,3,3,0
+401892513,2026-10-16,2026-10-16 00:00,2027,2,Nashville Predators,San Jose Sharks,27,18,2,3,A,SO,2,2,0
+401892514,2026-10-16,2026-10-16 00:00,2027,2,Minnesota Wild,St. Louis Blues,30,19,5,4,H,REG,5,4,0
+401892515,2026-10-16,2026-10-16 01:00,2027,2,Edmonton Oilers,Utah Mammoth,6,129764,2,4,A,REG,2,4,0
+401892516,2026-10-16,2026-10-16 02:00,2027,2,Vegas Golden Knights,Calgary Flames,37,3,6,2,H,REG,6,2,0
