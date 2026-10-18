@@ -20698,3 +20698,17 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892516,2026-10-16,2026-10-16 02:00,2027,2,Vegas Golden Knights,Calgary Flames,37,3,6,2,H,REG,6,2,0
 401892517,2026-10-17,2026-10-17 01:00,2027,2,Colorado Avalanche,Pittsburgh Penguins,17,16,5,2,H,REG,5,2,0
 401892518,2026-10-17,2026-10-17 02:00,2027,2,Anaheim Ducks,Boston Bruins,25,1,2,4,A,REG,2,4,0
+401892519,2026-10-17,2026-10-17 17:00,2027,2,Washington Capitals,New Jersey Devils,23,11,4,2,H,REG,4,2,0
+401892520,2026-10-17,2026-10-17 19:30,2027,2,Winnipeg Jets,Carolina Hurricanes,28,7,2,3,A,REG,2,3,0
+401892521,2026-10-17,2026-10-17 20:00,2027,2,Tampa Bay Lightning,Vancouver Canucks,20,22,4,2,H,REG,4,2,0
+401892522,2026-10-17,2026-10-17 22:00,2027,2,Florida Panthers,Seattle Kraken,26,124292,8,3,H,REG,8,3,0
+401892523,2026-10-17,2026-10-17 23:00,2027,2,Toronto Maple Leafs,New York Islanders,21,12,1,4,A,REG,1,4,0
+401892524,2026-10-17,2026-10-17 23:00,2027,2,Montreal Canadiens,Buffalo Sabres,10,2,4,3,H,OT,3,3,0
+401892525,2026-10-17,2026-10-17 23:00,2027,2,Detroit Red Wings,San Jose Sharks,5,18,4,3,H,SO,3,3,0
+401892526,2026-10-17,2026-10-17 23:00,2027,2,Philadelphia Flyers,Ottawa Senators,15,14,3,1,H,REG,3,1,0
+401892527,2026-10-17,2026-10-17 23:00,2027,2,Columbus Blue Jackets,New York Rangers,29,13,1,0,H,OT,0,0,0
+401892528,2026-10-17,2026-10-17 23:00,2027,2,Chicago Blackhawks,Dallas Stars,4,9,0,4,A,REG,0,4,0
+401892529,2026-10-18,2026-10-18 00:00,2027,2,Nashville Predators,St. Louis Blues,27,19,5,2,H,REG,5,2,0
+401892530,2026-10-18,2026-10-18 01:00,2027,2,Los Angeles Kings,Boston Bruins,8,1,1,4,A,REG,1,4,0
+401892531,2026-10-18,2026-10-18 02:00,2027,2,Utah Mammoth,Edmonton Oilers,129764,6,2,6,A,REG,2,6,0
+401892532,2026-10-18,2026-10-18 02:00,2027,2,Vegas Golden Knights,Pittsburgh Penguins,37,16,6,2,H,REG,6,2,0
