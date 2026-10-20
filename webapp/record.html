@@ -115,6 +115,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
       <ul class="space-y-xs list-disc pl-md">
         <li id="honest-calibrated"></li>
         <li>Fully public. Every pick is graded against the real final score, losses included, and only predictions made before kickoff count.</li>
+        <li id="honest-warned" class="hidden"></li>
       </ul>
     </div>
     <div>
@@ -446,6 +447,13 @@ function renderHonest(overall) {
     const loseEvery = high && high.actual < 100 ? Math.round(100 / (100 - high.actual)) : null;
     document.getElementById("honest-guarantee").innerHTML =
         `A guarantee. ${loseEvery ? `Even HIGH picks lose about one in ${loseEvery}.` : "Any pick can lose."} Only stake what you can afford to lose. 18+.`;
+    const w = overall.price_warned;
+    if (w && w.graded) {
+        const li = document.getElementById("honest-warned");
+        li.innerHTML = `Warned when the price turns. Picks whose price moved 3+ points against them before kickoff carry a warning; ` +
+            `those have won <strong class="text-primary tabular-nums">${w.won} of ${w.graded}</strong> (${Math.round(100 * w.won / w.graded)}%), counted in the record like every other pick.`;
+        li.classList.remove("hidden");
+    }
     box.classList.remove("hidden");
 }
 

@@ -304,6 +304,10 @@ generate predictions on demand.
   SHIPPED as WARNINGS, never changed probabilities (models/us_sports.warnings): "price moved
   against this pick" and "QB news: X (this pick's / the opponent's regular starter) is listed Out".
   record() keeps warned picks APART ("warned") so the live ledger can confirm or kill them.
+  FOOTBALL got the same price warning 20 Oct 2026 (api/server.price_warnings): 838 graded
+  picks, price 3+ pts AGAINST before kickoff won 44.3% (claim 50.5%), 1+ TOWARD won 58.2%
+  (claim 51.0%, CI clear). /api/stats `price_warned` + record.html keep warned picks apart.
+  Same day: NHL totals dropped from Builder legs (book better, CI [+0.002, +0.019]).
   Rejected on reasoning first: "only recommend when we agree with the book" (Boss) - raises hit rate
   by keeping easy favourites, deletes the only disagreements with signal, copies the book.
 - NBA (20 Oct 2026, season opener): rides the NHL/NFL path end to end. elo_shadow.py writes a

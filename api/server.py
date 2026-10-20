@@ -162,6 +162,7 @@ def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> 
                mp.home_win_prob, mp.draw_prob, mp.away_win_prob,
                mp.confidence, mp.best_bet, mp.best_bet_prob, mp.gemma_analysis,
                mp.consensus_adj, m.kickoff_utc, m.live_state,
+               mp.book_prob, mp.close_prob, mp.book_source, mp.close_source,
                sp.predicted_home_goals, sp.predicted_away_goals,
                r.home_goals AS result_home_goals,
                r.away_goals AS result_away_goals,
@@ -182,8 +183,38 @@ def _model_predictions(only_strong: bool = True, upcoming_only: bool = True) -> 
     conn.close()
     # live_state is a snapshot; age it before it leaves the API.
     return [dict(r, live_state=effective_live_state(dict(r)),
-                 league_display=pretty_league(dict(r).get("league")))
+                 league_display=pretty_league(dict(r).get("league")),
+                 warnings=price_warnings(dict(r)))
             for r in rows]
+
+
+# Football's "price moved against" caution (20 Oct 2026). On 838 graded picks
+# with both prices, picks whose price drifted 3+ points AGAINST them before
+# kickoff won 44.3% (claim 50.5%); 1+ points TOWARD them won 58.2% (claim 51.0%,
+# CI clear of it) - the same direction as NHL/NFL (models/line_move_backtest.py).
+# A WARNING only, never a changed or pulled pick; /api/stats keeps warned picks
+# apart so the live record can confirm or kill it.
+PRICE_MOVE_WARN = 0.03
+
+
+def _moved_against(r: dict) -> float | None:
+    """How far the price for OUR pick fell from pick time to the latest
+    pre-kickoff observation (probability points). None unless both prices exist
+    and came from the same feed - across two books "movement" is disagreement."""
+    b, c = r.get("book_prob"), r.get("close_prob")
+    if b is None or c is None or (r.get("book_source") or "espn") != (r.get("close_source") or "espn"):
+        return None
+    return b - c
+
+
+def price_warnings(r: dict) -> list:
+    moved = _moved_against(r)
+    if moved is None or moved < PRICE_MOVE_WARN:
+        return []
+    return [{"type": "price",
+             "text": f"Price has moved against this pick since it was made ({moved * 100:.0f} points)",
+             "why": "Past picks whose price moved 3+ points against them before kickoff won "
+                    "less often than claimed. A caution, not a change to the pick."}]
 
 
 def _last_generated_at() -> str | None:
@@ -922,6 +953,21 @@ def get_stats():
     # Would following the served picks have made money, at the price stored
     # when each was made? Published beside the hit rate (models/returns.py).
     returns = served_returns(conn)
+    # Served graded picks that carried the price-moved warning, kept apart.
+    warned = [0, 0]
+    for r in conn.execute(f"""
+        SELECT mp.best_bet, mp.book_prob, mp.close_prob, mp.book_source, mp.close_source,
+               r.outcome
+        FROM model_predictions mp
+        JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
+        WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
+                       WHERE mp2.match_id = mp.match_id)
+          AND mp.confidence IN ('HIGH','MEDIUM') {SPORT_SQL}
+    """).fetchall():
+        if price_warnings(dict(r)):
+            warned[1] += 1
+            warned[0] += {"Home Win": "H", "Away Win": "A", "Draw": "D"}.get(r["best_bet"]) == r["outcome"]
     conn.close()
 
     total = row["total"] or 0
@@ -957,6 +1003,8 @@ def get_stats():
         # {graded, priced, unpriced, won, hit_pct, avg_odds, breakeven_pct,
         #  roi_pct, roi_lo, roi_hi, verdict: profit|loss|break_even}
         "returns": returns,
+        # Served picks shown with the price-moved warning: {won, graded}
+        "price_warned": {"won": warned[0], "graded": warned[1]},
     }
 
 

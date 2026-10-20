@@ -282,6 +282,11 @@ def slip_options(conn, codes: list) -> list:
             for it in mk["items"]:
                 if not _offered(it):
                     continue
+                # The book beats our NHL totals (shadow_report, 20 Oct 2026: log loss
+                # +0.010, CI [+0.002, +0.019], 124 games; same in the backtest), so
+                # the Builder does not pick them. Still shown on the card.
+                if code == "nhl" and it["key"].startswith(("over_", "under_")):
+                    continue
                 sel = selection(it["key"], r["home_team"], r["away_team"])
                 if not sel:
                     continue
