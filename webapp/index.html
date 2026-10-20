@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,switch,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
 <style>
 /* No theme() calls in here. Tailwind only resolves theme() inside a
    <style type="text/tailwindcss"> block; in a plain <style> it is invalid CSS
@@ -193,7 +193,7 @@ function marketCheck(p) {
   <div class="flex items-center justify-between gap-xs mb-md px-sm py-1 rounded-lg bg-surface border border-outline-variant text-label-sm">
     <span class="text-on-surface-variant">Our model <strong class="text-primary">${ours}%</strong></span>
     <span class="text-on-surface-variant">·</span>
-    <span class="text-on-surface-variant">${bookName} <strong class="text-primary">${p.book_odds}</strong> (${book}%)</span>
+    <span class="text-on-surface-variant">${bookName} <strong class="text-primary">${Number(p.book_odds).toFixed(2)}</strong> (${book}%)</span>
     <span class="tabular-nums ${wide ? "text-error font-bold" : "text-on-surface-variant"}"
           title="${wide ? "We disagree with the market by more than 15 points — treat with caution" : "Our probability minus the bookmaker's, in percentage points"}">
       ${gap === 0 ? "same as market" : `${gap > 0 ? "+" : ""}${gap} vs market`}
@@ -459,7 +459,7 @@ function renderStatStrip(picks, stats) {
         : "";
     document.getElementById("stat-strip").innerHTML =
         `<p class="text-body-md text-on-surface-variant max-w-prose">
-           <strong class="text-primary">${n} upcoming ${n === 1 ? "pick" : "picks"}</strong>${nToday && nToday < n ? ` (${nToday} today)` : nToday === n && n ? " (all today)" : ""}${high ? `, ${high} with high confidence` : ""}.${recordLine}${moneyLine}
+           <strong class="text-primary">${n} upcoming${SPORTS.length > 1 ? " football" : ""} ${n === 1 ? "pick" : "picks"}</strong>${nToday && nToday < n ? ` (${nToday} today)` : nToday === n && n ? " (all today)" : ""}${high ? `, ${high} with high confidence` : ""}.${recordLine}${moneyLine}
          </p>`;
 }
 
@@ -649,9 +649,12 @@ function renderSportNotes(sp, us) {
         const rec = r.graded
             ? `<strong class="text-primary tabular-nums">${r.won}-${r.lost}</strong> on ${r.graded} graded picks (${r.hit_pct}%)`
             : "no graded picks yet";
-        return `<div class="flex gap-sm items-start p-sm rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
-          <span class="font-bold text-primary shrink-0">${code.toUpperCase()}</span>
-          <span>Record: ${rec}. ${escapeHtml((sp.disclosures || {})[code] || "")}</span></div>`;
+        // One line each, so three sports don't push the first pick off a phone
+        // screen; "experimental" stays in the visible line, the rest is a tap away.
+        return `<details class="p-sm rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
+          <summary class="cursor-pointer"><span class="font-bold text-primary">${code.toUpperCase()}</span>
+            · ${rec} · experimental</summary>
+          <p class="mt-xs">${escapeHtml((sp.disclosures || {})[code] || "")}</p></details>`;
     }).join("");
 }
 

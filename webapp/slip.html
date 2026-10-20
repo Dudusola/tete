@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Slip Builder</title>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,switch,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
 <!-- Open the API and font connections while the page parses, not after its
      scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
 <link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
@@ -370,6 +370,8 @@ async function generateSlip() {
     btn.disabled = true;
     out.innerHTML = `<div class="space-y-sm">${ppSkeleton(56)}${ppSkeleton(180)}${ppSkeleton(90)}</div>
       <div class="text-center text-on-surface-variant py-sm text-label-sm">Building your ${ppRiskLabel(selectedRisk).toLowerCase()} slip…</div>`;
+    // On a phone the slip lands below the fold; take the reader to it.
+    out.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
     try {
         const leagues = selectedSports.includes("football") ? [...selectedLeagues] : [];
         const data = await PotentialProAPI.slip(selectedRisk, selectedCount, leagues, excludedPairs, pinnedLegs, selectedSports);
@@ -401,11 +403,24 @@ async function loadLeagues() {
             group.innerHTML = `<span class="text-label-sm text-on-surface-variant">No upcoming leagues right now.</span>`;
             return;
         }
+        // Biggest leagues first, the rest behind "+N more" (as on Picks): ~50
+        // chips pushed "Generate slip" two screens down on a phone.
+        const SHOWN = 8;
+        const byCount = [...d.leagues].sort((a, b) => b.upcoming_matches - a.upcoming_matches);
+        const hidden = byCount.length - SHOWN;
         group.innerHTML =
             `<button data-league="__all__" class="league-btn px-md py-xs rounded-full text-label-sm transition">All leagues</button>` +
-            d.leagues.map(l =>
-            `<button data-league="${escapeHtml(l.name)}" class="league-btn px-md py-xs rounded-full border border-outline-variant text-label-sm text-on-surface hover:bg-surface-container-high transition">${escapeHtml(prettyLeague(l.name))} (${l.upcoming_matches})</button>`
-        ).join("");
+            byCount.map((l, i) =>
+            `<button data-league="${escapeHtml(l.name)}" class="league-btn px-md py-xs rounded-full border border-outline-variant text-label-sm text-on-surface hover:bg-surface-container-high transition"${i >= SHOWN ? " hidden" : ""}>${escapeHtml(prettyLeague(l.name))} (${l.upcoming_matches})</button>`
+        ).join("") +
+            (hidden > 0 ? `<button type="button" id="league-more" class="px-md py-xs rounded-full text-label-sm font-semibold text-secondary border border-dashed border-outline-variant transition">+${hidden} more</button>` : "");
+        const more = document.getElementById("league-more");
+        if (more) more.addEventListener("click", () => {
+            group.querySelectorAll(".league-btn[hidden]").forEach(b => { b.hidden = false; });
+            const first = group.querySelectorAll(".league-btn")[SHOWN + 1];
+            more.remove();
+            if (first) first.focus();
+        });
         group.querySelectorAll(".league-btn").forEach(btn =>
             btn.addEventListener("click", () => {
                 const key = btn.dataset.league;
