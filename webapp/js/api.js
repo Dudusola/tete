@@ -53,6 +53,7 @@ const API_BASE = (function () {
       html.dark .text-on-error-container { color:#ffdad6 !important; }
       html.dark .text-on-primary-container { color:#aab2c5 !important; }
       html.dark .text-on-tertiary-container { color:#98a5b8 !important; }
+      html.dark .text-surface-tint { color:#98a5b8 !important; }
       html.dark .border-outline-variant { border-color:#42474a !important; }
       html.dark .border-outline { border-color:#8c9198 !important; }
       html.dark .border-secondary { border-color:#91db2a !important; }

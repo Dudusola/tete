@@ -247,7 +247,7 @@ function renderSportCard(p) {
 <article class="glass-card rounded-xl border border-outline-variant p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden${started ? " opacity-60" : ""}">
   <div class="flex justify-between items-start gap-sm mb-sm">
     <div class="min-w-0 flex-1">
-      <span class="text-label-sm text-on-tertiary-container uppercase tracking-wider">${escapeHtml(p.league)} • ${escapeHtml(kickoffLabel(p.match_date, null, p.kickoff_utc))}</span>
+      <span class="text-label-sm text-surface-tint uppercase tracking-wider">${escapeHtml(p.league)} • ${escapeHtml(kickoffLabel(p.match_date, null, p.kickoff_utc))}</span>
       <h2 class="text-headline-md font-headline-md text-primary mt-base">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
     </div>
     <div class="flex flex-col items-end gap-xs shrink-0">
@@ -355,7 +355,7 @@ function renderCard(p) {
 <article class="glass-card rounded-xl border border-outline-variant p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group${started ? " opacity-60" : ""}">
   <div class="flex justify-between items-start gap-sm mb-sm">
     <div class="min-w-0 flex-1">
-      <span class="text-label-sm text-on-tertiary-container uppercase tracking-wider">${meta}</span>
+      <span class="text-label-sm text-surface-tint uppercase tracking-wider">${meta}</span>
       <h2 class="text-headline-md font-headline-md text-primary mt-base">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
     </div>
     <div class="flex flex-col items-end gap-xs shrink-0">
@@ -651,10 +651,10 @@ function renderSportNotes(sp, us) {
             : "no graded picks yet";
         // One line each, so three sports don't push the first pick off a phone
         // screen; "experimental" stays in the visible line, the rest is a tap away.
-        return `<details class="p-sm rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
-          <summary class="cursor-pointer"><span class="font-bold text-primary">${code.toUpperCase()}</span>
+        return `<details class="rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
+          <summary class="cursor-pointer block p-sm"><span class="font-bold text-primary">${code.toUpperCase()}</span>
             · ${rec} · experimental</summary>
-          <p class="mt-xs">${escapeHtml((sp.disclosures || {})[code] || "")}</p></details>`;
+          <p class="px-sm pb-sm max-w-prose">${escapeHtml((sp.disclosures || {})[code] || "")}</p></details>`;
     }).join("");
 }
 

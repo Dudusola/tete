@@ -72,7 +72,7 @@
        down to ~60px on a 390px phone: the placeholder rendered as "e.g. A1B".
        Stack on mobile, single row from sm up. -->
   <div class="flex flex-col sm:flex-row gap-xs">
-    <select id="bc-provider" aria-label="Bookmaker that issued the code" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
+    <select id="bc-provider" aria-label="Bookmaker that issued the code" class="rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
       <option value="sportybet">SportyBet</option>
       <option value="football.com">football.com</option>
       <option value="msport">MSport</option>
@@ -95,32 +95,34 @@
       <span class="material-symbols-outlined text-[18px] text-on-surface-variant">construction</span>
       <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">Slip tools</span>
     </div>
-    <div class="flex flex-wrap gap-xs items-center">
+    <div class="flex flex-wrap gap-sm items-center">
+      <div class="flex gap-xs items-center">
       <button id="tool-optimize" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
         Trim weak legs
       </button>
-      <select id="tool-floor" aria-label="Trim legs whose model probability is" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+      <select id="tool-floor" aria-label="Trim legs whose model probability is" class="rounded-lg border border-outline-variant py-sm text-label-sm bg-surface">
         <option value="0.5">below 50%</option>
         <option value="0.6" selected>below 60%</option>
         <option value="0.7">below 70%</option>
       </select>
-      <span class="w-px h-6 bg-outline-variant mx-1"></span>
+      </div><div class="flex gap-xs items-center">
       <button id="tool-split" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
         Split into
       </button>
-      <select id="tool-parts" aria-label="Number of codes to split into" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+      <select id="tool-parts" aria-label="Number of codes to split into" class="rounded-lg border border-outline-variant py-sm text-label-sm bg-surface">
         <option value="2" selected>2 codes</option>
         <option value="3">3 codes</option>
         <option value="4">4 codes</option>
       </select>
-      <span class="w-px h-6 bg-outline-variant mx-1"></span>
+      </div><div class="flex gap-xs items-center">
       <button id="tool-convert" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
         Convert to
       </button>
-      <select id="tool-target" aria-label="Bookmaker to convert the code to" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+      <select id="tool-target" aria-label="Bookmaker to convert the code to" class="rounded-lg border border-outline-variant py-sm text-label-sm bg-surface">
         <option value="sportybet">SportyBet</option>
         <option value="msport" selected>MSport</option>
       </select>
+      </div>
     </div>
     <p class="text-label-sm text-on-surface-variant mt-xs">
       Splitting is the only one that improves your odds without changing a selection:
@@ -155,7 +157,7 @@
      models/markets.py appears here with no edit. -->
 <div class="flex flex-col sm:flex-row gap-xs mb-md">
   <input id="search" aria-label="Search fixtures by team or league" type="text" placeholder="Search team or league…" class="flex-1 min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md"/>
-  <select id="market-filter" aria-label="Filter fixtures by market" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
+  <select id="market-filter" aria-label="Filter fixtures by market" class="rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
     <option value="">All markets</option>
   </select>
 </div>
