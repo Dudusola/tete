@@ -53,7 +53,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.database import DB_PATH, init_db
 from scrapers.booking_codes import _EventsBySport, map_leg
 
-SPORTS = {"football": "football", "ice_hockey": "nhl", "american_football": "nfl"}
+SPORTS = {"football": "football", "ice_hockey": "nhl", "american_football": "nfl",
+          "basketball": "nba"}
 DAYS_AHEAD = 5
 MIN_FIXTURES_FOR_ALARM = 10      # a quiet day with 3 fixtures is not an outage
 

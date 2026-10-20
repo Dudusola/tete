@@ -1153,6 +1153,7 @@ const PP_SPORTS = [
     {code: "football", label: "Football", icon: "sports_soccer"},
     {code: "nhl", label: "NHL", icon: "sports_hockey"},
     {code: "nfl", label: "NFL", icon: "sports_football"},
+    {code: "nba", label: "NBA", icon: "sports_basketball"},
 ];
 function ppSportsGet() {
     try {

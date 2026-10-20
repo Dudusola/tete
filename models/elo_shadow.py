@@ -203,10 +203,11 @@ def run() -> int:
         ratings, name_to_id, last_played = ratings_for(feed, params)
         nhl = feed == "nhl" and nhl_params
         nfl = feed == "nfl" and nfl_params
-        if nhl or nfl:
+        nba = feed == "nba"     # moneyline only: Elo is validated there (models/elo.py)
+        if nhl or nfl or nba:
             if nhl:
                 nhl_state = nhl_markets.current_rates(nhl_params, params)
-            else:
+            elif nfl:
                 nfl_state = nfl_markets.current_rates(nfl_params, params)
                 # Regular starting QB per team + ESPN injury status, once per run
                 # (models/nfl_qb.py). {} if a source is down: no warning, no guess.
@@ -270,6 +271,22 @@ def run() -> int:
                 facts["market_movement"] = movement
                 facts["qb"] = {side: qb_status.get(team) for side, team in
                                (("home", g["home_team"]), ("away", g["away_team"]))}
+                facts_json = json.dumps(facts)
+            elif nba:
+                # shortcut: moneyline only - fit an NBA spread/total model (like nfl_markets) before offering those.
+                ml = _latest(conn, g["match_id"], "moneyline")
+                items = [{"key": "ml_home", "p": round(p_home, 4), "market_p": mp,
+                          "odds": ml["odds_home"] if ml else None},
+                         {"key": "ml_away", "p": round(1 - p_home, 4),
+                          "market_p": None if mp is None else round(1 - mp, 4),
+                          "odds": ml["odds_away"] if ml else None}]
+                markets_json = json.dumps({"version": "nba_mk_v1", "items": items})
+                facts = nhl_form.build(hid, aid, g["kickoff_utc"][:10], nhl_games,
+                                       ranked, nhl_ranks)
+                if ml:
+                    facts["market_movement"] = {"moneyline": {
+                        "open": [ml["open_home"], ml["open_away"]],
+                        "now": [ml["odds_home"], ml["odds_away"]]}}
                 facts_json = json.dumps(facts)
             conn.execute("""
                 INSERT INTO shadow_predictions

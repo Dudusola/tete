@@ -1,4 +1,4 @@
-"""us_sports.py - NHL and NFL as PICKS and BUILDER options, the football way.
+"""us_sports.py - NHL, NFL and NBA as PICKS and BUILDER options, the football way.
 
 Boss (2 Oct 2026): not a separate tab - choose the sport on the Picks page and
 in the Builder, and give recommended bets like football does. So this module
@@ -34,11 +34,13 @@ from datetime import datetime, timezone
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models import nfl_markets, nhl_markets
 from models.markets import BetOption, risk_from_prob
-from models.sports import AMERICAN_FOOTBALL, ICE_HOCKEY, sport_sql
+from models.sports import AMERICAN_FOOTBALL, BASKETBALL, ICE_HOCKEY, sport_sql
 
 SPORTS = {
     "nhl": {"sport": ICE_HOCKEY, "label": "NHL", "grade": nhl_markets.grade},
     "nfl": {"sport": AMERICAN_FOOTBALL, "label": "NFL", "grade": nfl_markets.grade},
+    # Moneyline only (elo_shadow.py); nfl_markets.grade settles ml keys on the final.
+    "nba": {"sport": BASKETBALL, "label": "NBA", "grade": nfl_markets.grade},
 }
 LABEL_TO_SPORT = {v["label"]: k for k, v in SPORTS.items()}
 
@@ -61,6 +63,9 @@ DISCLOSURE = {
             "so check its view beside each pick."),
     "nfl": ("NFL picks are experimental and kept separate from our football record. "
             "Our numbers know results only - not quarterbacks, injuries or weather, "
+            "which the bookmaker prices. Check its view beside each pick."),
+    "nba": ("NBA picks are experimental and kept separate from our football record. "
+            "Our numbers know results only - not injuries, rest days or who sits out, "
             "which the bookmaker prices. Check its view beside each pick."),
 }
 

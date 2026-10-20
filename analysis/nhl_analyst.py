@@ -45,7 +45,7 @@ STALE_HOURS = 18        # rewrite if older - prices and form move
 # Analyses written before the recommendation-based prompt carried the old
 # edge verdict ("no bet ...") and could contradict the card - rewrite them.
 PROMPT_SINCE = "2026-10-04 19:00:00"   # just before the new prompt shipped
-SPORTS_SQL = "('ice_hockey', 'american_football')"
+SPORTS_SQL = "('ice_hockey', 'american_football', 'basketball')"
 
 
 
@@ -59,6 +59,9 @@ SPORT = {
     "american_football": {"name": "American football", "league": "NFL", "unit": "points",
                           "venue": "home field",
                           "unknown": "quarterback availability, injuries, weather"},
+    "basketball": {"name": "basketball", "league": "NBA", "unit": "points",
+                   "venue": "home court",
+                   "unknown": "injuries, rest decisions, who sits out, travel"},
 }
 
 
@@ -227,6 +230,8 @@ def build_prompt(home: str, away: str, facts: dict, markets: dict,
         book = f" Bookmaker price {rec['odds']}."
     risk_extra = ("Then say that tonight's starting goalies are not confirmed yet and can swing "
                   "an NHL game." if sport == "ice_hockey" else
+                  "Then say that injury and rest news is not in these figures and can "
+                  "swing an NBA game." if sport == "basketball" else
                   "Then say that quarterback and injury news is not in these figures and can "
                   "swing an NFL game.")
     tier = rec["tier"].lower()
