@@ -203,6 +203,16 @@ def fetch_sportybet_events(pages: int = 0, page_size: int = 100,
     """
     import math
     import time as _time
+    # SportyBet blocks GitHub's runner IPs (20 Oct 2026: every page non-JSON,
+    # 0 of 522 fixtures priced, sporty_lines empty since 8 Oct) but not
+    # Render's. The Actions jobs set this to the API, which serves its own
+    # cached copy (GET /api/sporty/events). Never set it on the API itself.
+    via = os.getenv("SPORTY_EVENTS_VIA")
+    if via:
+        r = requests.get(f"{via.rstrip('/')}/api/sporty/events", timeout=120,
+                         params={"sport_id": sport_id, "market_ids": market_ids})
+        r.raise_for_status()
+        return r.json()["events"]
     cache = (_EVENTS_CACHE if sport_id == "sr:sport:1"
              else _SPORT_CACHES.setdefault(sport_id, {"at": 0.0, "events": []}))
     if cache["events"] and _time.time() - cache["at"] < _EVENTS_TTL:

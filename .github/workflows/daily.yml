@@ -163,6 +163,9 @@ jobs:
           # 06:00 and 19:15 UTC; it still works from a home connection). ESPN
           # takes today/tomorrow instead - see run_daily.py.
           PP_SKIP_PREDICTZ: '1'
+          # SportyBet blocks these runners too (20 Oct 2026); Render is not
+          # blocked, so SportyBet's feed is read through our own API there.
+          SPORTY_EVENTS_VIA: https://potentialpro-api.onrender.com
           PYTHONUTF8: '1'
           PYTHONIOENCODING: utf-8
         run: python run_daily.py

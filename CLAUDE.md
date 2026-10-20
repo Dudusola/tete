@@ -1435,6 +1435,20 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     **Football edge, if any, is in PRICE, not the model:** see
     scrapers/sporty_lines.py and db/sporty_value_report.py.
 
+38. **SportyBet blocks GitHub's IPs - `sporty_lines` was EMPTY 8-20 Oct, and every
+    06:00 run was red because of it (found 20 Oct 2026).** The price recorder for the
+    one remaining edge test (does SportyBet pay more than fair?) got non-JSON pages
+    from Actions ("522 fixtures and NONE priced"), wrote nothing, and failed its
+    DEGRADED step daily - so the morning run was red every day and the green
+    backup run beside it was only the guard skipping (bug #34's shape). This file
+    also claimed it ran hourly in closing.yml; it never did. Render is NOT blocked
+    (live slips priced, codes decode), so the API serves its booking cache at
+    GET /api/sporty/events (allow-listed to the feeds booking uses) and the jobs
+    set SPORTY_EVENTS_VIA to read through it - daily AND now hourly in closing.yml.
+    Verified locally through the proxy: 394/516 fixtures priced.
+    **A step that is red every day is noise that hides the next real failure -
+    check WHY a daily red is red, never get used to it.**
+
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**
   `run_daily.py` used to have one flag, `required`, and only "Generate

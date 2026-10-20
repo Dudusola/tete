@@ -23,7 +23,7 @@ Endpoints:
 import os
 import sys
 from datetime import datetime, timezone
-from fastapi import FastAPI, Query, Body
+from fastapi import FastAPI, Query, Body, HTTPException
 from typing import List
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -43,7 +43,8 @@ from models.tiers import TIER_BANDS
 from models.sports import FOOTBALL, sport_sql
 from models.returns import served_returns
 from models.settle import settle as settle_leg
-from scrapers.booking_codes import attach_sporty_odds, fetch_sportybet_events
+from scrapers.booking_codes import (GEN_MARKET_IDS, US_SPORTS, attach_sporty_odds,
+                                    fetch_sportybet_events)
 from models.leagues import pretty_league
 from models.gradeability import overall_coverage
 from db.calibration_health import tier_calibration
@@ -1406,6 +1407,19 @@ def booking_optimize(provider: str = Body(...), code: str = Body(...),
             "from_code": decoded["code"], "kept": keep, "dropped": dropped,
             "kept_legs": len(sels), "dropped_legs": len(dropped),
             "provider": target}
+
+
+@app.get("/api/sporty/events")
+def sporty_events(sport_id: str = Query("sr:sport:1"), market_ids: str = Query(GEN_MARKET_IDS)):
+    """SportyBet's upcoming events as THIS server sees them (its booking cache).
+    SportyBet blocks GitHub's runner IPs but not Render's, so the ledger's
+    price recorder (scrapers/sporty_lines.py via SPORTY_EVENTS_VIA) reads
+    through here. Only the feeds booking already uses - never an open proxy."""
+    allowed = {("sr:sport:1", GEN_MARKET_IDS)} | {(c["sport_id"], c["market_ids"])
+                                                  for c in US_SPORTS.values()}
+    if (sport_id, market_ids) not in allowed:
+        raise HTTPException(400, "unknown feed")
+    return {"events": fetch_sportybet_events(sport_id=sport_id, market_ids=market_ids)}
 
 
 @app.get("/api/booking/providers")
