@@ -306,6 +306,13 @@ generate predictions on demand.
   record() keeps warned picks APART ("warned") so the live ledger can confirm or kill them.
   Rejected on reasoning first: "only recommend when we agree with the book" (Boss) - raises hit rate
   by keeping easy favourites, deletes the only disagreements with signal, copies the book.
+- NBA (20 Oct 2026, season opener): rides the NHL/NFL path end to end. elo_shadow.py writes a
+                          MONEYLINE-ONLY markets_json (Elo, held-out 66.9%) + nhl_form facts; us_sports
+                          'nba' (grade = nfl_markets.grade); SportyBet sr:sport:2 tournament 'NBA', market
+                          219 winner incl. OT (NOT 1 - regulation, has a draw); code HVCLK7 decoded back as
+                          3x 'Winner (incl. overtime)'. ESPN DOES price NBA (the docs/basketball.md unknown).
+                          No spread/total yet - fit one like nfl_markets before offering them. Opening week:
+                          Elo knows no roster moves, gaps to the book of 10-17 pts were seen (Knicks 78 v 62).
 - models/nfl_markets.py   NFL moneyline (Elo) / spread / total at the BOOK's lines. Margin = normal
                           x KEY-NUMBER weights by |margin| (fitted 2011-23: 3 -> x2.54, 7 -> x1.75;
                           14.6% of games end by exactly 3), mu solved so P(home win) == Elo's.

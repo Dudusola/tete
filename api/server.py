@@ -773,7 +773,7 @@ def get_slip(
     }
 
 
-SPORT_CODES = ("football", "nhl", "nfl")
+SPORT_CODES = ("football", "nhl", "nfl", "nba")
 
 
 def _parse_sports(sports: str | None) -> list:
@@ -786,12 +786,12 @@ def _parse_sports(sports: str | None) -> list:
 
 
 def _sport_of_league(league: str | None) -> str:
-    return {"NHL": "nhl", "NFL": "nfl"}.get((league or "").strip(), "football")
+    return {"NHL": "nhl", "NFL": "nfl", "NBA": "nba"}.get((league or "").strip(), "football")
 
 
 @app.get("/api/picks/sports")
 @cached(ttl=60, max_age=60)
-def get_sport_picks(sports: str = Query("nhl,nfl", description="Comma-separated: nhl, nfl")):
+def get_sport_picks(sports: str = Query("nhl,nfl,nba", description="Comma-separated: nhl, nfl, nba")):
     """Recommended picks for NHL / NFL, football-style (models/us_sports.py):
     one bet per game with the football tiers, the bookmaker's view beside it,
     and each sport's OWN record - never blended into football's.

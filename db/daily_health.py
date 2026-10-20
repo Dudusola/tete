@@ -104,11 +104,11 @@ def report(conn) -> tuple[list, int]:
     # 5. NHL / NFL served picks coming up (counts only - no thresholds yet).
     try:
         from models.us_sports import picks as us_picks
-        d = us_picks(conn, ["nhl", "nfl"])
-        n = {s: sum(p["sport"] == s for p in d["picks"]) for s in ("nhl", "nfl")}
+        codes = ["nhl", "nfl", "nba"]
+        d = us_picks(conn, codes)
         rec = d["records"]
-        lines.append(f"NHL: {n['nhl']} picks upcoming, record {rec['nhl']['won']}-{rec['nhl']['lost']} | "
-                     f"NFL: {n['nfl']} picks upcoming, record {rec['nfl']['won']}-{rec['nfl']['lost']}")
+        lines.append(" | ".join(f"{c.upper()}: {sum(p['sport'] == c for p in d['picks'])} picks upcoming, "
+                                f"record {rec[c]['won']}-{rec[c]['lost']}" for c in codes))
     except Exception as e:                     # never let the report itself fail
         lines.append(f"NHL/NFL: unavailable ({type(e).__name__})")
     return lines, warns

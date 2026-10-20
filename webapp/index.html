@@ -641,7 +641,7 @@ function renderSportNotes(sp, us) {
     if (!box) return;
     if (!us.length) { box.innerHTML = ""; return; }
     if (!sp || sp.error) {
-        box.innerHTML = `<p class="text-body-md text-on-surface-variant">${escapeHtml(ppErrorMessage(sp && sp.error, "load NHL/NFL picks"))}</p>`;
+        box.innerHTML = `<p class="text-body-md text-on-surface-variant">${escapeHtml(ppErrorMessage(sp && sp.error, "load NHL/NFL/NBA picks"))}</p>`;
         return;
     }
     box.innerHTML = us.map(code => {
