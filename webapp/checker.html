@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Slip Checker</title>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,switch,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
 <!-- Open the API and font connections while the page parses, not after its
      scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
 <link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
@@ -72,7 +72,7 @@
        down to ~60px on a 390px phone: the placeholder rendered as "e.g. A1B".
        Stack on mobile, single row from sm up. -->
   <div class="flex flex-col sm:flex-row gap-xs">
-    <select id="bc-provider" aria-label="Bookmaker that issued the code" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
+    <select id="bc-provider" aria-label="Bookmaker that issued the code" class="rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
       <option value="sportybet">SportyBet</option>
       <option value="football.com">football.com</option>
       <option value="msport">MSport</option>
@@ -95,32 +95,34 @@
       <span class="material-symbols-outlined text-[18px] text-on-surface-variant">construction</span>
       <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">Slip tools</span>
     </div>
-    <div class="flex flex-wrap gap-xs items-center">
+    <div class="flex flex-wrap gap-sm items-center">
+      <div class="flex gap-xs items-center">
       <button id="tool-optimize" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
         Trim weak legs
       </button>
-      <select id="tool-floor" aria-label="Trim legs whose model probability is" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+      <select id="tool-floor" aria-label="Trim legs whose model probability is" class="rounded-lg border border-outline-variant py-sm text-label-sm bg-surface">
         <option value="0.5">below 50%</option>
         <option value="0.6" selected>below 60%</option>
         <option value="0.7">below 70%</option>
       </select>
-      <span class="w-px h-6 bg-outline-variant mx-1"></span>
+      </div><div class="flex gap-xs items-center">
       <button id="tool-split" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
         Split into
       </button>
-      <select id="tool-parts" aria-label="Number of codes to split into" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+      <select id="tool-parts" aria-label="Number of codes to split into" class="rounded-lg border border-outline-variant py-sm text-label-sm bg-surface">
         <option value="2" selected>2 codes</option>
         <option value="3">3 codes</option>
         <option value="4">4 codes</option>
       </select>
-      <span class="w-px h-6 bg-outline-variant mx-1"></span>
+      </div><div class="flex gap-xs items-center">
       <button id="tool-convert" class="tool-btn px-md py-sm rounded-lg border border-outline-variant text-label-sm font-bold hover:bg-surface-container-high transition">
         Convert to
       </button>
-      <select id="tool-target" aria-label="Bookmaker to convert the code to" class="rounded-lg border border-outline-variant px-sm py-sm text-label-sm bg-surface">
+      <select id="tool-target" aria-label="Bookmaker to convert the code to" class="rounded-lg border border-outline-variant py-sm text-label-sm bg-surface">
         <option value="sportybet">SportyBet</option>
         <option value="msport" selected>MSport</option>
       </select>
+      </div>
     </div>
     <p class="text-label-sm text-on-surface-variant mt-xs">
       Splitting is the only one that improves your odds without changing a selection:
@@ -155,7 +157,7 @@
      models/markets.py appears here with no edit. -->
 <div class="flex flex-col sm:flex-row gap-xs mb-md">
   <input id="search" aria-label="Search fixtures by team or league" type="text" placeholder="Search team or league…" class="flex-1 min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md"/>
-  <select id="market-filter" aria-label="Filter fixtures by market" class="rounded-lg border border-outline-variant px-sm py-sm text-body-md bg-surface">
+  <select id="market-filter" aria-label="Filter fixtures by market" class="rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
     <option value="">All markets</option>
   </select>
 </div>
@@ -516,7 +518,7 @@ function renderDecodedLeg(l) {
         <div class="text-body-md font-semibold text-primary">${esc(l.home_team)} vs ${esc(l.away_team)}</div>
         ${prob}
       </div>
-      <div class="text-label-sm text-on-surface-variant">${esc(l.market || "")}: ${esc(l.selection || "")}${l.odds ? ` @ ${l.odds}` : ""} • ${esc(l.match_date || "")}</div>
+      <div class="text-label-sm text-on-surface-variant">${esc(l.market || "")}: ${esc(l.selection || "")}${l.odds ? ` @ ${Number(l.odds).toFixed(2)}` : ""} • ${esc(l.match_date || "")}</div>
       <div class="mt-1">${verdict}</div>
       ${ft}
     </div>`;

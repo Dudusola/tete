@@ -96,7 +96,7 @@
         style.textContent = `
           .pp-account-btn { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600;
             color:#45464d; padding:6px 10px; border:1px solid #c6c6cd; border-radius:9999px; margin-left:12px;
-            white-space:nowrap; text-decoration:none; }
+            white-space:nowrap; text-decoration:none; min-height:36px; }
           .pp-account-btn .material-symbols-outlined { font-size:18px; }
           .pp-account-btn:hover { color:#416900; border-color:#416900; }
           html.dark .pp-account-btn { color:#c1c7ce; border-color:#42474a; }
