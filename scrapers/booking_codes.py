@@ -860,24 +860,22 @@ def generate_code(legs: list[dict], provider: str = "sportybet") -> dict:
             "None of the slip legs exist on SportyBet (small leagues often "
             "aren't listed, or games already started).")
 
-    try:
-        r = requests.post(post_url, headers={
-            **HEADERS, "Content-Type": "application/json"},
-            json={"selections": selections}, timeout=25)
-        d = r.json()
-    except (requests.RequestException, ValueError) as e:
-        raise BookingCodeError(f"{provider} booking call failed: {e}") from e
-
-    if d.get("bizCode") != 10000 or not (d.get("data") or {}).get("shareCode"):
-        _dump_raw(f"{provider}_gen", "post", d)
-        raise BookingCodeError(
-            d.get("message") or f"{provider} refused the booking.")
-
-    code = d["data"]["shareCode"]
+    refused = []
+    code = _post_selections(selections, provider,
+                            [(m["leg"].get("home_team"), m["leg"].get("away_team")) for m in mapped],
+                            refused)
+    if refused:
+        # The bookmaker lists the game but not that market: report it like any
+        # other leg we couldn't place, never as booked.
+        gone = set(refused)
+        unmapped += [m["leg"] for m in mapped
+                     if f"{m['leg'].get('home_team')} v {m['leg'].get('away_team')}" in gone]
+        mapped = [m for m in mapped
+                  if f"{m['leg'].get('home_team')} v {m['leg'].get('away_team')}" not in gone]
     logger.success(f"Generated {provider} booking code {code} "
                    f"({len(mapped)} legs, {len(unmapped)} unmapped)")
     return {"code": code,
-            "share_url": d["data"].get("shareURL"),
+            "share_url": None,   # nothing reads it; the code is what punters paste
             "mapped": mapped, "unmapped": unmapped}
 
 
@@ -1173,26 +1171,57 @@ SHARE_POST_URLS = {
 }
 
 
-def _post_selections(selections: list[dict], provider: str) -> str:
-    """POST rebuilt selections to a bookmaker and return the new share code."""
+_UNAVAILABLE = re.compile(r"market of (.+?) vs\.? (.+?)\s*$", re.I)
+
+
+def _rejected_index(message: str, names: list) -> int | None:
+    """MSport refuses a WHOLE slip when one leg's market isn't listed, naming
+    the match ("Some markets are not available: a market of Llaneros FC vs.
+    AD Cali"). Its names differ from ours (AD Cali / Deportivo Cali), so the
+    leg is the one whose home OR away side matches best - one side is enough
+    because a slip holds each match once."""
+    m = _UNAVAILABLE.search(message or "")
+    if not m or not names:
+        return None
+    scores = [max(_shared_team_sim(m.group(1), h or ""), _shared_team_sim(m.group(2), a or ""))
+              for h, a in names]
+    i = max(range(len(scores)), key=scores.__getitem__)
+    return i if scores[i] >= 0.8 else None
+
+
+def _post_selections(selections: list[dict], provider: str,
+                     names: list | None = None, dropped: list | None = None) -> str:
+    """POST rebuilt selections to a bookmaker and return the new share code.
+
+    names: (home, away) per selection. When given, a leg the bookmaker names
+    as unavailable is removed and the rest re-posted; its "Home v Away" goes
+    into `dropped` so the caller can say which game is missing."""
     url = SHARE_POST_URLS.get(provider)
     if not url:
         raise BookingCodeError(
             f"Can't create codes on {provider}. Supported: "
             f"{', '.join(SHARE_POST_URLS)}")
-    try:
-        r = requests.post(url, headers={**HEADERS, "Content-Type": "application/json"},
-                          json={"selections": selections}, timeout=30)
-        payload = r.json()
-    except requests.RequestException as e:
-        raise BookingCodeError(f"Couldn't reach {provider}: {e}") from e
-    except ValueError as e:
-        raise BookingCodeError(f"{provider} returned a non-JSON response.") from e
-
-    if payload.get("bizCode") != 10000:
-        raise BookingCodeError(payload.get("message")
-                               or f"{provider} rejected the slip "
-                                  f"(bizCode {payload.get('bizCode')})")
+    selections, names = list(selections), list(names) if names else None
+    while True:
+        try:
+            r = requests.post(url, headers={**HEADERS, "Content-Type": "application/json"},
+                              json={"selections": selections}, timeout=30)
+            payload = r.json()
+        except requests.RequestException as e:
+            raise BookingCodeError(f"Couldn't reach {provider}: {e}") from e
+        except ValueError as e:
+            raise BookingCodeError(f"{provider} returned a non-JSON response.") from e
+        if payload.get("bizCode") == 10000:
+            break
+        i = _rejected_index(payload.get("message"), names) if len(selections) > 1 else None
+        if i is None:
+            raise BookingCodeError(payload.get("message")
+                                   or f"{provider} rejected the slip "
+                                      f"(bizCode {payload.get('bizCode')})")
+        selections.pop(i)
+        h, a = names.pop(i)
+        if dropped is not None:
+            dropped.append(f"{h} v {a}")
     code = (payload.get("data") or {}).get("shareCode")
     if not code:
         path = _dump_raw(provider, "generated", payload)
@@ -1238,10 +1267,14 @@ def convert_code(from_provider: str, code: str, to_provider: str) -> dict:
     sels, dropped = _selections_from_legs(legs, from_provider)
     if not sels:
         raise BookingCodeError("None of the legs could be carried across.")
-    new_code = _post_selections(sels, to_provider)
+    usable = [l for l in legs if l.get("event_id") and l.get("market_id") and l.get("outcome_id")]
+    already = len(dropped)
+    new_code = _post_selections(sels, to_provider,
+                                [(l.get("home_team"), l.get("away_team")) for l in usable], dropped)
+    converted = len(sels) - (len(dropped) - already)
     logger.success(f"Converted {from_provider} {code} -> {to_provider} {new_code} "
-                   f"({len(sels)} legs, {len(dropped)} dropped)")
-    return {"code": new_code, "legs": legs, "converted": len(sels),
+                   f"({converted} legs, {len(dropped)} dropped)")
+    return {"code": new_code, "legs": legs, "converted": converted,
             "dropped": dropped, "from": from_provider, "to": to_provider}
 
 
@@ -1278,10 +1311,12 @@ def merge_codes(sources: list[dict], to_provider: str) -> dict:
 
     if not sels:
         raise BookingCodeError("Nothing to merge — no usable legs found.")
-    new_code = _post_selections(sels, to_provider)
+    already = len(dropped)
+    new_code = _post_selections(sels, to_provider,
+                                [(l.get("home_team"), l.get("away_team")) for l in all_legs], dropped)
     logger.success(f"Merged {len(sources)} codes -> {to_provider} {new_code} "
                    f"({len(sels)} legs, {len(conflicts)} conflicts)")
-    return {"code": new_code, "legs": all_legs, "merged_legs": len(sels),
+    return {"code": new_code, "legs": all_legs, "merged_legs": len(sels) - (len(dropped) - already),
             "conflicts": conflicts, "dropped": dropped, "to": to_provider}
 
 
@@ -1324,8 +1359,10 @@ def split_code(provider: str, code: str, parts: int = 2,
 
     out = []
     for bucket, blegs in zip(buckets, leg_buckets):
-        new_code = _post_selections(bucket, to_provider)
-        out.append({"code": new_code, "legs": blegs, "leg_count": len(bucket)})
+        before = len(dropped)
+        new_code = _post_selections(bucket, to_provider,
+                                    [(l.get("home_team"), l.get("away_team")) for l in blegs], dropped)
+        out.append({"code": new_code, "legs": blegs, "leg_count": len(bucket) - (len(dropped) - before)})
     logger.success(f"Split {provider} {code} -> {parts} codes on {to_provider} "
                    f"({len(sels)} legs, {len(dropped)} dropped)")
     return {"codes": out, "parts": parts, "dropped": dropped,
@@ -1417,7 +1454,11 @@ def _bet9ja_events(max_groups: int = 40) -> list:
                            params={"DISP": "1"}, headers=BET9JA_HEADERS,
                            timeout=25).json()["D"]["PAL"]
     except (requests.RequestException, ValueError, KeyError) as e:
-        raise BookingCodeError(f"Could not read the Bet9ja fixture list: {e}") from e
+        # Seen 21 Oct 2026: Bet9ja answers this laptop but sends Render a
+        # non-JSON page, so from the cloud this is a block, not a parse bug.
+        logger.warning(f"Bet9ja fixture list unreadable: {e}")
+        raise BookingCodeError("Bet9ja isn't answering our server right now, so we "
+                               "can't book there. SportyBet and MSport codes still work.") from e
 
     groups = []
     for sport_id, sport in pal.items():
