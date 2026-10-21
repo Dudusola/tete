@@ -36,32 +36,31 @@
 </div>
 </nav>
 
-<main class="max-w-container-max mx-auto px-md md:px-lg pt-md md:pt-xl grid grid-cols-1 lg:grid-cols-2 gap-lg">
+<main id="ck-main" class="max-w-container-max mx-auto px-md md:px-lg pt-md md:pt-xl grid grid-cols-1 lg:grid-cols-2 gap-lg">
 
 <!-- LEFT: fixture picker -->
 <section>
 <header class="mb-md">
 <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Check a Slip</h1>
-<p class="text-body-md text-on-surface-variant mt-1">Build your slip from today's fixtures, filter to the market you want, and we'll score each leg and the whole accumulator against our model — then turn it into a booking code.</p>
+<p class="text-body-md text-on-surface-variant mt-1">Pick legs from upcoming fixtures and see our model's view of each one and of the whole slip, then book it. Already have a code? Decode, split, convert or merge it under Code tools.</p>
 </header>
 
-<!-- Booking-code decoder (SportyBet) -->
-<!-- Collapsed by default. Decoding and the slip tools used to sit ABOVE the
-     page's main task (building a slip from today's fixtures), pushing the
-     fixture list several screens down on a phone. Everything is kept; it
-     just waits behind one native, keyboard-accessible disclosure. -->
-<details id="code-tools" class="group bg-surface rounded-xl mb-md border border-outline-variant shadow-sm">
-  <summary class="flex items-center gap-xs flex-wrap p-md cursor-pointer list-none rounded-xl [&::-webkit-details-marker]:hidden">
-    <span class="material-symbols-outlined text-secondary text-[20px]">confirmation_number</span>
-    <span class="text-body-lg font-semibold text-primary">Have a booking code?</span>
-    <span class="text-label-sm text-on-surface-variant">Decode, trim, split, convert or merge it</span>
-    <!-- Kept honest while the feature is on trial: it grades slips using a
-         model whose HIGH tier is still unproven, so it must not read as
-         settled advice. -->
-    <span class="text-label-sm bg-surface-container-high text-on-surface-variant px-sm py-[2px] rounded-full normal-case">beta</span>
-    <span class="material-symbols-outlined text-on-surface-variant ml-auto transition-transform group-open:rotate-180">expand_more</span>
-  </summary>
-  <div class="px-md pb-md">
+<!-- Two jobs, two tabs. The code tools used to wait in a collapsed "beta" box
+     above the fixtures, where most visitors never opened them. #tools in the
+     URL opens that tab directly. -->
+<div role="tablist" aria-label="Checker" class="flex gap-xs mb-md p-1 rounded-full bg-surface-container-high w-fit">
+  <button type="button" role="tab" id="tab-build" aria-controls="build-panel" aria-selected="true"
+          class="ck-tab px-md py-sm rounded-full text-label-sm font-bold">Build a slip</button>
+  <button type="button" role="tab" id="tab-tools" aria-controls="tools-panel" aria-selected="false"
+          class="ck-tab px-md py-sm rounded-full text-label-sm font-bold">Code tools</button>
+</div>
+
+<!-- Booking-code tools: decode, then trim / split / convert / merge. -->
+<div id="tools-panel" role="tabpanel" aria-labelledby="tab-tools" hidden
+     class="bg-surface rounded-xl mb-md border border-outline-variant shadow-sm">
+  <div class="p-md">
+  <h2 class="flex items-center gap-xs text-body-lg font-semibold text-primary mb-xs">
+    <span class="material-symbols-outlined text-secondary text-[20px]" aria-hidden="true">confirmation_number</span>Paste a booking code</h2>
   <p class="text-label-sm text-on-surface-variant mb-sm">
     We'll show our model's view of each leg, and the final score where the match
     has finished. Coverage depends on the leagues our sources list — you'll see
@@ -148,7 +147,11 @@
     <div id="merge-result" class="mt-sm"></div>
   </div>
   </div>
-</details>
+</div>
+<div id="build-panel" role="tabpanel" aria-labelledby="tab-build">
+<!-- Day strip, built from the fixtures loaded: "All" plus one button per
+     kickoff day in the viewer's own timezone. -->
+<div id="day-strip" role="group" aria-label="Kickoff day" class="flex gap-xs overflow-x-auto mb-sm pb-1"></div>
 <!-- Search + market filter. The fixture cards below cap at the 6 highest
      probabilities, which is nearly always Double Chance and the safe Over/Under
      lines — so without a filter the other ~15 markets derive_markets produces
@@ -163,6 +166,7 @@
 </div>
 <div id="fixture-list" class="space-y-sm lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1">
 <div class="text-on-surface-variant">Loading fixtures…</div>
+</div>
 </div>
 </section>
 
@@ -204,7 +208,7 @@
       Bet9ja code
     </button>
   </div>
-  <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes — paste those above.</div>
+  <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes — paste those under Code tools.</div>
   <div id="ck-book-result" class="mt-sm text-body-md text-on-surface"></div>
   <div id="track-slip-slot"></div>
 </div>
@@ -243,6 +247,7 @@ let SLIP = [];  // {match_id, home_team, away_team, market, selection, probabili
    doesn't collapse what the user just opened. */
 const EXPANDED = new Set();
 let MARKET_FILTER = "";
+let DAY_FILTER = "";    // "" = every day, else a local "YYYY-MM-DD"
 /* Phones show 4 chips (two rows) and desktops 6. With 37 fixtures x 6 chips
    the page was 10,500px tall on a phone; the rest stay one tap away. */
 const CHIPS_COLLAPSED = window.matchMedia("(max-width: 767px)").matches ? 4 : 6;
@@ -265,6 +270,38 @@ function marketChip(fx, m, picked) {
       </button>`;
 }
 
+/* The kickoff's calendar day in the VIEWER's timezone: a 23:30 UTC game is
+   tomorrow in Lagos, and the strip must agree with the time on the card. */
+function fxDay(fx) {
+    const d = kickoffDate(fx.match_date, fx.kickoff_time, fx.kickoff_utc);
+    if (!d) return fx.match_date || "";
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+function dayName(key) {
+    const d = new Date(`${key}T12:00`), today = new Date();
+    today.setHours(12, 0, 0, 0);
+    const diff = Math.round((d - today) / 86400000);
+    if (diff === 0) return "Today";
+    if (diff === 1) return "Tomorrow";
+    if (diff === -1) return "Yesterday";
+    return d.toLocaleDateString([], {weekday: "short", day: "numeric"});
+}
+function renderDays() {
+    const days = [...new Set(FIXTURES.map(fxDay))].filter(Boolean).sort();
+    const btn = (key, label) => `<button type="button" class="ck-day shrink-0 px-md py-sm rounded-full border text-label-sm font-bold ${
+        DAY_FILTER === key ? "bg-secondary-container text-on-secondary-container border-secondary"
+                           : "border-outline-variant text-on-surface-variant hover:bg-surface-container-high"}"
+        data-day="${esc(key)}" aria-pressed="${DAY_FILTER === key}">${esc(label)}</button>`;
+    const strip = document.getElementById("day-strip");
+    strip.innerHTML = btn("", "All") + days.map(k => btn(k, dayName(k))).join("");
+    strip.querySelectorAll(".ck-day").forEach(b => b.addEventListener("click", () => {
+        DAY_FILTER = b.dataset.day;
+        fixtureLimit = FIXTURE_PAGE;
+        renderDays();
+        renderFixtures(document.getElementById("search").value);
+    }));
+}
+
 function renderFixtures(filter="") {
     const list = document.getElementById("fixture-list");
     const f = (filter || "").toLowerCase().trim();
@@ -275,17 +312,28 @@ function renderFixtures(filter="") {
         // With a market filter on, hide fixtures that don't offer it at all
         // rather than showing an empty card.
         if (MARKET_FILTER && !fx.markets.some(m => m.market === MARKET_FILTER)) return false;
+        if (DAY_FILTER && fxDay(fx) !== DAY_FILTER) return false;
         return true;
     });
+    // Grouped by league, leagues in order of their first kickoff (FIXTURES is
+    // already soonest-first, so first appearance = earliest). Stable sort keeps
+    // kickoff order inside each league.
+    const rank = new Map();
+    shown.forEach(fx => { if (!rank.has(fx.league)) rank.set(fx.league, rank.size); });
+    shown.sort((a, b) => rank.get(a.league) - rank.get(b.league));
     if (!shown.length) {
-        list.innerHTML = `<div class="text-on-surface-variant">No fixtures match${MARKET_FILTER ? " that market" : ""}.</div>`;
+        list.innerHTML = `<div class="text-on-surface-variant">No fixtures match${MARKET_FILTER || DAY_FILTER ? " those filters" : ""}.</div>`;
         return;
     }
     // A fixture already on the slip is always shown, even past the page limit,
     // so a leg never disappears from the list it was picked from.
     const paged = shown.filter((fx, i) => i < fixtureLimit || SLIP.some(l => l.match_id === fx.match_id));
     const remaining = shown.length - paged.length;
+    let lastLeague = null;
     list.innerHTML = paged.map(fx => {
+        const header = fx.league !== lastLeague
+            ? `<h3 class="text-label-sm font-bold uppercase tracking-wider text-on-surface-variant pt-sm">${cleanLeague(fx.league)}</h3>` : "";
+        lastLeague = fx.league;
         const mkts = MARKET_FILTER
             ? fx.markets.filter(m => m.market === MARKET_FILTER)
             : fx.markets;
@@ -296,11 +344,11 @@ function renderFixtures(filter="") {
         const hidden = mkts.length - visible.length;
         const picked = SLIP.find(l => l.match_id === fx.match_id);
         const started = hasKickedOff(fx);
-        return `
+        return header + `
 <div class="bg-surface-container-lowest border ${picked ? "border-secondary" : "border-outline-variant"} rounded-lg p-sm">
   <div class="flex justify-between items-start mb-xs gap-sm">
     <div>
-      <div class="text-label-sm text-on-surface-variant uppercase">${cleanLeague(fx.league)} • ${esc(kickoffLabel(fx.match_date, fx.kickoff_time, fx.kickoff_utc))}</div>
+      <div class="text-label-sm text-on-surface-variant">${esc(kickoffLabel(fx.match_date, fx.kickoff_time, fx.kickoff_utc))}</div>
       <div class="text-body-md font-semibold text-primary">${esc(fx.home_team)} vs ${esc(fx.away_team)}</div>
     </div>
     ${started ? `<span class="text-label-sm bg-surface-container-high text-on-surface-variant px-sm py-[2px] rounded-full whitespace-nowrap" title="Already under way or finished — bookmakers won't accept it">started</span>` : ""}
@@ -485,6 +533,11 @@ async function load() {
         FIXTURES = (data.fixtures || []).sort((a, b) =>
             (hasKickedOff(a) - hasKickedOff(b)) || ko(a).localeCompare(ko(b)));
         fillMarketFilter();
+        // Open on the first day with a game still to play: under "All" a
+        // league group mixes today's game with Friday's.
+        const next = FIXTURES.find(fx => !hasKickedOff(fx));
+        DAY_FILTER = next ? fxDay(next) : "";
+        renderDays();
         renderFixtures();
     } catch (err) {
         document.getElementById("fixture-list").innerHTML =
@@ -669,7 +722,39 @@ async function decodeBookingCode() {
     }
 }
 
+function showTab(name) {
+    const tools = name === "tools";
+    document.getElementById("tools-panel").hidden = !tools;
+    document.getElementById("build-panel").hidden = tools;
+    document.getElementById("slip-panel").hidden = tools;
+    // Inline, not a class: a stylesheet cached from before this release may
+    // lack the class, and the bar would float over the tools.
+    document.getElementById("slip-jump").style.display = tools ? "none" : "";
+    // One column on desktop while the tools are up: no slip sits beside them.
+    document.getElementById("ck-main").classList.toggle("lg:grid-cols-2", !tools);
+    document.querySelectorAll(".ck-tab").forEach(t => {
+        const on = t.id === (tools ? "tab-tools" : "tab-build");
+        t.setAttribute("aria-selected", on);
+        t.tabIndex = on ? 0 : -1;
+        t.classList.toggle("bg-surface-container-lowest", on);
+        t.classList.toggle("text-primary", on);
+        t.classList.toggle("shadow-sm", on);
+        t.classList.toggle("text-on-surface-variant", !on);
+    });
+    history.replaceState(null, "", tools ? "#tools" : location.pathname + location.search);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("tab-build").addEventListener("click", () => showTab("build"));
+    document.getElementById("tab-tools").addEventListener("click", () => showTab("tools"));
+    // Arrow keys move between the two tabs (WAI-ARIA tabs pattern).
+    document.querySelector("[role=tablist]").addEventListener("keydown", e => {
+        if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+        const next = document.getElementById("tab-tools").getAttribute("aria-selected") === "true" ? "build" : "tools";
+        showTab(next);
+        document.getElementById(next === "tools" ? "tab-tools" : "tab-build").focus();
+    });
+    showTab(location.hash === "#tools" ? "tools" : "build");
     load();
     renderSlip();          // disables the booking buttons on an empty slip
     document.getElementById("search").addEventListener("input", e => { fixtureLimit = FIXTURE_PAGE; renderFixtures(e.target.value); });
