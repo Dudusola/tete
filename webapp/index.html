@@ -361,7 +361,7 @@ function renderCard(p) {
   <div class="flex justify-between items-start gap-sm mb-sm">
     <div class="min-w-0 flex-1">
       <span class="text-label-sm text-surface-tint uppercase tracking-wider">${meta}</span>
-      <h2 class="text-headline-md font-headline-md text-primary mt-base">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
+      <h2 class="text-headline-md font-headline-md text-primary mt-base"><a href="match.html?id=${encodeURIComponent(p.match_id)}" class="hover:underline underline-offset-4">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</a></h2>
     </div>
     <div class="flex flex-col items-end gap-xs shrink-0">
       ${isDraw

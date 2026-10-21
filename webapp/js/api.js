@@ -486,6 +486,31 @@ function prettyLeague(s) {
 
    Loaded before every page's inline <script>, so plain function declarations
    are in scope by the time any page code runs. */
+/* Football selections in plain words (21 Oct 2026, Boss: "avoid unnecessarily
+   complex terms"). DISPLAY ONLY: booking, tracking and settling keep the exact
+   selection string, because the bookmaker mapping matches on it. Anything not
+   recognised is returned unchanged, so a new market can never show blank. */
+function ppPlainPick(sel) {
+    const s = String(sel || "");
+    const goals = (dir, line) => {
+        const n = Math.floor(parseFloat(line));
+        return dir === "Over" ? `${n + 1}+ goals` : `${n} goal${n === 1 ? "" : "s"} or fewer`;
+    };
+    let m;
+    if ((m = s.match(/^(Over|Under) (\d+\.5) Goals$/))) return goals(m[1], m[2]);
+    if ((m = s.match(/^(.+) & (Over|Under) (\d+\.5)$/))) return `${m[1]} wins, ${goals(m[2], m[3])}`;
+    if ((m = s.match(/^(.+) \+1\.5$/))) return `${m[1]} won't lose by 2+`;
+    if ((m = s.match(/^(.+) -1\.5$/))) return `${m[1]} wins by 2+`;
+    if ((m = s.match(/^(.+) \(DNB\)$/))) return `${m[1]} to win (draw = money back)`;
+    if (s === "BTTS - Yes") return "Both teams score";
+    if (s === "BTTS - No") return "Not both teams score";
+    if ((m = s.match(/^Draw or (.+)$/))) return `${m[1]} win or draw`;
+    if ((m = s.match(/^(.+) or Draw$/))) return `${m[1]} win or draw`;
+    if ((m = s.match(/^(.+) or (.+)$/))) return `${m[1]} or ${m[2]} wins (no draw)`;
+    if ((m = s.match(/^(.+) Win$/))) return `${m[1]} to win`;
+    return s;
+}
+
 function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, c => (
         {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
@@ -898,6 +923,7 @@ const PotentialProAPI = {
     scoredPicks: (tier)      => apiGet(`/api/stats/picks${tier ? `?tier=${tier}` : ""}`),
     fixtures:    ()          => apiGet("/api/fixtures"),
     arbs:        ()          => apiGet("/api/arbs"),
+    match:       (id)        => apiGet(`/api/match/${encodeURIComponent(id)}`),
     checkSlip:   (legs)      => apiPost("/api/slip/check", {legs}),
     resultsFor:  (matchIds)  => apiPost("/api/results/lookup", {match_ids: matchIds}),
     settleLegs:  (legs)      => apiPost("/api/slip/settle", {legs}),

@@ -7,6 +7,7 @@ Usage:
     python models/predict.py --no-gemma   (skip AI analysis, faster)
 """
 
+import json
 import os
 import sys
 import argparse
@@ -17,7 +18,7 @@ from difflib import get_close_matches
 from loguru import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from db.database import get_connection
+from db.database import get_connection, init_db
 from models.train import load_all_csvs, form_ppg, goals_avg, venue_ppg, h2h_wins, FORM_WINDOW
 from models.consensus import build_consensus, _same_match, team_sim
 
@@ -439,15 +440,18 @@ def build_analysis_facts(home_hist: list, away_hist: list, feats: dict,
 
 def save_prediction(match_id: str, probs: dict, confidence: str,
                     best_bet: str, best_prob: float, gemma_analysis: str = None,
-                    consensus_adj: str = None):
+                    consensus_adj: str = None, facts: dict = None):
     conn = get_connection()
     conn.execute("""
         INSERT INTO model_predictions
         (match_id, model_version, home_win_prob, draw_prob, away_win_prob,
-         confidence, best_bet, best_bet_prob, gemma_analysis, consensus_adj)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         confidence, best_bet, best_bet_prob, gemma_analysis, consensus_adj, facts_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, [match_id, MODEL_VERSION, probs["H"], probs["D"], probs["A"],
-          confidence, best_bet, best_prob, gemma_analysis, consensus_adj])
+          confidence, best_bet, best_prob, gemma_analysis, consensus_adj,
+          # numpy floats are not JSON; float() them, anything else as text
+          json.dumps(facts, default=lambda v: float(v) if hasattr(v, "__float__") else str(v))
+          if facts else None])
     conn.commit()
     conn.close()
 
@@ -489,6 +493,7 @@ def apply_consensus_modifier(match: dict, best_outcome: str,
 
 
 def run(use_gemma: bool = True):
+    init_db()   # idempotent; run_daily does it too, but a direct run must not miss a column
     # Load model
     if not os.path.exists(MODEL_PATH):
         logger.error(f"No trained model at {MODEL_PATH}. Run: python models/train.py")
@@ -586,6 +591,11 @@ def run(use_gemma: bool = True):
                         f"{match['home_team']} vs {match['away_team']} "
                         f"(sources back a different outcome)")
 
+        # Built for every prediction, not only analysed ones: the match page shows
+        # them, and they must be the facts AS THEY STOOD before kickoff.
+        facts = build_analysis_facts(team_history[home_match], team_history[away_match],
+                                     feats, match, away_match)
+
         # Gemma analysis only for picks worth showing (saves time)
         gemma_text = None
         if gemma_ok and confidence in ("HIGH", "MEDIUM"):
@@ -611,13 +621,11 @@ def run(use_gemma: bool = True):
                 # The features the forest actually used. Before this, the prompt
                 # got three probabilities and a ban on quoting them, so the only
                 # possible output was generic prose. See _facts_block().
-                "facts": build_analysis_facts(
-                    team_history[home_match], team_history[away_match],
-                    feats, match, away_match),
+                "facts": facts,
             })
 
         save_prediction(match["match_id"], probs, confidence,
-                        best_bet, best_prob, gemma_text, consensus_adj)
+                        best_bet, best_prob, gemma_text, consensus_adj, facts)
 
         predictions.append({
             **match,
