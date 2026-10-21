@@ -20496,3 +20496,6 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401859965,2026-06-09,2026-06-09 00:30,2026,3,New York Knicks,San Antonio Spurs,18,24,111,115,A,REG,111,115,0
 401859966,2026-06-11,2026-06-11 00:30,2026,3,New York Knicks,San Antonio Spurs,18,24,107,106,H,REG,107,106,0
 401859967,2026-06-14,2026-06-14 00:30,2026,3,San Antonio Spurs,New York Knicks,24,18,90,94,A,REG,90,94,0
+401909088,2026-10-20,2026-10-20 19:00,2027,2,Detroit Pistons,Boston Celtics,8,2,121,113,H,REG,121,113,0
+401909089,2026-10-20,2026-10-20 23:00,2027,2,New York Knicks,Philadelphia 76ers,18,20,100,106,A,REG,100,106,0
+401909090,2026-10-21,2026-10-21 01:50,2027,2,San Antonio Spurs,Oklahoma City Thunder,24,25,104,116,A,REG,104,116,0
