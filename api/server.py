@@ -1254,6 +1254,48 @@ def get_fixtures():
     return {"count": len(fixtures), "fixtures": fixtures, "started": started}
 
 
+@app.get("/api/roundups")
+@cached(ttl=600, max_age=120)
+def get_roundups(days: int = Query(7, ge=1, le=30)):
+    """Day-by-day "what we called, what landed" (step 7 of the Puntrr audit).
+
+    Written from the ledger, not by an LLM: every served (HIGH+MEDIUM)
+    football pick per match day, won or lost, with the day's best call (the
+    least likely pick that won) and worst miss (the most likely one that
+    lost). Same rows and latest-prediction rule as the record, so the two
+    cannot disagree; nothing here can be invented."""
+    conn = get_connection()
+    rows = [dict(r) for r in conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
+               mp.best_bet, mp.best_bet_prob, mp.confidence, mp.book_odds,
+               r.home_goals, r.away_goals, r.outcome
+        FROM model_predictions mp
+        JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
+        WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2 WHERE mp2.match_id = mp.match_id)
+          AND mp.confidence IN ('HIGH','MEDIUM') {SPORT_SQL}
+          AND m.match_date >= date('now', ?)
+        ORDER BY m.match_date DESC, mp.best_bet_prob DESC
+    """, [f"-{days - 1} day"]).fetchall()]
+    conn.close()
+    out = {}
+    for r in rows:
+        r["won"] = {"Home Win": "H", "Away Win": "A", "Draw": "D"}.get(r["best_bet"]) == r["outcome"]
+        r["league_display"] = pretty_league(r["league"])
+        out.setdefault(r["match_date"], []).append(r)
+    result = []
+    for day, picks in out.items():
+        wins = [p for p in picks if p["won"]]
+        losses = [p for p in picks if not p["won"]]
+        result.append({
+            "date": day, "graded": len(picks), "won": len(wins),
+            "best_call": min(wins, key=lambda p: p["best_bet_prob"]) if wins else None,
+            "worst_miss": max(losses, key=lambda p: p["best_bet_prob"]) if losses else None,
+            "picks": picks,
+        })
+    return {"days": result}
+
+
 @app.get("/api/match/{match_id}")
 @cached(ttl=60, max_age=60)
 def get_match(match_id: str):

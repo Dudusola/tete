@@ -481,7 +481,7 @@ function recentStrip(r) {
     return `<div class="mt-sm flex flex-wrap items-center gap-x-sm gap-y-xs text-body-md text-on-surface-variant">
       <span>Last 7 days: <strong class="text-primary tabular-nums">${r.won} of ${r.graded}</strong> won
         <span class="tabular-nums">(${Math.round(r.won / r.graded * 100)}%)</span>, every pick we served.</span>
-      <a href="record.html" class="flex items-center gap-[3px]" role="img"
+      <a href="record.html#roundups" class="flex items-center gap-[3px]" role="img"
          aria-label="Latest ${latest.length} results: ${won} won, ${latest.length - won} lost. Open the full record.">${latest.map(sq).join("")}</a>
     </div>`;
 }
