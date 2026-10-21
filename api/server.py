@@ -32,7 +32,7 @@ from db.database import get_connection
 from api.cache import cached, not_modified_middleware, stats as cache_stats, ledger_version
 from api.security import limits_middleware, cap, MAX_LEGS
 from models.markets import (derive_markets, build_slip, accumulator_probability,
-                            kickoff_passed, teams_key)
+                            kickoff_passed, teams_key, filter_options, WHEN_HOURS)
 from models.goals_model import expected_goals
 # Thresholds only — models/tiers.py is import-free by design so the API can read
 # the tier bands without importing models/predict.py (joblib + pandas + sklearn).
@@ -644,6 +644,12 @@ def get_slip(
     exclude: str = Query(None, description="Fixtures to leave out, as 'Home||Away' pairs separated by ';;'"),
     pin: str = Query(None, description="Banker legs to lock in, as 'Home||Away||Market||Selection' separated by ';;'"),
     sports: str = Query("football", description="Comma-separated: football, nhl, nfl"),
+    markets: str = Query(None, description="Market families to allow, comma-separated (e.g. 'Match Result,Over/Under')"),
+    min_odds: float = Query(None, ge=1.01, le=100, description="Lowest fair odds per leg (1 / probability)"),
+    max_odds: float = Query(None, ge=1.01, le=100, description="Highest fair odds per leg"),
+    min_prob: float = Query(None, ge=0, le=1, description="Lowest model probability per leg"),
+    day: str = Query(None, pattern=r"^\d{4}-\d{2}-\d{2}$", description="Kickoff date, Lagos time"),
+    when: str = Query(None, description="early (<15:00) | afternoon | late (19:00+), Lagos time"),
 ):
     """Build a risk-based betting slip (one bet per match). Started games are
     excluded; each leg carries SportyBet odds when the bookmaker lists it.
@@ -687,6 +693,19 @@ def get_slip(
             if len(parts) == 4:
                 pinned.append({"home_team": parts[0], "away_team": parts[1],
                                "market": parts[2], "selection": parts[3]})
+    # Builder filters (models.markets.filter_options). An odds range is a
+    # probability band: odds 1.50-3.00 = 33-67%. Bankers are never filtered out.
+    if when and when not in WHEN_HOURS:
+        raise HTTPException(400, f"when must be one of {', '.join(WHEN_HOURS)}")
+    if markets or min_odds or max_odds or min_prob is not None or day or when:
+        all_opts = filter_options(
+            all_opts,
+            markets={m.strip() for m in markets.split(",") if m.strip()} if markets else None,
+            min_prob=max(min_prob or 0.0, 1 / max_odds if max_odds else 0.0),
+            max_prob=1 / min_odds if min_odds else 1.0,
+            day=day, when=when,
+            keep={(teams_key(p["home_team"], p["away_team"]), p["market"], p["selection"]) for p in pinned})
+
     def build(extra_excludes, bad_options=None):
         keys = (exclude_set or set()) | extra_excludes
         return build_slip(all_opts, risk.upper(), games, leagues=league_set,

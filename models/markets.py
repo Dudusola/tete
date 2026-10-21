@@ -9,7 +9,7 @@ either team is unrated.
 """
 
 import math
-from datetime import datetime
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 
 from models import goals_model
@@ -550,6 +550,43 @@ def accumulator_probability(slip: list) -> float | None:
     return p
 
 
+WHEN_HOURS = {"early": (0, 15), "afternoon": (15, 19), "late": (19, 24)}   # Lagos time
+
+
+def filter_options(options: list, markets: set | None = None, min_prob: float = 0.0,
+                   max_prob: float = 1.0, day: str | None = None, when: str | None = None,
+                   keep: set | None = None) -> list:
+    """The Builder's optional filters (21 Oct 2026, from Puntrr's slip builder),
+    applied BEFORE build_slip so risk bands, dedupe, the correlation cap and
+    swaps all work unchanged.
+      markets   market families to allow ("Over/Under" matches "Over/Under 2.5")
+      min_prob / max_prob   per-leg probability; the page turns an odds range
+                into this (odds = 1 / probability)
+      day / when  kickoff date and Early (<15:00) / Afternoon / Late (19:00+) in
+                Lagos time (UTC+1, no DST). A leg with no real kickoff can't be
+                placed in a window, so a time filter leaves it out.
+      keep      (teams_key, market, selection) of pinned bankers: always kept."""
+    out = []
+    for o in options:
+        if keep and (_teams_key(o), o.market, o.selection) in keep:
+            out.append(o)
+            continue
+        if markets and not any(o.market == m or o.market.startswith(m + " ") for m in markets):
+            continue
+        if not (min_prob <= o.probability <= max_prob):
+            continue
+        if day or when:
+            if not o.kickoff_utc:
+                continue
+            lagos = datetime.strptime(o.kickoff_utc[:16], "%Y-%m-%d %H:%M") + timedelta(hours=1)
+            if day and lagos.strftime("%Y-%m-%d") != day:
+                continue
+            if when and not (WHEN_HOURS[when][0] <= lagos.hour < WHEN_HOURS[when][1]):
+                continue
+        out.append(o)
+    return out
+
+
 if __name__ == "__main__":
     # NOTE: dates are RELATIVE to today. They used to be hardcoded to July
     # 2026, which meant that from August onwards kickoff_passed() filtered
@@ -593,3 +630,21 @@ if __name__ == "__main__":
     assert len(slip) == 6, f"expected 6 legs, got {len(slip)}"
     assert unders <= 3, f"correlation cap breached: {unders} same-family legs"
     print("PASS - no more than ceil(n/2) legs share a market family.")
+    # 3. Builder filters (filter_options): market family, probability band,
+    #    Lagos day/time window, and pinned bankers bypass every filter.
+    def ko(mid, utc, market, sel, prob):
+        o = mk(mid, f"H{mid}", f"A{mid}", d1, prob, "MEDIUM", market, sel)
+        o.kickoff_utc = utc
+        return o
+    pool = [ko("a", f"{d1} 13:00", "Over/Under 2.5", "Over 2.5 Goals", 0.60),   # 14:00 Lagos
+            ko("b", f"{d1} 19:30", "Match Result", "Hb Win", 0.55),             # 20:30 Lagos
+            ko("c", f"{d1} 23:30", "Double Chance", "Hc or Draw", 0.80),        # 00:30 next day
+            ko("d", None, "Match Result", "Hd Win", 0.70)]                      # no real kickoff
+    ids = lambda xs: sorted(x.match_id for x in xs)
+    assert ids(filter_options(pool, markets={"Over/Under"})) == ["a"]
+    assert ids(filter_options(pool, min_prob=0.58, max_prob=0.75)) == ["a", "d"]
+    assert ids(filter_options(pool, when="late")) == ["b"]
+    assert ids(filter_options(pool, day=d1)) == ["a", "b"]           # c is tomorrow in Lagos
+    # c kicks off 00:30 Lagos, which is "early"; d has no kickoff but is a banker.
+    assert ids(filter_options(pool, when="early", keep={(_teams_key(pool[3]), "Match Result", "Hd Win")})) == ["a", "c", "d"]
+    print("PASS - builder filters (market, odds band, Lagos day/time, bankers kept).")

@@ -878,7 +878,10 @@ const PotentialProAPI = {
     drawPicks:   ()          => apiGet("/api/picks/draws"),
     // Recommended NHL / NFL picks (models/us_sports.py), each sport's record separate.
     sportPicks:  (sports)    => apiGet(`/api/picks/sports?sports=${encodeURIComponent(sports.join(","))}`),
-    slip:        (risk, n, leagues, excludePairs, pinnedLegs, sports) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
+    // extra: optional Builder filters {markets, min_odds, max_odds, min_prob, day, when}; empty values are skipped.
+    slip:        (risk, n, leagues, excludePairs, pinnedLegs, sports, extra) => apiGet(`/api/slip?risk=${risk}&games=${n}` +
+                     Object.entries(extra || {}).filter(([, v]) => v !== "" && v != null)
+                         .map(([k, v]) => `&${k}=${encodeURIComponent(v)}`).join("") +
                      (sports && sports.length ? `&sports=${encodeURIComponent(sports.join(","))}` : "") +
                      (leagues && leagues.length ? `&leagues=${encodeURIComponent(leagues.join(","))}` : "") +
                      (excludePairs && excludePairs.length
