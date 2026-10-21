@@ -987,6 +987,24 @@ def get_stats():
         if price_warnings(dict(r)):
             warned[1] += 1
             warned[0] += {"Home Win": "H", "Away Win": "A", "Draw": "D"}.get(r["best_bet"]) == r["outcome"]
+    # The last 7 days of SERVED picks, every one of them, plus the 10 most
+    # recent results win or lose. Puntrr headlines "79 of 98 landed in the last
+    # 7 days" for its chosen top picks; this is the same window over everything
+    # we served, losses included (step 4 of the Puntrr audit).
+    recent = [dict(r) for r in conn.execute(f"""
+        SELECT m.home_team, m.away_team, m.match_date, mp.best_bet, mp.confidence,
+               r.home_goals, r.away_goals, r.outcome
+        FROM model_predictions mp
+        JOIN results r ON r.match_id = mp.match_id
+        JOIN matches m ON m.match_id = mp.match_id
+        WHERE mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
+                       WHERE mp2.match_id = mp.match_id)
+          AND mp.confidence IN ('HIGH','MEDIUM') {SPORT_SQL}
+          AND m.match_date >= date('now', '-6 day')   -- today + the 6 days before = 7
+        ORDER BY m.match_date DESC, COALESCE(m.kickoff_utc, '') DESC, m.id DESC
+    """).fetchall()]
+    for r in recent:
+        r["won"] = {"Home Win": "H", "Away Win": "A", "Draw": "D"}.get(r["best_bet"]) == r["outcome"]
     conn.close()
 
     total = row["total"] or 0
@@ -1024,6 +1042,9 @@ def get_stats():
         "returns": returns,
         # Served picks shown with the price-moved warning: {won, graded}
         "price_warned": {"won": warned[0], "graded": warned[1]},
+        # Served picks with a match date in the last 7 days: {graded, won, latest[10]}
+        "last_7_days": {"graded": len(recent), "won": sum(r["won"] for r in recent),
+                        "latest": recent[:10]},
     }
 
 

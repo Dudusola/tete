@@ -466,7 +466,24 @@ function renderStatStrip(picks, stats) {
     document.getElementById("stat-strip").innerHTML =
         `<p class="text-body-md text-on-surface-variant max-w-prose">
            <strong class="text-primary">${n} upcoming${SPORTS.length > 1 ? " football" : ""} ${n === 1 ? "pick" : "picks"}</strong>${nToday && nToday < n ? ` (${nToday} today)` : nToday === n && n ? " (all today)" : ""}${high ? `, ${high} with high confidence` : ""}.${recordLine}${moneyLine}
-         </p>`;
+         </p>${recentStrip(stats && stats.last_7_days)}`;
+}
+
+/* The last 7 days of served picks, every one, and the latest 10 results win
+   or lose (/api/stats last_7_days). Puntrr shows "79 of 98 landed" for its
+   chosen top picks; this is the same window over everything we served. */
+function recentStrip(r) {
+    if (!r || !r.graded) return "";
+    const latest = (r.latest || []).slice().reverse();   // oldest left, newest right
+    const won = latest.filter(x => x.won).length;
+    const sq = x => `<span class="w-3 h-3 rounded-sm ${x.won ? "bg-secondary" : "bg-error"}"
+        title="${escapeHtml(`${x.home_team} ${x.home_goals}–${x.away_goals} ${x.away_team} · picked ${x.best_bet} · ${x.won ? "won" : "lost"}`)}"></span>`;
+    return `<div class="mt-sm flex flex-wrap items-center gap-x-sm gap-y-xs text-body-md text-on-surface-variant">
+      <span>Last 7 days: <strong class="text-primary tabular-nums">${r.won} of ${r.graded}</strong> won
+        <span class="tabular-nums">(${Math.round(r.won / r.graded * 100)}%)</span>, every pick we served.</span>
+      <a href="record.html" class="flex items-center gap-[3px]" role="img"
+         aria-label="Latest ${latest.length} results: ${won} won, ${latest.length - won} lost. Open the full record.">${latest.map(sq).join("")}</a>
+    </div>`;
 }
 
 // ── Skeleton loading cards ───────────────────────────────────────────
