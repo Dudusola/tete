@@ -115,6 +115,23 @@
         renderAccountButtons();
     }
 
+    // ── Web push (worker/push.js sends; db/supabase/003_push.sql stores) ────
+    // Public half of the Worker's VAPID key (worker/wrangler.toml). Not a secret.
+    const VAPID_PUBLIC_KEY = "BF66BNM2qZtaEP5NjU53DrKo4bhuevSs2h6XIoT8HWzGbMSGr4eDSvPciibRc3unS8ZhMnKFxmoV88RQi-FjFoY";
+    const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+    const keyBytes = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+    async function currentSub() {
+        if (!pushSupported()) return null;
+        const reg = await navigator.serviceWorker.getRegistration();
+        return reg ? reg.pushManager.getSubscription() : null;
+    }
+    async function pushOff() {
+        const sub = await currentSub();
+        if (!sub) return;
+        if (client && user) await client.from("push_subscriptions").delete().eq("endpoint", sub.endpoint);
+        await sub.unsubscribe();
+    }
+
     // ── Public API ───────────────────────────────────────────────────────────
     window.PPAuth = {
         ready: () => ready,
@@ -127,7 +144,8 @@
             const { error } = await client.auth.signInWithOAuth({ provider: "google", options: { redirectTo: back } });
             if (error) throw error;
         },
-        signOut: async () => { await ready; await client.auth.signOut(); },
+        // A shared phone shouldn't keep getting the last user's alerts.
+        signOut: async () => { await ready; await pushOff().catch(() => {}); await client.auth.signOut(); },
         isTracked: (matchId, selection) => tracked.has(`${matchId}|${selection}`),
         trackedRows: () => [...tracked.values()],
         track: async (pick) => {
@@ -202,6 +220,28 @@
             if (error) throw error;
             slips = slips.map(s => s.id === id ? data : s);
             return data;
+        },
+        push: {
+            // "unsupported" (e.g. iPhone outside an installed app) | "denied" | "on" | "off"
+            state: async () => {
+                if (!pushSupported()) return "unsupported";
+                if (Notification.permission === "denied") return "denied";
+                return (await currentSub()) ? "on" : "off";
+            },
+            // Must run from a click: browsers block permission prompts that aren't.
+            enable: async () => {
+                await ready;
+                if (!user) throw Object.assign(new Error("Sign in first"), { needsSignIn: true });
+                if (await Notification.requestPermission() !== "granted") throw new Error("permission");
+                const reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription()
+                    || await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(VAPID_PUBLIC_KEY) });
+                const k = sub.toJSON().keys;
+                const { error } = await client.from("push_subscriptions")
+                    .upsert({ endpoint: sub.endpoint, p256dh: k.p256dh, auth: k.auth }, { onConflict: "user_id,endpoint" });
+                if (error) { await sub.unsubscribe(); throw error; }
+            },
+            disable: async () => { await ready; await pushOff(); },
         },
         deleteAccount: async () => {
             await ready;

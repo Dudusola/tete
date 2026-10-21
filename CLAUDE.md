@@ -1866,7 +1866,22 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    bucket analysis at 30+ before touching the threshold.
 5. Model-vs-Forebet-on-real-results tracker (needs mature ledger) — validates the premise.
 6. Polish: truncated league names ("world-cup-2026-last-"), add "Checker" to all navs.
-7. **Web push notifications for the PWA — DESIGNED, DEFERRED ON PURPOSE (Aug 2026).**
+7. **Web push — BUILT 21 Oct 2026 (testers in, so the deferral below expired).**
+   worker/push.js on the Worker's */10 cron: "kicks off in N min" for a tracked
+   single pick, and "Won/Lost/Void" when a tracked pick has a final score or a
+   tracked slip is decided (first lost leg, or every leg won/void) - graded via
+   /api/results/lookup and /api/slip/settle, the SAME calls My Record makes, so
+   a push cannot disagree with the page. Subscriptions + a sent-log in Supabase
+   (db/supabase/003_push.sql), NOT Workers KV: they belong to a user and
+   cascade on account delete. No push library: VAPID + RFC 8291 aes128gcm in
+   WebCrypto, checked against the RFC's own vector (`node worker/push.test.mjs`).
+   Each run logs "N subscriptions, N due, N delivered, N failed, N expired";
+   404/410 deletes the subscription. Toggle on account.html; sign-out removes
+   the device. Secrets: VAPID_PRIVATE_KEY + SUPABASE_SERVICE_KEY (GitHub ->
+   deploy-worker.yml -> Worker); without both, push logs "skipping". Not yet:
+   "price moved" alerts. Free-plan cap: 50 subrequests per cron run, so ~40
+   pushes a tick; the rest go out next tick.
+   Original design notes (Aug 2026, DESIGNED, DEFERRED ON PURPOSE):
    Not built because Telegram ALREADY delivers a real push notification to the
    phone every day (bot/send_daily.py, from the cloud pipeline). Web push would
    be a second channel carrying the same payload. It earns its keep only when

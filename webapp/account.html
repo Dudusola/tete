@@ -83,6 +83,15 @@
   <div id="list" class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden divide-y divide-surface-container-high"></div>
 
   <div class="mt-xl p-md bg-surface-container-lowest border border-outline-variant rounded-xl">
+    <h2 class="text-body-lg font-semibold text-primary">Notifications</h2>
+    <p class="text-body-md text-on-surface-variant mt-xs">An alert on this device when a tracked pick is about to kick off, and when a tracked pick or slip is settled.</p>
+    <div class="flex flex-wrap items-center gap-sm mt-md">
+      <button id="push-btn" type="button" class="hidden px-md py-sm rounded-full border border-outline-variant text-label-sm font-bold text-on-surface-variant">Turn on notifications</button>
+      <span id="push-msg" class="text-label-sm text-on-surface-variant" aria-live="polite"></span>
+    </div>
+  </div>
+
+  <div class="mt-xl p-md bg-surface-container-lowest border border-outline-variant rounded-xl">
     <h2 class="text-body-lg font-semibold text-primary">Account</h2>
     <p id="who" class="text-body-md text-on-surface-variant mt-xs"></p>
     <div class="flex flex-wrap gap-sm mt-md">
@@ -286,6 +295,18 @@ async function render() {
     } catch (_) {}
 }
 
+async function renderPush() {
+    const btn = document.getElementById("push-btn"), msg = document.getElementById("push-msg");
+    const state = await PPAuth.push.state();
+    btn.classList.toggle("hidden", state === "unsupported" || state === "denied");
+    btn.textContent = state === "on" ? "Turn off notifications" : "Turn on notifications";
+    btn.setAttribute("aria-pressed", state === "on" ? "true" : "false");
+    msg.textContent = state === "on" ? "On for this device."
+        : state === "denied" ? "Notifications are blocked for this site in your browser settings."
+        : state === "unsupported" ? "This browser can't receive notifications. On iPhone, add PotentialPro to your Home Screen (Share, then Add to Home Screen) and open it from there."
+        : "";
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
     await PPAuth.ready();
     PPAuth.onChange(render);
@@ -301,6 +322,21 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
     document.getElementById("signout-btn").addEventListener("click", () => PPAuth.signOut());
+    renderPush();
+    document.getElementById("push-btn").addEventListener("click", async (e) => {
+        const btn = e.currentTarget;
+        btn.disabled = true;
+        try {
+            if (await PPAuth.push.state() === "on") await PPAuth.push.disable();
+            else await PPAuth.push.enable();
+        } catch (err) {
+            console.error(err);
+            showToast(err.message === "permission" ? "Notifications are blocked for this site in your browser settings."
+                                                   : "Couldn't change notifications. Please try again.");
+        }
+        btn.disabled = false;
+        renderPush();
+    });
     document.getElementById("delete-btn").addEventListener("click", () =>
         document.getElementById("delete-confirm").classList.remove("hidden"));
     document.getElementById("delete-confirm").addEventListener("click", async (e) => {

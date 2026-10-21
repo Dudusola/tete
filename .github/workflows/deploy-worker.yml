@@ -17,6 +17,12 @@
 #   gh secret set WORKER_DISPATCH_TOKEN --repo Dudusola/tete
 # Without it the Worker still deploys; the cron just logs that it has no token
 # and GitHub's own (late) schedule keeps running the pipeline.
+#
+# WEB PUSH (worker/push.js) needs two more GitHub secrets, installed on the
+# Worker by the last step below; until both exist push simply stays off:
+#   VAPID_PRIVATE_KEY     the "d" of the key whose public half is in wrangler.toml
+#   SUPABASE_SERVICE_KEY  Supabase -> Project Settings -> API Keys -> secret key
+#   gh secret set SUPABASE_SERVICE_KEY --repo Dudusola/tete   (paste at the prompt)
 
 name: Deploy worker
 
@@ -74,3 +80,20 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
+
+      - name: Web push secrets (each only if set)
+        if: steps.creds.outputs.ok == 'true'
+        working-directory: worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          for name in VAPID_PRIVATE_KEY SUPABASE_SERVICE_KEY; do
+            if [ -n "${!name}" ]; then
+              printf '%s' "${!name}" | npx --yes wrangler@4 secret put "$name"
+            else
+              echo "::warning::$name not set - web push stays off. See the header of this file."
+            fi
+          done

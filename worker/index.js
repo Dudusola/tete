@@ -22,6 +22,7 @@
  *                    Used ONLY by the cron below to start daily.yml. Separate
  *                    from GITHUB_TOKEN on purpose: the bot's token stays
  *                    read-only. Set via the deploy-worker.yml workflow.
+ *   VAPID_PRIVATE_KEY, SUPABASE_SERVICE_KEY   web push - see push.js.
  *
  * CRON (wrangler.toml [triggers]): starts the daily pipeline on time.
  *   GitHub's own schedule for daily.yml ('50 8 * * *') was firing 4-6 HOURS
@@ -35,6 +36,8 @@
  *   REPO             "owner/name"
  *   FEED_PATH        "feed/bot_feed.json"
  */
+
+import { runPush } from "./push.js";
 
 const HELP = [
   "*PotentialPro* ⚽",
@@ -363,6 +366,8 @@ export default {
           .then((r) => { if (!r.ok) console.log(`keep-warm: healthz ${r.status}`); })
           .catch((err) => console.log(`keep-warm: ${err}`))
       );
+      // Web push for tracked picks/slips rides the same 10-minute tick.
+      ctx.waitUntil(runPush(env).catch((err) => console.log(`push: ${err}`)));
       return;
     }
     ctx.waitUntil(dispatchWorkflow(env, "daily.yml", { trigger: "worker-cron" }));
