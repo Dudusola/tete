@@ -479,7 +479,11 @@ async function load() {
         `<div class="space-y-sm">${ppSkeleton(110)}${ppSkeleton(110)}${ppSkeleton(110)}</div>`;
     try {
         const data = await PotentialProAPI.fixtures();
-        FIXTURES = data.fixtures || [];
+        // Soonest kickoff first, games already under way last: the API's
+        // order is by prediction, which put tomorrow 00:15 above today 19:00.
+        const ko = fx => fx.kickoff_utc || `${fx.match_date} ${fx.kickoff_time || "23:59"}`;
+        FIXTURES = (data.fixtures || []).sort((a, b) =>
+            (hasKickedOff(a) - hasKickedOff(b)) || ko(a).localeCompare(ko(b)));
         fillMarketFilter();
         renderFixtures();
     } catch (err) {
@@ -603,8 +607,10 @@ function wireSlipTools() {
             const parts = parseInt(document.getElementById("tool-parts").value, 10);
             const d = await PotentialProAPI.splitCode(provider, code, parts);
             if (!d.ok) return d;
+            const gone = d.dropped && d.dropped.length
+                ? `<p class="text-body-md text-on-surface mt-xs">Not in any part (the bookmaker doesn't offer that market): ${d.dropped.map(esc).join(", ")}.</p>` : "";
             return {ok: true, html: d.codes.map((c, i) =>
-                codeChip(c.code, `Part ${i + 1} of ${d.parts} — ${c.leg_count} legs`)).join("")};
+                codeChip(c.code, `Part ${i + 1} of ${d.parts} — ${c.leg_count} legs`)).join("") + gone};
         }, "tool-result"));
 
     document.getElementById("tool-convert").addEventListener("click", () =>
