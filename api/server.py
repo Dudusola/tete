@@ -1457,6 +1457,36 @@ def booking_optimize(provider: str = Body(...), code: str = Body(...),
             "provider": target}
 
 
+_ARBS = {"at": 0.0, "data": None, "running": False}
+
+
+@app.get("/api/arbs")
+def arbs():
+    """SportyBet vs MSport arbitrages (scrapers/arbs.py). A full scan is ~50
+    feed pages and ~75 s, too slow for a request, so it runs in a background
+    thread at most every 5 minutes and this returns the last result at once
+    ({"status": "warming"} until the first scan lands)."""
+    import threading
+    import time as _t
+    from scrapers.arbs import find as find_arbs
+
+    def _scan():
+        try:
+            _ARBS.update(data=find_arbs(), at=_t.time())
+        except Exception as e:
+            print(f"[arbs] scan failed: {e}", flush=True)
+        finally:
+            _ARBS["running"] = False
+
+    fresh = _ARBS["data"] is not None and _t.time() - _ARBS["at"] < 300
+    if not fresh and not _ARBS["running"]:
+        _ARBS["running"] = True
+        threading.Thread(target=_scan, daemon=True).start()
+    if _ARBS["data"] is None:
+        return {"status": "warming", "retry_after": 20}
+    return {**_ARBS["data"], "status": "ok" if fresh else "refreshing"}
+
+
 @app.get("/api/sporty/events")
 def sporty_events(sport_id: str = Query("sr:sport:1"), market_ids: str = Query(GEN_MARKET_IDS)):
     """SportyBet's upcoming events as THIS server sees them (its booking cache).

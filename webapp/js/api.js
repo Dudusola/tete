@@ -894,6 +894,7 @@ const PotentialProAPI = {
     statsTrend:  ()          => apiGet("/api/stats/trend"),
     scoredPicks: (tier)      => apiGet(`/api/stats/picks${tier ? `?tier=${tier}` : ""}`),
     fixtures:    ()          => apiGet("/api/fixtures"),
+    arbs:        ()          => apiGet("/api/arbs"),
     checkSlip:   (legs)      => apiPost("/api/slip/check", {legs}),
     resultsFor:  (matchIds)  => apiPost("/api/results/lookup", {match_ids: matchIds}),
     settleLegs:  (legs)      => apiPost("/api/slip/settle", {legs}),

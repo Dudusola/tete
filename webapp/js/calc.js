@@ -73,7 +73,16 @@
         return {stakes, payout, profit: payout - total, book};
     }
 
-    const PPCalc = {toDecimal, convert, returns, hedge, dutch};
+    // Kelly: the share of a bankroll that maximises long-run growth IF `chance`
+    // is the true probability. Negative = the price is too short to bet at all.
+    function kelly(bankroll, chancePct, odds) {
+        const p = chancePct / 100, d = toDecimal(odds);
+        if (!(bankroll > 0) || !(p > 0 && p < 1) || isNaN(d)) return null;
+        const f = (p * d - 1) / (d - 1);
+        return {fraction: f, full: Math.max(f, 0) * bankroll, half: Math.max(f, 0) * bankroll / 2, breakEven: 1 / d};
+    }
+
+    const PPCalc = {toDecimal, convert, returns, hedge, dutch, kelly};
 
     // ── UI ─────────────────────────────────────────────────────────────────
     const naira = v => "₦" + v.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
@@ -99,6 +108,9 @@
                 `${field("cc-odds", "Odds", "2.50 or 3/2 or +150", "text")}${out("cc-out")}`) +
             panel("balance", "Hedge", "Back the other side so you get the same whichever way it ends.",
                 `<div class="grid grid-cols-1 sm:grid-cols-3 gap-sm">${field("ch-stake", "Original stake (₦)", "1000")}${field("ch-o1", "Original odds", "3.00", "text")}${field("ch-o2", "Odds on the other side now", "1.60", "text")}</div>${out("ch-out")}`) +
+            panel("functions", "Kelly stake", "How much of your bankroll to stake, if your own estimate of the chance is right.",
+                `<div class="grid grid-cols-1 sm:grid-cols-3 gap-sm">${field("ck-bank", "Bankroll (₦)", "20000")}${field("ck-pct", "Your chance it wins (%)", "55")}${field("ck-odds", "Odds", "2.10", "text")}</div>${out("ck-out")}
+                <p class="text-label-sm text-on-surface-variant mt-xs">Kelly is only as good as the chance you type. Our record shows our percentages are well calibrated but not yet better than the bookmaker's price, so our numbers alone are not an edge. Most bettors stake half Kelly or less.</p>`) +
             panel("call_split", "Dutching", "Spread one stake over several outcomes so each pays the same.",
                 `<div class="grid grid-cols-1 sm:grid-cols-2 gap-sm">${field("cd-total", "Total stake (₦)", "1000")}${field("cd-odds", "Odds of each outcome", "2.40, 3.20, 4.00", "text")}</div>${out("cd-out")}`);
 
@@ -123,6 +135,13 @@
                 const r = hedge(num("ch-stake"), v("ch-o1"), v("ch-o2"));
                 show("ch-out", r ? `Stake <b>${naira(r.hedgeStake)}</b> on the other side. Either way you get ${naira(r.payout)}: ` +
                     (r.profit >= 0 ? `a locked profit of <b>${naira(r.profit)}</b>.` : `a locked loss of <b>${naira(-r.profit)}</b>, because these two prices add up to more than 100% (the bookmaker's margin). Hedging still caps the loss.`) : hint);
+            },
+            ck() {
+                if (!v("ck-bank") && !v("ck-pct") && !v("ck-odds")) return show("ck-out", "");
+                const r = kelly(num("ck-bank"), num("ck-pct"), v("ck-odds"));
+                show("ck-out", !r ? "Enter a bankroll, a chance between 1 and 99%, and valid odds."
+                    : r.fraction <= 0 ? `No bet: at these odds it has to win more than <b>${(r.breakEven * 100).toFixed(1)}%</b> of the time to be worth it.`
+                    : `Full Kelly <b>${naira(r.full)}</b> (${(r.fraction * 100).toFixed(1)}% of bankroll) · half Kelly <b>${naira(r.half)}</b>`);
             },
             cd() {
                 if (!v("cd-total") && !v("cd-odds")) return show("cd-out", "");
