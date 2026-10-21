@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Slip Checker</title>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,functions,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,schedule,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
 <!-- Open the API and font connections while the page parses, not after its
      scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
 <link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
@@ -152,6 +152,16 @@
     <h2 class="flex items-center gap-xs text-body-lg font-semibold text-primary mb-sm">
       <span class="material-symbols-outlined text-secondary text-[20px]" aria-hidden="true">calculate</span>Calculators</h2>
     <div id="calc-panel"></div>
+  </div>
+  <!-- Arbitrage finder: SportyBet vs MSport, joined on Betradar match ids
+       (scrapers/arbs.py, scanned in the background by GET /api/arbs). -->
+  <div class="p-md border-t border-outline-variant">
+    <h2 class="flex items-center gap-xs text-body-lg font-semibold text-primary mb-xs">
+      <span class="material-symbols-outlined text-secondary text-[20px]" aria-hidden="true">compare_arrows</span>Arbitrage finder</h2>
+    <p class="text-label-sm text-on-surface-variant mb-sm">Matches where SportyBet's and MSport's best prices together cover every result for less than you get back, so the split stake pays whatever happens. 1X2, over/under and both-teams-to-score only.</p>
+    <button type="button" id="arb-btn" class="px-md py-sm rounded-lg bg-secondary-container text-on-secondary-container text-label-sm font-bold">Find arbitrages</button>
+    <div id="arb-out" class="mt-sm space-y-sm" aria-live="polite"></div>
+    <p class="text-label-sm text-on-surface-variant mt-sm">Prices move within minutes. Check every price on both bookmakers before staking; bookmakers can void bets struck at an obvious wrong price and limit accounts that arbitrage.</p>
   </div>
 </div>
 <div id="build-panel" role="tabpanel" aria-labelledby="tab-build">
@@ -729,6 +739,44 @@ async function decodeBookingCode() {
     }
 }
 
+/* ── Arbitrage finder ─────────────────────────────────────────────── */
+function arbCard(a) {
+    const when = a.kickoff_ms ? new Date(a.kickoff_ms).toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"}) : "";
+    return `<div class="rounded-lg border border-outline-variant p-sm">
+      <div class="flex justify-between gap-sm"><div>
+        <div class="text-label-sm text-on-surface-variant">${esc(when)} · ${esc(a.market)}</div>
+        <div class="text-body-md font-semibold text-primary">${esc(a.home_team)} vs ${esc(a.away_team)}</div></div>
+        <div class="text-right"><div class="text-body-md font-bold ${a.profit_pct > 0 ? "text-secondary" : "text-on-surface-variant"}">${a.profit_pct > 0 ? "+" : ""}${a.profit_pct}%</div>
+        <div class="text-label-sm text-on-surface-variant">prices add to ${a.book_pct}%</div></div></div>
+      <ul class="mt-xs text-label-sm text-on-surface">${a.legs.map(l =>
+        `<li>${esc(l.outcome)} <b>${l.odds.toFixed(2)}</b> on ${esc(l.book)} · stake ₦${l.stake.toLocaleString()}</li>`).join("")}</ul>
+      <div class="text-label-sm text-on-surface-variant mt-xs">Per ₦${a.legs.reduce((t, l) => t + l.stake, 0).toLocaleString(undefined, {maximumFractionDigits: 0})} staked, any result pays ₦${a.payout.toLocaleString()}.</div>
+    </div>`;
+}
+async function findArbs(attempt = 0) {
+    const btn = document.getElementById("arb-btn"), out = document.getElementById("arb-out");
+    btn.disabled = true;
+    if (!attempt) out.innerHTML = `<p class="text-body-md text-on-surface-variant">Comparing both bookmakers…</p>`;
+    try {
+        const d = await PotentialProAPI.arbs();
+        if (d.status === "warming") {
+            // First scan after a restart reads ~50 feed pages (about a minute).
+            if (attempt < 8) {
+                out.innerHTML = `<p class="text-body-md text-on-surface-variant">Reading every SportyBet and MSport price. This first check takes about a minute…</p>`;
+                return setTimeout(() => findArbs(attempt + 1), (d.retry_after || 20) * 1000);
+            }
+            out.innerHTML = `<p class="text-body-md text-on-surface">Still checking. Try again in a minute.</p>`;
+        } else {
+            const head = `<p class="text-label-sm text-on-surface-variant">${d.matched_events.toLocaleString()} matches on both bookmakers, ${d.compared_markets.toLocaleString()} markets compared, checked ${new Date(d.checked_at * 1000).toLocaleTimeString([], {hour: "2-digit", minute: "2-digit"})}.</p>`;
+            out.innerHTML = head + (d.arbs.length ? d.arbs.map(arbCard).join("")
+                : `<p class="text-body-md text-on-surface">No arbitrage right now. The closest:</p>` + d.near_misses.map(arbCard).join(""));
+        }
+    } catch (err) {
+        out.innerHTML = `<p class="text-body-md text-on-surface">${esc(ppErrorMessage(err, "check the prices"))}</p>`;
+    }
+    btn.disabled = false;
+}
+
 function showTab(name) {
     const tools = name === "tools";
     document.getElementById("tools-panel").hidden = !tools;
@@ -762,6 +810,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.getElementById(next === "tools" ? "tab-tools" : "tab-build").focus();
     });
     PPCalc.mount(document.getElementById("calc-panel"));
+    document.getElementById("arb-btn").addEventListener("click", () => findArbs());
     showTab(location.hash === "#tools" ? "tools" : "build");
     load();
     renderSlip();          // disables the booking buttons on an empty slip

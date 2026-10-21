@@ -31,4 +31,9 @@ assert.ok(C.hedge(1000, "2", "2.5").profit > 0);   // 1/2 + 1/2.5 < 1: locked pr
 const d = C.dutch(1000, ["2", "4"]);
 near(d.book, 0.75); near(d.stakes[0] * 2, d.stakes[1] * 4); near(d.payout, 1000 / 0.75);
 assert.ok(C.dutch(1000, ["1.9", "1.9"]).profit < 0); // over-round: loses either way
+// Kelly: 50% at 3.00 -> f = (1.5 - 1) / 2 = 25%; 30% at 3.00 -> negative, no bet.
+const k = C.kelly(10000, 50, "3");
+near(k.fraction, 0.25); near(k.full, 2500); near(k.half, 1250);
+assert.ok(C.kelly(10000, 30, "3").fraction < 0 && C.kelly(10000, 30, "3").full === 0);
+assert.equal(C.kelly(10000, 100, "3"), null);
 console.log("calc tests OK");
