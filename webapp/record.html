@@ -66,7 +66,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 <p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">Every pick we published, scored against real full-time results.</p>
 </header>
 <!-- Hero -->
-<section class="mt-gutter p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-center text-center">
+<section class="mt-gutter p-lg bg-primary-container rounded-xl shadow-lg relative overflow-hidden flex flex-col items-start">
 <!-- The HEADLINE is every prediction we have made, LOW included. It was
      HIGH+MEDIUM (a friendlier 60.0% vs 57.1%) under the words "Overall Hit
      Rate" — leading with the subset means the biggest number on the page is
@@ -299,7 +299,7 @@ function tierCard(tier, d) {
        the one open below. */
     return `
 <button type="button" data-tier="${tier}" aria-expanded="false" aria-controls="drilldown" ${clickable ? "" : "disabled"}
-        class="tier-card pp-focus w-full text-left bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm relative overflow-hidden transition-all hover:shadow-md ${s.border} group ${clickable ? 'cursor-pointer' : 'opacity-80 cursor-default'}">
+        class="tier-card pp-focus w-full text-left bg-surface-container-lowest border border-outline-variant rounded-xl p-md shadow-sm relative overflow-hidden transition-shadow hover:shadow-md ${s.border} group ${clickable ? 'cursor-pointer' : 'opacity-80 cursor-default'}">
   <div class="flex justify-between items-start mb-4">
     <span class="inline-flex items-center px-2 py-1 rounded-sm ${s.badge} text-label-sm uppercase tracking-wide">
       <span class="material-symbols-outlined text-[16px] mr-1 icon-fill" aria-hidden="true">${s.icon}</span>${tier}

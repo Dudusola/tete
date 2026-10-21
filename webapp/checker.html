@@ -524,7 +524,7 @@ async function bookCheckerSlip(provider) {
             market: l.market, selection: l.selection,
         })), provider);
         if (!d.ok) {
-            out.innerHTML = `<span class="text-error">⚠️ ${esc(d.error)}</span>`;
+            out.innerHTML = `<span class="text-error"><span class="material-symbols-outlined text-[16px] align-[-3px]" aria-hidden="true">warning</span> ${esc(d.error)}</span>`;
             return;
         }
         // Say which legs the bookmaker didn't list. A code that silently drops
@@ -633,7 +633,7 @@ async function runTool(fn, outId) {
     try {
         const d = await fn();
         if (!d.ok) {
-            out.innerHTML = `<span class="text-error text-label-sm">⚠️ ${esc(d.error || "That didn't work.")}</span>`;
+            out.innerHTML = `<span class="text-error text-label-sm"><span class="material-symbols-outlined text-[16px] align-[-3px]" aria-hidden="true">warning</span> ${esc(d.error || "That didn't work.")}</span>`;
             return;
         }
         out.innerHTML = d.html;
@@ -721,7 +721,7 @@ async function decodeBookingCode() {
     legsEl.innerHTML = "";
     try {
         const d = await PotentialProAPI.decodeCode(provider, code);
-        if (!d.ok) { status.textContent = `⚠️ ${d.error}`; return; }
+        if (!d.ok) { status.textContent = d.error; return; }
         let summary = `${d.total_legs} leg${d.total_legs === 1 ? "" : "s"} — we cover ${d.covered_legs} of them`;
         if (d.covered_legs === 0 && d.total_legs > 0) {
             // The common case, and it needs explaining rather than a bare 0.
