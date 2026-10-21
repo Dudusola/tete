@@ -643,7 +643,9 @@ function roundupDay(day, open) {
       <div class="px-md pb-md">
         ${line("Best call", day.best_call)}
         ${line("Worst miss", day.worst_miss)}
-        <ul class="mt-sm divide-y divide-outline-variant">${day.picks.map(row).join("")}</ul>
+        ${day.graded === 1 ? `<ul class="mt-sm">${day.picks.map(row).join("")}</ul>`
+          : `<details class="mt-sm"><summary class="cursor-pointer text-body-md text-secondary font-semibold py-xs">Show all ${day.graded} picks</summary>
+              <ul class="divide-y divide-outline-variant">${day.picks.map(row).join("")}</ul></details>`}
       </div></details>`;
 }
 async function loadRoundups() {
