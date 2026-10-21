@@ -1223,7 +1223,35 @@ def get_fixtures():
                 for o in sorted(opts, key=lambda x: x.probability, reverse=True)
             ],
         })
-    return {"count": len(fixtures), "fixtures": fixtures}
+    # Fixture hub (step 5 of the Puntrr audit): the fixtures above are only the
+    # BETTABLE ones (no started match may reach a slip). `started` lists what
+    # kicked off since yesterday with its score - the recorded result, else ESPN
+    # via models.live_scores (memoised 60 s), the same source as Picks' started
+    # list. Kept in its own key so nothing that books a slip can pick one up.
+    conn = get_connection()
+    started = [dict(r) for r in conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
+               m.kickoff_time, m.kickoff_utc, m.live_state, m.espn_league,
+               r.home_goals AS result_home_goals, r.away_goals AS result_away_goals,
+               r.outcome AS result_outcome
+        FROM matches m
+        LEFT JOIN results r ON r.match_id = m.match_id
+        WHERE m.match_date >= date('now', '-1 day') {SPORT_SQL}
+          AND EXISTS (SELECT 1 FROM model_predictions mp WHERE mp.match_id = m.match_id)
+          AND ((m.kickoff_utc IS NOT NULL AND m.kickoff_utc <= strftime('%Y-%m-%d %H:%M', 'now'))
+               OR m.live_state IN ('in', 'post') OR r.outcome IS NOT NULL)
+        ORDER BY m.kickoff_utc
+    """).fetchall()]
+    conn.close()
+    try:
+        attach_live_scores(started)
+    except Exception as e:      # a score is decoration; the fixtures still load
+        print(f"[fixtures] live scores failed: {e}", flush=True)
+    for f in started:
+        f["live_state"] = effective_live_state(f)
+        f["league_display"] = pretty_league(f["league"])
+        f.pop("espn_league", None)
+    return {"count": len(fixtures), "fixtures": fixtures, "started": started}
 
 
 @app.post("/api/results/lookup")

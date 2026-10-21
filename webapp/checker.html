@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Slip Checker</title>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,functions,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,schedule,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,functions,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,hub,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,schedule,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,star,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
 <!-- Open the API and font connections while the page parses, not after its
      scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
 <link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
@@ -254,7 +254,13 @@
 <script src="js/auth.js?v=1"></script>
 <script src="js/calc.js?v=1"></script>
 <script>
-let FIXTURES = [];
+let FIXTURES = [];      // bettable fixtures + today's started ones (started: true, no markets)
+/* Favourite leagues float to the top of every day (fixture hub, step 5).
+   Per-browser convenience, so localStorage is the right home for it. */
+const FAVS = new Set((() => { try { return JSON.parse(localStorage.getItem("pp-fav-leagues") || "[]"); } catch (_) { return []; } })());
+const isStarted = fx => !!fx.started || hasKickedOff(fx);
+// Live = kicked off, no final yet (the snapshot live_state can lag, so judge by the score).
+const isLiveFx = fx => fx.started && fx.result_home_goals == null && fx.live_score && !fx.live_final;
 let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
 
 
@@ -319,6 +325,16 @@ function renderDays() {
     }));
 }
 
+/* Score for a started fixture: the recorded result, else ESPN's live score. */
+function scorePill(fx) {
+    const final = fx.result_home_goals != null;
+    const score = final ? `${fx.result_home_goals}–${fx.result_away_goals}` : (fx.live_score || "").replace("-", "–");
+    if (!score) return `<span class="text-label-sm bg-surface-container-high text-on-surface-variant px-sm py-[2px] rounded-full whitespace-nowrap" title="Already under way or finished — bookmakers won't accept it">started</span>`;
+    return isLiveFx(fx)
+        ? `<span class="inline-flex items-center gap-xs text-label-sm font-bold bg-error-container text-on-error-container px-sm py-[2px] rounded-full whitespace-nowrap tabular-nums"><span class="pp-live-dot"></span>${esc(score)} · ${esc(fx.live_detail || "live")}</span>`
+        : `<span class="text-label-sm font-bold bg-surface-container-high text-primary px-sm py-[2px] rounded-full whitespace-nowrap tabular-nums">FT ${esc(score)}</span>`;
+}
+
 function renderFixtures(filter="") {
     const list = document.getElementById("fixture-list");
     const f = (filter || "").toLowerCase().trim();
@@ -337,7 +353,7 @@ function renderFixtures(filter="") {
     // kickoff order inside each league.
     const rank = new Map();
     shown.forEach(fx => { if (!rank.has(fx.league)) rank.set(fx.league, rank.size); });
-    shown.sort((a, b) => rank.get(a.league) - rank.get(b.league));
+    shown.sort((a, b) => (FAVS.has(b.league) - FAVS.has(a.league)) || rank.get(a.league) - rank.get(b.league));
     if (!shown.length) {
         list.innerHTML = `<div class="text-on-surface-variant">No fixtures match${MARKET_FILTER || DAY_FILTER ? " those filters" : ""}.</div>`;
         return;
@@ -348,8 +364,14 @@ function renderFixtures(filter="") {
     const remaining = shown.length - paged.length;
     let lastLeague = null;
     list.innerHTML = paged.map(fx => {
+        const fav = FAVS.has(fx.league);
         const header = fx.league !== lastLeague
-            ? `<h3 class="text-label-sm font-bold uppercase tracking-wider text-on-surface-variant pt-sm">${cleanLeague(fx.league)}</h3>` : "";
+            ? `<div class="flex items-center justify-between pt-sm">
+                 <h3 class="text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">${cleanLeague(fx.league)}</h3>
+                 <button type="button" class="fav-league w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high ${fav ? "text-secondary" : "text-on-surface-variant"}"
+                         data-league="${esc(fx.league)}" aria-pressed="${fav}" aria-label="${fav ? "Remove" : "Add"} ${esc(prettyLeague(fx.league))} ${fav ? "from" : "to"} favourite leagues">
+                   <span class="material-symbols-outlined text-[20px] ${fav ? "icon-fill" : ""}" aria-hidden="true">star</span></button>
+               </div>` : "";
         lastLeague = fx.league;
         const mkts = MARKET_FILTER
             ? fx.markets.filter(m => m.market === MARKET_FILTER)
@@ -360,7 +382,7 @@ function renderFixtures(filter="") {
         const visible = open ? mkts : mkts.slice(0, CHIPS_COLLAPSED);
         const hidden = mkts.length - visible.length;
         const picked = SLIP.find(l => l.match_id === fx.match_id);
-        const started = hasKickedOff(fx);
+        const started = isStarted(fx);
         return header + `
 <div class="bg-surface-container-lowest border ${picked ? "border-secondary" : "border-outline-variant"} rounded-lg p-sm">
   <div class="flex justify-between items-start mb-xs gap-sm">
@@ -368,7 +390,7 @@ function renderFixtures(filter="") {
       <div class="text-label-sm text-on-surface-variant">${esc(kickoffLabel(fx.match_date, fx.kickoff_time, fx.kickoff_utc))}</div>
       <div class="text-body-md font-semibold text-primary">${esc(fx.home_team)} vs ${esc(fx.away_team)}</div>
     </div>
-    ${started ? `<span class="text-label-sm bg-surface-container-high text-on-surface-variant px-sm py-[2px] rounded-full whitespace-nowrap" title="Already under way or finished — bookmakers won't accept it">started</span>` : ""}
+    ${started ? scorePill(fx) : ""}
   </div>
   <div class="flex flex-wrap gap-xs items-center">
     ${visible.map(m => marketChip(fx, m, !!picked && picked.selection === m.selection)).join("")}
@@ -389,6 +411,12 @@ function renderFixtures(filter="") {
         renderFixtures(document.getElementById("search").value);
     });
 
+    list.querySelectorAll(".fav-league").forEach(btn => btn.addEventListener("click", () => {
+        const lg = btn.dataset.league;
+        if (FAVS.has(lg)) FAVS.delete(lg); else FAVS.add(lg);
+        try { localStorage.setItem("pp-fav-leagues", JSON.stringify([...FAVS])); } catch (_) {}
+        renderFixtures(document.getElementById("search").value);
+    }));
     list.querySelectorAll(".add-leg").forEach(btn =>
         btn.addEventListener("click", () => addLeg(btn.dataset.mid, btn.dataset.sel)));
     list.querySelectorAll(".more-mkts").forEach(btn =>
@@ -539,29 +567,38 @@ async function bookCheckerSlip(provider) {
     }
 }
 
-async function load() {
-    document.getElementById("fixture-list").innerHTML =
+async function load(refresh = false) {
+    if (!refresh) document.getElementById("fixture-list").innerHTML =
         `<div class="space-y-sm">${ppSkeleton(110)}${ppSkeleton(110)}${ppSkeleton(110)}</div>`;
     try {
         const data = await PotentialProAPI.fixtures();
         // Soonest kickoff first, games already under way last: the API's
         // order is by prediction, which put tomorrow 00:15 above today 19:00.
         const ko = fx => fx.kickoff_utc || `${fx.match_date} ${fx.kickoff_time || "23:59"}`;
-        FIXTURES = (data.fixtures || []).sort((a, b) =>
-            (hasKickedOff(a) - hasKickedOff(b)) || ko(a).localeCompare(ko(b)));
-        fillMarketFilter();
-        // Open on the first day with a game still to play: under "All" a
-        // league group mixes today's game with Friday's.
-        const next = FIXTURES.find(fx => !hasKickedOff(fx));
-        DAY_FILTER = next ? fxDay(next) : "";
+        const started = (data.started || []).map(fx => ({...fx, markets: [], started: true}));
+        FIXTURES = (data.fixtures || []).concat(started).sort((a, b) =>
+            (isStarted(a) - isStarted(b)) || ko(a).localeCompare(ko(b)));
+        if (!refresh) {
+            fillMarketFilter();
+            // Open on the first day with a game still to play: under "All" a
+            // league group mixes today's game with Friday's.
+            const next = FIXTURES.find(fx => !isStarted(fx));
+            DAY_FILTER = next ? fxDay(next) : "";
+        }
         renderDays();
-        renderFixtures();
+        renderFixtures(document.getElementById("search").value);
     } catch (err) {
-        document.getElementById("fixture-list").innerHTML =
+        if (!refresh) document.getElementById("fixture-list").innerHTML =
             ppErrorBox(err, "load today's fixtures", "load");
         console.error(err);
     }
 }
+
+/* Live scores refresh once a minute (the API memoises ESPN for 60 s), only
+   while something is in play and the tab is visible - the Picks page's rule. */
+setInterval(() => {
+    if (document.visibilityState === "visible" && FIXTURES.some(isLiveFx)) load(true);
+}, 60000);
 
 // ── Booking-code decoder ─────────────────────────────────────────────
 function renderDecodedLeg(l) {
