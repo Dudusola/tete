@@ -332,6 +332,14 @@ generate predictions on demand.
                             the Builder can offer them, not as tips. SportyBet 223/225 (incl. OT) at
                             every half-point line; code NFE4DB decoded back right.
                           - Next lever is player availability (late scratches, rest), not ratings.
+                          - STAR-OUT WARNING (21 Oct 2026, models/nba_stars.py): a star = 18+ ppg last
+                            season over 20+ games (ESPN byathlete stats, 41 players); listed = Out or
+                            Day-To-Day on ESPN's injury report, joined on ESPN ATHLETE ID (from the
+                            injury entry's player link), team = the report's CURRENT team (all 28 names
+                            match matches.home_team exactly). Stored in facts_json.stars_out by
+                            elo_shadow (hourly), shown via us_sports.warnings type "injury". A WARNING
+                            only - no historical injury data, so no probability change and no claimed
+                            effect; record() keeps warned picks apart so the ledger can tell.
 - models/nfl_markets.py   NFL moneyline (Elo) / spread / total at the BOOK's lines. Margin = normal
                           x KEY-NUMBER weights by |margin| (fitted 2011-23: 3 -> x2.54, 7 -> x1.75;
                           14.6% of games end by exactly 3), mu solved so P(home win) == Elo's.

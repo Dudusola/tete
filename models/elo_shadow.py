@@ -218,6 +218,10 @@ def run() -> int:
                 nhl_state = nhl_markets.current_rates(nhl_params, params)
             elif nba:
                 nba_state = nfl_markets.current_rates(nba_params, params)
+                # Stars (18+ ppg last season) on ESPN's injury report, once per
+                # run (models/nba_stars.py). {} if a source is down: no warning.
+                from models.nba_stars import live_status as nba_stars_out
+                stars_out = nba_stars_out()
             elif nfl:
                 nfl_state = nfl_markets.current_rates(nfl_params, params)
                 # Regular starting QB per team + ESPN injury status, once per run
@@ -308,6 +312,8 @@ def run() -> int:
                 facts = nhl_form.build(hid, aid, g["kickoff_utc"][:10], nhl_games,
                                        ranked, nhl_ranks)
                 facts["market_movement"] = movement
+                facts["stars_out"] = {side: stars_out.get(team, []) for side, team in
+                                      (("home", g["home_team"]), ("away", g["away_team"]))}
                 facts_json = json.dumps(facts)
             conn.execute("""
                 INSERT INTO shadow_predictions
