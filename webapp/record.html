@@ -107,6 +107,16 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      prices stored when each pick was made sits right under it, with its
      range, filled live from /api/stats `returns` (models/returns.py). The
      wording follows the interval: "break-even" while zero is inside it. -->
+<!-- Day by day: "what we called, what landed" (step 7 of the Puntrr audit).
+     Written from the ledger by GET /api/roundups, not by an LLM: every served
+     pick per match day, won or lost. Puntrr's Catch-Up shows only the calls
+     that landed on big games; this shows all of ours. -->
+<section id="roundups" aria-labelledby="roundups-h" class="hidden mt-lg">
+  <h2 id="roundups-h" class="text-body-lg font-semibold text-primary">What we called, what landed</h2>
+  <p class="text-body-md text-on-surface-variant mt-xs">Every pick we recommended, day by day, with the final score. Wins and losses both.</p>
+  <div id="roundup-days" class="mt-sm space-y-sm"></div>
+</section>
+
 <section id="honest" aria-labelledby="honest-h" class="hidden bg-surface-container-lowest border border-outline-variant rounded-xl p-md md:p-lg">
   <h2 id="honest-h" class="text-body-lg font-semibold text-primary">What this is — and what it isn't yet</h2>
   <div class="grid md:grid-cols-2 gap-md md:gap-lg mt-sm text-body-md text-on-surface-variant">
@@ -609,5 +619,43 @@ document.addEventListener("DOMContentLoaded", () => {
     document.addEventListener("click", () =>
         document.getElementById("info-tip").classList.remove("show"));
 });
+
+/* ── Day by day (/api/roundups) ───────────────────────────────────────── */
+function roundupPickName(p) {
+    return ppPlainPick(p.best_bet === "Home Win" ? `${p.home_team} Win` : p.best_bet === "Away Win" ? `${p.away_team} Win` : p.best_bet);
+}
+function roundupDay(day, open) {
+    const d = new Date(`${day.date}T12:00`);
+    const today = new Date().toDateString() === d.toDateString();
+    const label = d.toLocaleDateString([], {weekday: "long", day: "numeric", month: "short"});
+    const score = p => `${p.home_goals}–${p.away_goals}`;
+    const line = (title, p) => p ? `<p class="text-body-md text-on-surface-variant"><b class="text-primary">${title}:</b>
+        ${escapeHtml(roundupPickName(p))} (we gave it ${Math.round(p.best_bet_prob * 100)}%). Final score: ${escapeHtml(p.home_team)} ${score(p)} ${escapeHtml(p.away_team)}.</p>` : "";
+    const row = p => `<li class="flex items-start gap-sm py-xs">
+        <span class="material-symbols-outlined text-[18px] ${p.won ? "text-secondary" : "text-error"}" aria-hidden="true">${p.won ? "check_circle" : "cancel"}</span>
+        <span class="flex-1 min-w-0"><a href="match.html?id=${encodeURIComponent(p.match_id)}" class="text-primary hover:underline">${escapeHtml(p.home_team)} ${score(p)} ${escapeHtml(p.away_team)}</a>
+          <span class="block text-label-sm text-on-surface-variant">Picked ${escapeHtml(roundupPickName(p))} · ${Math.round(p.best_bet_prob * 100)}% · ${p.won ? "won" : "lost"}</span></span></li>`;
+    return `<details class="rounded-xl border border-outline-variant bg-surface-container-lowest" ${open ? "open" : ""}>
+      <summary class="cursor-pointer p-md flex items-center justify-between gap-sm">
+        <span class="font-semibold text-primary">${escapeHtml(label)}${today ? " (so far)" : ""}</span>
+        <span class="shrink-0 whitespace-nowrap text-body-md tabular-nums text-on-surface-variant"><b class="text-primary">${day.won} of ${day.graded}</b> won</span>
+      </summary>
+      <div class="px-md pb-md">
+        ${line("Best call", day.best_call)}
+        ${line("Worst miss", day.worst_miss)}
+        <ul class="mt-sm divide-y divide-outline-variant">${day.picks.map(row).join("")}</ul>
+      </div></details>`;
+}
+async function loadRoundups() {
+    try {
+        const days = (await PotentialProAPI.roundups(7)).days || [];
+        if (!days.length) return;
+        document.getElementById("roundup-days").innerHTML = days.map((d, i) => roundupDay(d, i === 0 || (i === 1 && days[0].graded < 3))).join("");
+        document.getElementById("roundups").classList.remove("hidden");
+    } catch (err) {
+        console.error("roundups:", err);   // the rest of the record still stands
+    }
+}
+document.addEventListener("DOMContentLoaded", loadRoundups);
 </script>
 </body></html>
