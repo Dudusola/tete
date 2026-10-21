@@ -356,7 +356,7 @@ async function bookSlip(provider) {
             home_team: l.home_team, away_team: l.away_team, league: l.league,
             sport: l.sport, market: l.market, selection: l.selection,
         })), provider);
-        if (!d.ok) { out.innerHTML = `<span class="text-error">⚠️ ${escapeHtml(d.error)}</span>`; return; }
+        if (!d.ok) { out.innerHTML = `<span class="text-error"><span class="material-symbols-outlined text-[16px] align-[-3px]" aria-hidden="true">warning</span> ${escapeHtml(d.error)}</span>`; return; }
         out.innerHTML = ppBookingResult(d, PROVIDER_NAME[provider], LAST_SLIP);
     } catch (err) {
         out.innerHTML = `<p class="text-body-md text-on-surface">${escapeHtml(ppErrorMessage(err, "create the code"))}</p>`;

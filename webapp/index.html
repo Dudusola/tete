@@ -77,13 +77,13 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <!-- Sports. One preference shared with the Builder (ppSportChips in api.js).
      NHL and NFL used to be a separate tab; they live here now, with their
      own record and disclosure, never blended into football's numbers. -->
-<div id="sport-filter" class="flex flex-wrap gap-xs mb-md" role="group" aria-label="Sports"></div>
+<div id="sport-filter" class="flex gap-xs mb-md overflow-x-auto [scrollbar-width:none] md:flex-wrap [&>*]:shrink-0 -mx-gutter px-gutter md:mx-0 md:px-0" role="group" aria-label="Sports"></div>
 
 <!-- Summary stat strip (FOOTBALL's record - hidden when football is off) -->
 <div id="stat-strip" class="mb-lg"></div>
 
 <!-- One line per chosen NHL/NFL sport: its own record and its disclosure. -->
-<div id="sport-notes" class="mb-md flex flex-col gap-xs"></div>
+<div id="sport-notes" class="mb-md flex flex-col"></div>
 
 <!-- Tier filter chips + status -->
 <div class="flex flex-wrap items-center justify-between gap-sm mb-md">
@@ -107,7 +107,7 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
      busy day the only way to find a league was to scroll. Built from the
      leagues actually present in today's picks rather than a fixed list, so it
      can never offer a league with nothing behind it. -->
-<div id="league-filter" class="flex flex-wrap gap-xs mb-md"></div>
+<div id="league-filter" class="flex gap-xs mb-md overflow-x-auto [scrollbar-width:none] md:flex-wrap [&>*]:shrink-0 -mx-gutter px-gutter md:mx-0 md:px-0"></div>
 
 <!-- Prediction feed (cards injected here) -->
 <div id="picks-feed" class="grid grid-cols-1 md:grid-cols-2 gap-md md:gap-lg"></div>
@@ -198,11 +198,10 @@ function marketCheck(p) {
     // NHL/NFL prices come from DraftKings via ESPN, not SportyBet - say which.
     const bookName = p.sport && p.sport !== "football" ? "Bookmaker" : "SportyBet";
     return `
-  <div class="flex items-center justify-between gap-xs mb-md px-sm py-1 rounded-lg bg-surface border border-outline-variant text-label-sm">
+  <div class="flex flex-wrap items-baseline gap-x-md mb-md pt-sm border-t border-outline-variant text-label-sm">
     <span class="text-on-surface-variant">Our model <strong class="text-primary">${ours}%</strong></span>
-    <span class="text-on-surface-variant">·</span>
     <span class="text-on-surface-variant">${bookName} <strong class="text-primary">${Number(p.book_odds).toFixed(2)}</strong> (${book}%)</span>
-    <span class="tabular-nums ${wide ? "text-error font-bold" : "text-on-surface-variant"}"
+    <span class="ml-auto tabular-nums ${wide ? "text-error font-bold" : "text-on-surface-variant"}"
           title="${wide ? "We disagree with the market by more than 15 points — treat with caution" : "Our probability minus the bookmaker's, in percentage points"}">
       ${gap === 0 ? "same as market" : `${gap > 0 ? "+" : ""}${gap} vs market`}
     </span>
@@ -270,7 +269,7 @@ function renderSportCard(p) {
         : ""}
     </div>
   </div>
-  <div class="bg-surface p-sm rounded-lg border border-outline-variant mb-md flex justify-between items-center">
+  <div class="mb-md flex justify-between items-center">
     <div>
       <div class="text-label-sm text-on-surface-variant mb-base">Recommendation</div>
       <div class="text-body-lg font-semibold text-primary">${escapeHtml(p.best_bet)} to win</div>
@@ -379,7 +378,7 @@ function renderCard(p) {
       ${p.consensus_adj === "demoted" ? `<span class="inline-flex items-center gap-xs bg-error-container text-on-error-container px-sm py-base rounded-full text-label-sm font-bold" title="Lowered to MEDIUM because both sources back a different outcome"><span class="material-symbols-outlined text-[14px]">arrow_downward</span>tier lowered</span>` : ""}
     </div>
   </div>
-  <div class="bg-surface p-sm rounded-lg border border-outline-variant mb-md flex justify-between items-center">
+  <div class="mb-md flex justify-between items-center">
     <div>
       <div class="text-label-sm text-on-surface-variant mb-base">${isDraw ? "Evenly matched" : "Recommendation"}</div>
       ${isDraw
@@ -658,10 +657,10 @@ function renderSportNotes(sp, us) {
             : "no graded picks yet";
         // One line each, so three sports don't push the first pick off a phone
         // screen; "experimental" stays in the visible line, the rest is a tap away.
-        return `<details class="rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
-          <summary class="cursor-pointer block p-sm"><span class="font-bold text-primary">${code.toUpperCase()}</span>
+        return `<details class="text-label-sm text-on-surface-variant">
+          <summary class="cursor-pointer block py-1"><span class="font-bold text-primary">${code.toUpperCase()}</span>
             · ${rec} · experimental</summary>
-          <p class="px-sm pb-sm max-w-prose">${escapeHtml((sp.disclosures || {})[code] || "")}</p></details>`;
+          <p class="pb-sm max-w-prose">${escapeHtml((sp.disclosures || {})[code] || "")}</p></details>`;
     }).join("");
 }
 
