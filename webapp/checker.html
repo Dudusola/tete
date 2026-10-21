@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-title" content="PotentialPro"/>
 <title>PotentialPro - Slip Checker</title>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,accessible,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,block,bolt,book,bookmark_add,box,build,cached,call,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,numbers,opacity,output,padding,pages,paid,palette,password,pattern,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,switch,sync,tab,table,tablet,target,task,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,schedule,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&display=swap" rel="stylesheet"/>
 <!-- Open the API and font connections while the page parses, not after its
      scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
 <link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
@@ -42,7 +42,7 @@
 <section>
 <header class="mb-md">
 <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Check a Slip</h1>
-<p class="text-body-md text-on-surface-variant mt-1">Pick legs from upcoming fixtures and see our model's view of each one and of the whole slip, then book it. Already have a code? Decode, split, convert or merge it under Code tools.</p>
+<p class="text-body-md text-on-surface-variant mt-1">Pick legs from upcoming fixtures and see our model's view of each one and of the whole slip, then book it. Already have a code, or need a calculator? It's all under Tools.</p>
 </header>
 
 <!-- Two jobs, two tabs. The code tools used to wait in a collapsed "beta" box
@@ -52,7 +52,7 @@
   <button type="button" role="tab" id="tab-build" aria-controls="build-panel" aria-selected="true"
           class="ck-tab px-md py-sm rounded-full text-label-sm font-bold">Build a slip</button>
   <button type="button" role="tab" id="tab-tools" aria-controls="tools-panel" aria-selected="false"
-          class="ck-tab px-md py-sm rounded-full text-label-sm font-bold">Code tools</button>
+          class="ck-tab px-md py-sm rounded-full text-label-sm font-bold">Tools</button>
 </div>
 
 <!-- Booking-code tools: decode, then trim / split / convert / merge. -->
@@ -147,6 +147,12 @@
     <div id="merge-result" class="mt-sm"></div>
   </div>
   </div>
+  <!-- Calculators (js/calc.js): arithmetic on what the user types, no API. -->
+  <div class="p-md border-t border-outline-variant">
+    <h2 class="flex items-center gap-xs text-body-lg font-semibold text-primary mb-sm">
+      <span class="material-symbols-outlined text-secondary text-[20px]" aria-hidden="true">calculate</span>Calculators</h2>
+    <div id="calc-panel"></div>
+  </div>
 </div>
 <div id="build-panel" role="tabpanel" aria-labelledby="tab-build">
 <!-- Day strip, built from the fixtures loaded: "All" plus one button per
@@ -208,7 +214,7 @@
       Bet9ja code
     </button>
   </div>
-  <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes — paste those under Code tools.</div>
+  <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes — paste those under Tools.</div>
   <div id="ck-book-result" class="mt-sm text-body-md text-on-surface"></div>
   <div id="track-slip-slot"></div>
 </div>
@@ -236,6 +242,7 @@
 <script src="config.js?v=2"></script>
 <script src="js/api.js?v=37"></script>
 <script src="js/auth.js?v=1"></script>
+<script src="js/calc.js?v=1"></script>
 <script>
 let FIXTURES = [];
 let SLIP = [];  // {match_id, home_team, away_team, market, selection, probability}
@@ -754,6 +761,7 @@ document.addEventListener("DOMContentLoaded", () => {
         showTab(next);
         document.getElementById(next === "tools" ? "tab-tools" : "tab-build").focus();
     });
+    PPCalc.mount(document.getElementById("calc-panel"));
     showTab(location.hash === "#tools" ? "tools" : "build");
     load();
     renderSlip();          // disables the booking buttons on an empty slip
