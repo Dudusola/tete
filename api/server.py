@@ -1254,6 +1254,64 @@ def get_fixtures():
     return {"count": len(fixtures), "fixtures": fixtures, "started": started}
 
 
+@app.get("/api/match/{match_id}")
+@cached(ttl=60, max_age=60)
+def get_match(match_id: str):
+    """One football fixture for the match page (step 6 of the Puntrr audit):
+    our pick and every derived market, the price when we picked and just
+    before kickoff, SportyBet's price history, the facts the pick was made on
+    (stored at prediction time, so they are as they stood before kickoff),
+    and the live or final score."""
+    import json as _json
+    conn = get_connection()
+    row = conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
+               m.kickoff_time, m.kickoff_utc, m.live_state, m.espn_league,
+               mp.home_win_prob, mp.draw_prob, mp.away_win_prob, mp.confidence,
+               mp.best_bet, mp.best_bet_prob, mp.gemma_analysis, mp.predicted_at,
+               mp.book_odds, mp.book_prob, mp.book_source,
+               mp.close_odds, mp.close_prob, mp.close_source, mp.close_at, mp.facts_json,
+               r.home_goals AS result_home_goals, r.away_goals AS result_away_goals,
+               r.outcome AS result_outcome
+        FROM matches m
+        JOIN model_predictions mp ON mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
+                                              WHERE mp2.match_id = m.match_id)
+        LEFT JOIN results r ON r.match_id = m.match_id
+        WHERE m.match_id = ? {SPORT_SQL}
+    """, [match_id]).fetchone()
+    if not row:
+        conn.close()
+        raise HTTPException(404, "We have no prediction for that match.")
+    history = [dict(r) for r in conn.execute("""
+        SELECT odds_home, odds_draw, odds_away, observed_at FROM sporty_lines
+        WHERE match_id = ? AND market = '1X2' ORDER BY observed_at""", [match_id]).fetchall()]
+    conn.close()
+
+    d = dict(row)
+    facts = _json.loads(d.pop("facts_json")) if d.get("facts_json") else None
+    # Only once it has kicked off: ESPN lists upcoming games as "0-0 Scheduled",
+    # which the page would show as a score (seen on PSG v Lyon, 4 days out).
+    kicked_off = (d["live_state"] in ("in", "post")
+                  or (d["kickoff_utc"] or "9") <= datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M"))
+    if d["result_outcome"] is None and kicked_off:
+        try:
+            attach_live_scores([d])
+        except Exception as e:      # decoration; the page still loads
+            print(f"[match] live score failed: {e}", flush=True)
+    d.pop("espn_league", None)
+    d["live_state"] = effective_live_state(d)
+    d["league_display"] = pretty_league(d["league"])
+    d["warnings"] = price_warnings(d)
+    return {
+        **d,
+        "facts": facts,
+        "markets": [{"market": o.market, "selection": o.selection,
+                     "probability": round(o.probability, 4), "risk": o.risk}
+                    for o in sorted(derive_markets(d), key=lambda o: o.probability, reverse=True)],
+        "price_history": history,
+    }
+
+
 @app.post("/api/results/lookup")
 def results_lookup(match_ids: List[str] = Body(..., embed=True)):
     """Final scores for a list of matches - grades a user's "My Record".

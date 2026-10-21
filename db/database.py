@@ -252,9 +252,12 @@ def init_db():
     #       pick; without the timestamp "movement" has no known horizon).
     #   close_*  the latest pre-kickoff observation, overwritten by every
     #       snapshot run until kickoff (scrapers/closing_snapshot.py).
+    #   facts_json  the evidence the pick was made on (form, goals, venue,
+    #       head-to-head, prices), saved at prediction time so the match page
+    #       shows point-in-time facts rather than recomputing them later.
     for col in ("book_source TEXT", "book_observed_at TEXT",
                 "close_odds REAL", "close_prob REAL", "close_source TEXT",
-                "close_at TEXT", "close_mins_before INTEGER"):
+                "close_at TEXT", "close_mins_before INTEGER", "facts_json TEXT"):
         try:
             cursor.execute(f"ALTER TABLE model_predictions ADD COLUMN {col}")
         except sqlite3.OperationalError:

@@ -116,12 +116,12 @@
     <fieldset class="sm:col-span-2">
       <legend class="text-label-sm text-on-surface-variant mb-xs">Markets (none ticked = all)</legend>
       <div class="flex flex-wrap gap-x-md gap-y-xs text-body-md" id="opt-markets">
-        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Match Result"/>Match result</label>
-        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Double Chance"/>Double chance</label>
-        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Draw No Bet"/>Draw no bet</label>
-        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Over/Under"/>Over/under goals</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Match Result"/>Who wins</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Double Chance"/>Win or draw (two results)</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Draw No Bet"/>Win, draw = money back</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Over/Under"/>Total goals</label>
         <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Both Teams To Score"/>Both teams to score</label>
-        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Handicap"/>Handicap</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Handicap"/>Winning margin</label>
         <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Moneyline"/>Moneyline (NHL, NFL, NBA)</label>
       </div>
     </fieldset>
@@ -265,7 +265,7 @@ function renderLeg(leg, idx) {
     <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(leg.market)}</div>
   </div>
   <div class="flex items-center justify-between md:justify-end gap-lg flex-1">
-    <div class="bg-primary-container text-on-primary rounded-md px-3 py-1 text-data-tabular font-data-tabular text-center min-w-[110px]">${escapeHtml(leg.selection)}</div>
+    <div class="bg-primary-container text-on-primary rounded-md px-3 py-1 text-data-tabular font-data-tabular text-center min-w-[110px]" title="Bookmaker calls it: ${escapeHtml(leg.market)} · ${escapeHtml(leg.selection)}">${escapeHtml(ppPlainPick(leg.selection))}</div>
     <div class="text-right">
       <div class="text-body-md text-primary font-semibold">${prob}%</div>
       <div class="text-label-sm text-secondary">probability</div>

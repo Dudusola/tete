@@ -167,7 +167,7 @@
 <div id="build-panel" role="tabpanel" aria-labelledby="tab-build">
 <!-- Day strip, built from the fixtures loaded: "All" plus one button per
      kickoff day in the viewer's own timezone. -->
-<div id="day-strip" role="group" aria-label="Kickoff day" class="flex gap-xs overflow-x-auto mb-sm pb-1"></div>
+<div id="day-strip" role="group" aria-label="Kickoff day" class="flex gap-xs overflow-x-auto [scrollbar-width:none] mb-sm pb-1"></div>
 <!-- Search + market filter. The fixture cards below cap at the 6 highest
      probabilities, which is nearly always Double Chance and the safe Over/Under
      lines — so without a filter the other ~15 markets derive_markets produces
@@ -286,10 +286,14 @@ function marketChip(fx, m, picked) {
     const cls = picked
         ? "bg-secondary-container text-on-secondary-container border-secondary font-bold"
         : "border-outline-variant hover:bg-surface-container-high";
-    return `<button type="button" class="add-leg text-label-sm px-2 py-1 rounded-md border transition ${cls}"
+    // Plain words on the chip, the chance in its own badge so a line like
+    // "+1.5" can never run into "98%" (read as "+1.598%"). The bookmaker's
+    // own wording stays in the tooltip.
+    return `<button type="button" class="add-leg inline-flex items-center gap-xs text-label-sm pl-2 pr-1 py-1 rounded-md border transition ${cls}"
         data-mid="${esc(fx.match_id)}" data-sel="${esc(m.selection)}"
-        title="${esc(m.market)}${m.risk ? " • " + esc(ppRiskLabel(m.risk)) : ""}">
-        ${esc(m.selection)} <span class="${picked ? "" : "text-on-surface-variant"}">${Math.round(m.probability*100)}%</span>
+        title="Bookmaker calls it: ${esc(m.market)} · ${esc(m.selection)}${m.risk ? " • " + esc(ppRiskLabel(m.risk)) : ""}">
+        <span>${esc(ppPlainPick(m.selection))}</span>
+        <span class="px-1 rounded font-bold tabular-nums ${picked ? "bg-secondary/20" : "bg-surface-container-high text-on-surface"}">${Math.round(m.probability*100)}%</span>
       </button>`;
 }
 
@@ -388,7 +392,7 @@ function renderFixtures(filter="") {
   <div class="flex justify-between items-start mb-xs gap-sm">
     <div>
       <div class="text-label-sm text-on-surface-variant">${esc(kickoffLabel(fx.match_date, fx.kickoff_time, fx.kickoff_utc))}</div>
-      <div class="text-body-md font-semibold text-primary">${esc(fx.home_team)} vs ${esc(fx.away_team)}</div>
+      <a href="match.html?id=${encodeURIComponent(fx.match_id)}" class="block text-body-md font-semibold text-primary hover:underline underline-offset-4">${esc(fx.home_team)} vs ${esc(fx.away_team)}</a>
     </div>
     ${started ? scorePill(fx) : ""}
   </div>
@@ -431,6 +435,11 @@ function renderFixtures(filter="") {
    models/markets.py emits them, so nothing is hardcoded and nothing goes stale.
    Over/Under keeps its line ("Over/Under 2.5") because picking a LINE is the
    point — collapsing them into one "Over/Under" entry would defeat it. */
+// Market names in plain words for the dropdown (values stay the API's).
+const PLAIN_MARKET = {"Match Result": "Who wins", "Double Chance": "Win or draw (two results)",
+    "Draw No Bet": "Win, draw = money back", "Handicap": "Winning margin",
+    "Both Teams To Score": "Both teams score", "Result & Goals": "Winner and goals"};
+
 function fillMarketFilter() {
     const sel = document.getElementById("market-filter");
     const seen = [];
@@ -439,7 +448,7 @@ function fillMarketFilter() {
     }));
     seen.sort();
     sel.innerHTML = `<option value="">All markets</option>` +
-        seen.map(m => `<option value="${esc(m)}">${esc(m)}</option>`).join("");
+        seen.map(m => `<option value="${esc(m)}">${esc(PLAIN_MARKET[m] || m.replace(/^Over\/Under (\S+)$/, "Total goals, over/under $1"))}</option>`).join("");
 }
 
 function addLeg(mid, selection) {
@@ -512,7 +521,7 @@ function renderSlip() {
 <div class="p-sm flex justify-between items-center gap-sm">
   <div class="flex-1">
     <div class="text-body-md text-primary font-semibold">${esc(l.home_team)} vs ${esc(l.away_team)}</div>
-    <div class="text-label-sm text-on-surface-variant">${esc(l.market)}: ${esc(l.selection)}</div>
+    <div class="text-label-sm text-on-surface-variant" title="Bookmaker calls it: ${esc(l.market)} · ${esc(l.selection)}">${esc(ppPlainPick(l.selection))}</div>
   </div>
   <span class="text-body-md font-semibold text-primary">${Math.round(l.probability*100)}%</span>
   <button type="button" class="rm material-symbols-outlined inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-error text-[18px]" data-mid="${esc(l.match_id)}" aria-label="Remove this leg">close</button>

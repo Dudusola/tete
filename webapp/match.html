@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/png" href="icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="icons/icon-180.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="PotentialPro"/>
+<title>PotentialPro - Match</title>
+<!-- Open the API and font connections while the page parses, not after its
+     scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
+<link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,functions,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,hub,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,schedule,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,star,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
+<style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;} .icon-fill{font-variation-settings:'FILL' 1;} .pb-safe{padding-bottom:env(safe-area-inset-bottom);}
+.tooltip-wrap{position:relative;display:inline-flex;}
+.tooltip-box{visibility:hidden;opacity:0;transition:opacity .15s;position:absolute;right:0;top:130%;width:260px;z-index:60;background:#131b2e;color:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:13px;line-height:1.4;}
+.tooltip-wrap:hover .tooltip-box, .tooltip-box.show{visibility:visible;opacity:1;}
+/* Keyboard focus. The critique found the default ring too faint to see; this
+   one is the brand green on light and the lime on dark, offset so it never
+   blends into a card border. :focus-visible = keyboard only, no ring on tap. */
+.pp-focus:focus-visible{outline:2px solid #416900;outline-offset:3px;}
+html.dark .pp-focus:focus-visible{outline-color:#91db2a;}
+/* Calibration scale: 40%..90% mapped to 0..100% of the track. */
+.cal-track{position:relative;height:28px;}
+.cal-axis{position:absolute;left:0;right:0;top:13px;height:2px;}
+.cal-band{position:absolute;top:8px;height:12px;border-radius:4px;}
+.cal-tick{position:absolute;top:2px;width:2px;height:24px;margin-left:-1px;}
+.cal-dot{position:absolute;top:8px;width:12px;height:12px;margin-left:-6px;border-radius:9999px;border:2px solid #fff;}
+html.dark .cal-dot{border-color:#1d2022;}
+/* bg-primary is black and api.js's dark overrides only remap TEXT-primary,
+   so the stated-probability tick vanished on the dark card. */
+html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important;}
+</style>
+<link rel="stylesheet" href="css/app.css?v=1"/>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-24 md:pt-16" style="font-family:'Inter',sans-serif;">
+<!-- Desktop Nav -->
+<nav class="hidden md:flex fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+<!-- Identical on all five pages except the active link. See index.html for why.
+     backdrop-blur-md + /90 removed from here: this was the only translucent
+     header in the app. -->
+<div class="flex items-center gap-2">
+  <img src="logo-mark.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+  <span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex gap-lg items-center">
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="index.html">Picks</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="slip.html">Builder</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="consensus.html">Consensus</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="record.html">Record</a>
+</div>
+</nav>
+
+<!-- Match page (step 6 of the Puntrr audit). Read mode: one fixture, top to
+     bottom, in plain words. Data: GET /api/match/<id>. Form facts are the ones
+     the pick was made on, saved at prediction time (model_predictions.facts_json). -->
+<main class="max-w-3xl mx-auto px-gutter md:px-lg pt-md md:pt-xl">
+<a href="index.html" class="inline-flex items-center gap-xs text-label-sm text-secondary font-semibold mb-md">
+  <span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_back</span>Picks</a>
+<div id="match" aria-live="polite"></div>
+</main>
+
+<!-- Mobile Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-1 py-2 bg-surface-container-lowest border-t border-outline-variant shadow-lg pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="index.html"><span class="material-symbols-outlined mb-1">analytics</span><span class="text-label-sm">Picks</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span><span class="text-label-sm">Builder</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="record.html"><span class="material-symbols-outlined mb-1">query_stats</span><span class="text-label-sm">Record</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="consensus.html"><span class="material-symbols-outlined mb-1">groups</span><span class="text-label-sm">Consensus</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
+</nav>
+
+<script src="config.js?v=2"></script>
+<script src="js/api.js?v=37"></script>
+<script src="js/auth.js?v=1"></script>
+<script>
+const pct = v => v == null ? "—" : `${Math.round(v * 100)}%`;
+const card = (title, inner) => `<section class="mt-lg"><h2 class="text-body-lg font-semibold text-primary mb-sm">${title}</h2>${inner}</section>`;
+const TIER_CLASS = {HIGH: "bg-secondary-container text-on-secondary-container",
+                    MEDIUM: "bg-surface-container-high text-primary", LOW: "bg-surface-container-high text-on-surface-variant"};
+
+function scoreLine(d) {
+    const final = d.result_home_goals != null;
+    if (!final && !hasKickedOff(d)) return "";   // no "0-0 Scheduled" before kickoff
+    const score = final ? `${d.result_home_goals}–${d.result_away_goals}` : (d.live_score || "").replace("-", "–");
+    if (!score) return "";
+    const live = !final && !d.live_final;
+    return `<p class="mt-sm text-headline-md font-headline-md tabular-nums ${live ? "text-error" : "text-primary"}">${esc(score)}
+      <span class="text-label-sm font-semibold align-middle">${live ? `<span class="pp-live-dot"></span> ${esc(d.live_detail || "live")}` : "full time"}</span></p>`;
+}
+
+function pickBlock(d) {
+    const res = {H: "Home Win", D: "Draw", A: "Away Win"}[d.result_outcome];
+    const verdict = res ? (res === d.best_bet ? `<b class="text-secondary">Our pick won.</b>` : `<b class="text-error">Our pick lost.</b>`) : "";
+    const pickName = d.best_bet === "Home Win" ? `${d.home_team} Win` : d.best_bet === "Away Win" ? `${d.away_team} Win` : d.best_bet;
+    const bar = (label, v) => `<div class="flex-1 min-w-0"><div class="h-2 rounded-full bg-surface-container-high overflow-hidden">
+        <div class="h-full bg-secondary" style="width:${Math.round((v || 0) * 100)}%"></div></div>
+        <div class="text-label-sm text-on-surface-variant mt-xs truncate">${esc(label)} <b class="text-primary tabular-nums">${pct(v)}</b></div></div>`;
+    const low = d.confidence === "LOW"
+        ? `<p class="text-label-sm text-on-surface-variant mt-sm">Low confidence, so this is not one of our recommended picks.</p>` : "";
+    return card("Our pick", `
+      <div class="flex items-start justify-between gap-md">
+        <div><div class="text-headline-md font-headline-md text-primary">${esc(ppPlainPick(pickName))}</div>
+          <div class="text-body-md text-on-surface-variant">We give it a <b class="text-primary tabular-nums">${pct(d.best_bet_prob)}</b> chance. ${verdict}</div></div>
+        <span class="shrink-0 ${TIER_CLASS[d.confidence] || TIER_CLASS.LOW} px-sm py-base rounded-full text-label-sm font-bold">${esc(d.confidence)}</span>
+      </div>
+      <div class="flex gap-sm mt-md">${bar(d.home_team, d.home_win_prob)}${bar("Draw", d.draw_prob)}${bar(d.away_team, d.away_win_prob)}</div>${low}`);
+}
+
+function priceBlock(d) {
+    const hist = d.price_history || [];
+    const now = hist[hist.length - 1];
+    const side = {"Home Win": "odds_home", "Draw": "odds_draw", "Away Win": "odds_away"}[d.best_bet];
+    const rows = [];
+    if (d.book_odds) rows.push(["When we made the pick", d.book_odds]);
+    if (d.close_odds) rows.push(["Just before kickoff", d.close_odds]);
+    if (now && side && now[side]) rows.push(["SportyBet, latest", now[side]]);
+    if (!rows.length) return card("The price", `<p class="text-body-md text-on-surface-variant">We have no bookmaker price stored for this match.</p>`);
+    const book = d.book_prob ?? d.close_prob;
+    const gap = book == null ? null : (d.best_bet_prob || 0) - book;
+    const compare = gap == null ? "" : `<p class="text-body-md text-on-surface-variant mt-sm">We give our pick ${pct(d.best_bet_prob)}; the bookmaker's price says about ${pct(book)}.
+        ${Math.abs(gap) < 0.03 ? "We broadly agree with the bookmaker." : gap > 0 ? "We rate it a bit higher than the bookmaker does." : "The bookmaker rates it higher than we do."}</p>`;
+    const warn = (d.warnings || []).map(w => `<p class="mt-sm text-body-md text-error flex gap-xs"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>${esc(w.text || w)}</p>`).join("");
+    const when = s => new Date(s.replace(" ", "T") + "Z").toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"});
+    const trail = hist.length > 1 ? `<details class="mt-sm text-label-sm text-on-surface-variant"><summary class="cursor-pointer text-secondary font-semibold">How SportyBet's price moved (${hist.length} changes)</summary>
+        <table class="w-full mt-xs tabular-nums"><thead><tr><th class="text-left font-medium">Seen</th><th class="text-right font-medium">Home</th><th class="text-right font-medium">Draw</th><th class="text-right font-medium">Away</th></tr></thead>
+        <tbody>${hist.slice().reverse().map(h => `<tr><td>${esc(when(h.observed_at))}</td>
+          <td class="text-right">${h.odds_home ?? "—"}</td><td class="text-right">${h.odds_draw ?? "—"}</td><td class="text-right">${h.odds_away ?? "—"}</td></tr>`).join("")}</tbody></table></details>` : "";
+    return card("The price", `<dl class="divide-y divide-outline-variant text-body-md">${rows.map(([k, o]) => `<div class="flex justify-between py-xs"><dt class="text-on-surface-variant">${k}</dt><dd class="font-semibold text-primary tabular-nums">${Number(o).toFixed(2)}</dd></div>`).join("")}</dl>${compare}${warn}${trail}`);
+}
+
+function formBlock(d) {
+    const f = d.facts;
+    if (!f) return card("Form", `<p class="text-body-md text-on-surface-variant">Form details are saved with picks made from 22 Oct 2026 onwards; this pick is older.</p>`);
+    const letters = s => (s || "").split("").map(c => `<span class="w-6 h-6 inline-flex items-center justify-center rounded text-label-sm font-bold ${c === "W" ? "bg-secondary-container text-on-secondary-container" : c === "L" ? "bg-error-container text-on-error-container" : "bg-surface-container-high text-on-surface-variant"}">${c}</span>`).join("");
+    const n = v => v == null ? "—" : Number(v).toFixed(1);
+    const team = (name, side, venueKey, venueWord) => {
+        const games = f[`${side}_games`] || 0;
+        const recent = f[`${side}_recent`];
+        return `<div class="rounded-lg border border-outline-variant p-md">
+          <div class="font-semibold text-primary">${esc(name)}</div>
+          <div class="flex gap-xs mt-xs" role="img" aria-label="Last results, oldest first: ${esc(recent || "none")}">${letters(recent) || `<span class="text-label-sm text-on-surface-variant">No recent games in our records</span>`}</div>
+          <ul class="mt-sm text-body-md text-on-surface-variant space-y-[2px]">
+            <li><b class="text-primary tabular-nums">${n(f[`${side}_form_ppg`])}</b> points a game</li>
+            <li>Scores <b class="text-primary tabular-nums">${n(f[`${side}_goals_for_avg`])}</b>, lets in <b class="text-primary tabular-nums">${n(f[`${side}_goals_against_avg`])}</b> a game</li>
+            <li>${venueWord}: <b class="text-primary tabular-nums">${n(f[venueKey])}</b> points a game</li>
+          </ul>
+          ${games < (f.form_window || 5) ? `<p class="text-label-sm text-on-surface-variant mt-xs">Based on only ${games} game${games === 1 ? "" : "s"}, so treat it with care.</p>` : ""}
+        </div>`;
+    };
+    const [w, dr, l] = f.h2h_record || [0, 0, 0];
+    const met = w + dr + l;
+    const h2h = met ? `${esc(d.home_team)} won ${w}, drew ${dr} and lost ${l} of the last ${met} meeting${met === 1 ? "" : "s"}.`
+                    : "These two have not met in our records.";
+    return card("Form", `<p class="text-label-sm text-on-surface-variant mb-sm">As it stood when we made the pick. W = win, D = draw, L = loss, oldest first.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm">${team(d.home_team, "home", "home_home_ppg", "At home")}${team(d.away_team, "away", "away_away_ppg", "Away from home")}</div>
+      <p class="text-body-md text-on-surface-variant mt-sm">${h2h}</p>`);
+}
+
+function marketsBlock(d) {
+    const ms = d.markets || [];
+    if (!ms.length) return "";
+    const row = m => `<li class="flex justify-between gap-md py-xs" title="Bookmaker calls it: ${esc(m.market)} · ${esc(m.selection)}">
+        <span>${esc(ppPlainPick(m.selection))}</span><span class="tabular-nums font-semibold text-primary">${pct(m.probability)}</span></li>`;
+    return card("Other ways to bet it", `<p class="text-label-sm text-on-surface-variant mb-xs">Our chance for each. Only "who wins" has a graded record so far.</p>
+      <ul class="divide-y divide-outline-variant text-body-md">${ms.slice(0, 8).map(row).join("")}</ul>
+      ${ms.length > 8 ? `<details class="text-body-md"><summary class="cursor-pointer text-secondary font-semibold py-xs">Show ${ms.length - 8} more</summary>
+        <ul class="divide-y divide-outline-variant">${ms.slice(8).map(row).join("")}</ul></details>` : ""}`);
+}
+
+async function load() {
+    const id = new URLSearchParams(location.search).get("id");
+    const box = document.getElementById("match");
+    if (!id) { box.innerHTML = `<p class="text-body-md">No match chosen. <a class="text-secondary underline" href="index.html">Back to Picks</a></p>`; return; }
+    box.innerHTML = `<div class="space-y-md">${ppSkeleton(80)}${ppSkeleton(140)}${ppSkeleton(140)}</div>`;
+    try {
+        const d = await PotentialProAPI.match(id);
+        document.title = `${d.home_team} vs ${d.away_team} - PotentialPro`;
+        box.innerHTML = `
+          <header>
+            <div class="text-label-sm text-on-surface-variant">${esc(d.league_display || prettyLeague(d.league))} · ${esc(kickoffLabel(d.match_date, d.kickoff_time, d.kickoff_utc))}</div>
+            <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary mt-xs">${esc(d.home_team)} vs ${esc(d.away_team)}</h1>
+            ${scoreLine(d)}
+          </header>
+          ${pickBlock(d)}${priceBlock(d)}${formBlock(d)}
+          ${d.gemma_analysis ? card("Why we picked it", `<p class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${esc(d.gemma_analysis)}</p>`) : ""}
+          ${marketsBlock(d)}
+          <p class="mt-xl text-label-sm text-on-surface-variant">Predictions are not guarantees. 18+ only; never stake what you can't afford to lose.</p>`;
+    } catch (err) {
+        box.innerHTML = ppErrorBox(err, "load this match", "load");
+        console.error(err);
+    }
+}
+document.addEventListener("DOMContentLoaded", load);
+</script>
+</body>
+</html>
