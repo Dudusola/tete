@@ -96,6 +96,53 @@
 </div>
 </section>
 
+<!-- More options (21 Oct 2026, from Puntrr's slip builder). Closed by default:
+     the everyday punter never needs it (PRODUCT.md: simple first, depth on demand).
+     Each value narrows the legs BEFORE the slip is built (models.markets.filter_options). -->
+<details id="more-options" class="group rounded-xl border border-outline-variant bg-surface-container-lowest">
+  <summary class="flex items-center justify-between p-md cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+    <span class="text-body-lg font-semibold text-primary">More options</span>
+    <span class="flex items-center gap-xs text-label-sm text-on-surface-variant"><span id="opt-count"></span>
+      <span class="material-symbols-outlined transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span></span>
+  </summary>
+  <div class="px-md pb-md grid grid-cols-1 sm:grid-cols-2 gap-md">
+    <label class="block text-label-sm text-on-surface-variant">Day
+      <select id="opt-day" class="mt-1 w-full rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
+        <option value="">Any day</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option></select></label>
+    <label class="block text-label-sm text-on-surface-variant">Kickoff (Lagos time)
+      <select id="opt-when" class="mt-1 w-full rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
+        <option value="">Any time</option><option value="early">Early, before 15:00</option>
+        <option value="afternoon">Afternoon, 15:00 to 19:00</option><option value="late">Late, 19:00 and after</option></select></label>
+    <fieldset class="sm:col-span-2">
+      <legend class="text-label-sm text-on-surface-variant mb-xs">Markets (none ticked = all)</legend>
+      <div class="flex flex-wrap gap-x-md gap-y-xs text-body-md" id="opt-markets">
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Match Result"/>Match result</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Double Chance"/>Double chance</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Draw No Bet"/>Draw no bet</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Over/Under"/>Over/under goals</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Both Teams To Score"/>Both teams to score</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Handicap"/>Handicap</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Moneyline"/>Moneyline (NHL, NFL, NBA)</label>
+      </div>
+    </fieldset>
+    <div>
+      <span class="block text-label-sm text-on-surface-variant">Odds per leg</span>
+      <div class="mt-1 flex items-center gap-xs">
+        <input id="opt-min-odds" type="text" inputmode="decimal" placeholder="from 1.20" aria-label="Lowest odds per leg"
+               class="w-full min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md bg-surface"/>
+        <span class="text-on-surface-variant" aria-hidden="true">to</span>
+        <input id="opt-max-odds" type="text" inputmode="decimal" placeholder="3.00" aria-label="Highest odds per leg"
+               class="w-full min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md bg-surface"/>
+      </div>
+      <p class="text-label-sm text-on-surface-variant mt-xs">Our fair odds (1 ÷ our chance). SportyBet usually pays a little less.</p>
+    </div>
+    <label class="block text-label-sm text-on-surface-variant">Lowest chance per leg
+      <select id="opt-min-prob" class="mt-1 w-full rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
+        <option value="">Any</option><option value="0.55">55%</option><option value="0.6">60%</option>
+        <option value="0.65">65%</option><option value="0.7">70%</option><option value="0.75">75%</option></select></label>
+  </div>
+</details>
+
 <!-- Generate -->
 <!-- Full width on phones: the primary action, reachable with a thumb. The
      old hover (secondary-fixed-dim, a light lime) put white text on ~#91db2a,
@@ -366,6 +413,25 @@ async function bookSlip(provider) {
     }
 }
 
+/* "More options" -> /api/slip query values. Lagos is UTC+1 all year, so its
+   date is the UTC date one hour ahead. */
+function moreOptions() {
+    const v = id => document.getElementById(id).value.trim();
+    const lagosDate = plusDays => new Date(Date.now() + 3600e3 + plusDays * 864e5).toISOString().slice(0, 10);
+    const odds = id => { const n = parseFloat(v(id).replace(",", ".")); return n > 1 ? n : ""; };
+    const opts = {
+        day: v("opt-day") === "today" ? lagosDate(0) : v("opt-day") === "tomorrow" ? lagosDate(1) : "",
+        when: v("opt-when"),
+        markets: [...document.querySelectorAll("#opt-markets input:checked")].map(i => i.value).join(","),
+        min_odds: odds("opt-min-odds"),
+        max_odds: odds("opt-max-odds"),
+        min_prob: v("opt-min-prob"),
+    };
+    const n = Object.values(opts).filter(Boolean).length;
+    document.getElementById("opt-count").textContent = n ? `${n} on` : "";
+    return opts;
+}
+
 async function generateSlip() {
     const btn = document.getElementById("generate-btn");
     const out = document.getElementById("slip-output");
@@ -376,7 +442,7 @@ async function generateSlip() {
     out.scrollIntoView({behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start"});
     try {
         const leagues = selectedSports.includes("football") ? [...selectedLeagues] : [];
-        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, leagues, excludedPairs, pinnedLegs, selectedSports);
+        const data = await PotentialProAPI.slip(selectedRisk, selectedCount, leagues, excludedPairs, pinnedLegs, selectedSports, moreOptions());
         renderSlip(data);
     } catch (err) {
         out.innerHTML = ppErrorBox(err, "build your slip", "generateSlip");
@@ -459,6 +525,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
     document.getElementById("generate-btn").addEventListener("click", generateSlip);
+    ["change", "input"].forEach(ev => document.getElementById("more-options").addEventListener(ev, moreOptions));
     ppSportChips(document.getElementById("sport-group"), selectedSports, sel => {
         selectedSports = sel;
         paintLeagueSection();
