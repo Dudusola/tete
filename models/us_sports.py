@@ -114,6 +114,14 @@ def warnings(code: str, facts: dict, pick_key: str) -> list:
                 whose = "this pick's" if (side == "home") == home_pick else "the opponent's"
                 out.append({"type": "qb", "text": f"QB news: {q['regular']} ({whose} regular "
                             f"starter) is listed {q['status']}"})
+    if code == "nba":
+        for side in ("home", "away"):
+            for s in ((facts or {}).get("stars_out") or {}).get(side) or []:
+                whose = "this pick's team" if (side == "home") == home_pick else "the opponent"
+                out.append({"type": "injury", "text": f"Injury news: {s['name']} ({whose}, "
+                            f"{s['ppg']:g} points a game last season) is listed {s['status']}",
+                            "why": "Our numbers cannot see who plays; the bookmaker can. "
+                                   "A caution, not a change to the pick."})
     return out
 
 

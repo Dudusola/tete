@@ -186,7 +186,7 @@ function consensusBadge(c) {
 function warningsHtml(p) {
     return (p.warnings || []).map(w => `<div class="flex items-start gap-xs mb-sm px-sm py-1 rounded-lg bg-error-container text-on-error-container text-label-sm"
         title="${escapeHtml(w.why || (w.type === "price" ? "Picks the price moved this far against went 6-12 points under their claim on past seasons. A caution, not a change to the pick." : "Our numbers cannot see quarterback news; the bookmaker can."))}">
-      <span class="material-symbols-outlined text-[16px]" aria-hidden="true">${w.type === "qb" ? "personal_injury" : "trending_down"}</span><span>${escapeHtml(w.text)}</span></div>`).join("");
+      <span class="material-symbols-outlined text-[16px]" aria-hidden="true">${w.type === "qb" || w.type === "injury" ? "personal_injury" : "trending_down"}</span><span>${escapeHtml(w.text)}</span></div>`).join("");
 }
 
 function marketCheck(p) {
