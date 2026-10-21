@@ -24,8 +24,14 @@ number line landing exactly) are VOID, never a loss: grade() returns None.
 
 WHAT IT CANNOT KNOW: quarterbacks, injuries, weather, rest after a bye. The
 market knows all of them.
+
+NBA (21 Oct 2026) uses the SAME machinery with its own settings (FEEDS below):
+`python models/nfl_markets.py --feed nba` -> nba_markets.json. Basketball margins
+are not lumpy like the NFL's, so its fitted weights stay near 1 except margin 0
+(no ties after overtime). Same blind spots, plus rest decisions / who sits out.
 """
 
+import argparse
 import csv
 import json
 import math
@@ -36,9 +42,24 @@ from datetime import datetime, timezone
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from models.elo import HIST, load, run_elo
 
-PARAMS_PATH = os.path.join(HIST, "nfl_markets.json")
 MAX_MARGIN = 60
-HALF_LIVES = (4, 8, 16)        # games; chosen on validation seasons
+# start = points per team before any game; elo_per_pt = 538's Elo-to-spread
+# rule (only used for a residual scale); half_lives in games, chosen on validation.
+FEEDS = {
+    "nfl": {"start": 22.0, "elo_per_pt": 25, "half_lives": (4, 8, 16),
+            "spreads": (-7.5, -6.5, -3.5, -2.5, -1.5, 1.5, 2.5, 3.5, 6.5, 7.5),
+            "totals": (40.5, 43.5, 44.5, 46.5, 47.5, 50.5)},
+    "nba": {"start": 102.0, "elo_per_pt": 28, "half_lives": (8, 16, 32),
+            "spreads": (-9.5, -6.5, -4.5, -2.5, -1.5, 1.5, 2.5, 4.5, 6.5, 9.5),
+            "totals": (205.5, 215.5, 220.5, 225.5, 230.5, 240.5)},
+}
+
+
+def params_path(feed: str) -> str:
+    return os.path.join(HIST, f"{feed}_markets.json")
+
+
+PARAMS_PATH = params_path("nfl")
 SEASON_KEEP = 0.6
 NEW_SEASON_GAP_DAYS = 60
 
@@ -96,18 +117,26 @@ def total_probs(mu_t: float, sigma_t: float, line: float) -> tuple[float, float,
     return 1 - under - push, push, under
 
 
+def _cached_pmf(cache: dict, p: float, sigma: float, weights: dict) -> dict:
+    """Fit-time only: one pmf per p rounded to 0.001 (16k NBA games timed out)."""
+    k = round(p, 3)
+    if k not in cache:
+        cache[k] = margin_pmf(solve_mu(k, sigma, weights), sigma, weights)
+    return cache[k]
+
+
 # -------------------------------------------------------------- the walk
 
-def walk(half_life: float, elo_params: dict):
+def walk(half_life: float, elo_params: dict, feed: str = "nfl"):
     """Every game with PRE-game Elo p_home and expected points per side."""
-    games = load("nfl")
-    with open(os.path.join(HIST, "nfl.csv"), newline="", encoding="utf-8") as fh:
+    games = load(feed)
+    with open(os.path.join(HIST, f"{feed}.csv"), newline="", encoding="utf-8") as fh:
         types = {(r["kickoff_utc"] or r["date"], r["home_id"]): r["season_type"]
                  for r in csv.DictReader(fh)}
     pairs, _ = run_elo(games, elo_params["k"], elo_params["hfa"],
                        elo_params["revert"], elo_params["mov"])
     keep = 0.5 ** (1 / half_life)
-    pf, pa, league, season = {}, {}, 22.0, None
+    pf, pa, league, season = {}, {}, FEEDS[feed]["start"], None
     out = []
     for g, p in pairs:
         if g["season"] != season:
@@ -132,20 +161,19 @@ def walk(half_life: float, elo_params: dict):
 
 # ------------------------------------------------------------- the fit
 
-def _fit_margin(rows: list) -> tuple[float, dict]:
+def _fit_margin(rows: list, elo_per_pt: float = 25) -> tuple[float, dict]:
     """sigma from Elo-implied residuals, then key-number weights by |margin|."""
     # 538's rule of thumb: 25 Elo points ~ 1 point of spread. Only used to get
     # a residual scale; the served mu comes from solve_mu() against Elo's p.
     def mu538(p):
         p = min(max(p, 1e-6), 1 - 1e-6)
-        return 400 * math.log10(p / (1 - p)) / 25
+        return 400 * math.log10(p / (1 - p)) / elo_per_pt
     res = [(x["hs"] - x["as"]) - mu538(x["p"]) for x in rows]
     sigma = math.sqrt(sum(r * r for r in res) / len(res))
-    flat = {}
+    flat, cache = {}, {}
     expected, observed = {}, {}
     for x in rows:
-        mu = solve_mu(x["p"], sigma, flat)
-        pmf = margin_pmf(mu, sigma, flat)
+        pmf = _cached_pmf(cache, x["p"], sigma, flat)
         for k, v in pmf.items():
             expected[abs(k)] = expected.get(abs(k), 0.0) + v
         m = abs(x["hs"] - x["as"])
@@ -179,15 +207,15 @@ def _score(rows: list, params: dict) -> dict:
     totals are scored at the COMMON lines across every game - a calibration
     test of the whole distribution, not of one market price."""
     sig, w, tot = params["sigma_margin"], params["key_weights"], params["total"]
-    flat_sig = sig
     out = {"n": len(rows)}
     # 1. Exact-margin likelihood: key-number weights vs a plain normal.
     ll_w = ll_n = 0.0
+    cw, cn = {}, {}
     for x in rows:
         m = x["hs"] - x["as"]
         for weights, acc in ((w, "w"), ({}, "n")):
-            mu = solve_mu(x["p"], sig if acc == "w" else flat_sig, weights)
-            p = max(margin_pmf(mu, sig, weights).get(m, 1e-9), 1e-9)
+            pmf = _cached_pmf(cw if acc == "w" else cn, x["p"], sig, weights)
+            p = max(pmf.get(m, 1e-9), 1e-9)
             if acc == "w":
                 ll_w -= math.log(p)
             else:
@@ -196,18 +224,17 @@ def _score(rows: list, params: dict) -> dict:
                                     "plain_normal": round(ll_n / len(rows), 4)}
     # 2. Covering common lines, against each line's base rate in TRAINING.
     spreads = {}
-    for line in (-7.5, -6.5, -3.5, -2.5, -1.5, 1.5, 2.5, 3.5, 6.5, 7.5):
+    for line in map(float, params["base_cover"]):
         ys, ps = [], []
         for x in rows:
-            pmf = margin_pmf(solve_mu(x["p"], sig, w), sig, w)
-            ps.append(cover(pmf, line)[0])
+            ps.append(cover(_cached_pmf(cw, x["p"], sig, w), line)[0])
             ys.append(int((x["hs"] - x["as"]) + line > 0))
         base = params["base_cover"][str(line)]
         spreads[str(line)] = {"model": round(sum(map(_ll, ps, ys)) / len(ys), 4),
                               "base": round(sum(_ll(base, y) for y in ys) / len(ys), 4)}
     out["spread_cover_log_loss"] = spreads
     totals = {}
-    for line in (40.5, 43.5, 44.5, 46.5, 47.5, 50.5):
+    for line in map(float, params["base_over"]):
         ys, ps = [], []
         for x in rows:
             mu_t = tot["a"] + tot["b"] * x["exp_total"]
@@ -220,9 +247,11 @@ def _score(rows: list, params: dict) -> dict:
     return out
 
 
-def fit() -> dict:
-    elo = json.load(open(os.path.join(HIST, "elo_params.json"), encoding="utf-8"))["nfl"]
-    lo, hi = elo["seasons"]["train"]
+def fit(feed: str = "nfl", train: tuple | None = None) -> dict:
+    """train=(lo, hi) overrides the seasons (backtests refit on earlier years)."""
+    cfg = FEEDS[feed]
+    elo = json.load(open(os.path.join(HIST, "elo_params.json"), encoding="utf-8"))[feed]
+    lo, hi = train or elo["seasons"]["train"]
     test = elo["seasons"]["test"]
 
     def sel(rows, a, b):
@@ -230,22 +259,22 @@ def fit() -> dict:
 
     # Half-life for the scoring rates, chosen on the last two TRAINING seasons.
     best = None
-    for hl in HALF_LIVES:
-        rows, _ = walk(hl, elo["params"])
+    for hl in cfg["half_lives"]:
+        rows, _ = walk(hl, elo["params"], feed)
         t = _fit_total(sel(rows, lo, hi - 2))
         val = sel(rows, hi - 1, hi)
         err = sum(((x["hs"] + x["as"]) - (t["a"] + t["b"] * x["exp_total"])) ** 2 for x in val)
         if best is None or err < best[0]:
             best = (err, hl)
-    rows, _ = walk(best[1], elo["params"])
+    rows, _ = walk(best[1], elo["params"], feed)
     train = sel(rows, lo, hi)
-    sigma, weights = _fit_margin(train)
-    params = {"half_life": best[1], "sigma_margin": sigma, "key_weights": weights,
+    sigma, weights = _fit_margin(train, cfg["elo_per_pt"])
+    params = {"feed": feed, "half_life": best[1], "sigma_margin": sigma, "key_weights": weights,
               "total": _fit_total(train),
               "base_cover": {str(L): round(sum((x["hs"] - x["as"]) + L > 0 for x in train) / len(train), 4)
-                             for L in (-7.5, -6.5, -3.5, -2.5, -1.5, 1.5, 2.5, 3.5, 6.5, 7.5)},
+                             for L in cfg["spreads"]},
               "base_over": {str(L): round(sum(x["hs"] + x["as"] > L for x in train) / len(train), 4)
-                            for L in (40.5, 43.5, 44.5, 46.5, 47.5, 50.5)},
+                            for L in cfg["totals"]},
               "seasons": {"train": [lo, hi], "test": test}}
     params["held_out"] = _score(sel(rows, test[0], test[-1]), params)
     params["fitted_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
@@ -254,15 +283,15 @@ def fit() -> dict:
 
 # ------------------------------------------------------------- serving
 
-def load_params() -> dict | None:
+def load_params(feed: str = "nfl") -> dict | None:
     try:
-        return json.load(open(PARAMS_PATH, encoding="utf-8"))
+        return json.load(open(params_path(feed), encoding="utf-8"))
     except (OSError, ValueError):
         return None
 
 
 def current_rates(params: dict, elo_params: dict) -> dict:
-    _, state = walk(params["half_life"], elo_params)
+    _, state = walk(params["half_life"], elo_params, params.get("feed", "nfl"))
     return state
 
 
@@ -324,11 +353,14 @@ def grade(key: str, hs: int, as_: int, *_):
 
 
 def main() -> int:
-    params = fit()
-    with open(PARAMS_PATH, "w", encoding="utf-8") as fh:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--feed", choices=sorted(FEEDS), default="nfl")
+    feed = ap.parse_args().feed
+    params = fit(feed)
+    with open(params_path(feed), "w", encoding="utf-8") as fh:
         json.dump(params, fh, indent=1)
     h = params["held_out"]
-    print(f"NFL markets fitted on {params['seasons']['train']}, half-life {params['half_life']} games,"
+    print(f"{feed.upper()} markets fitted on {params['seasons']['train']}, half-life {params['half_life']} games,"
           f" margin sigma {params['sigma_margin']}; held out {params['seasons']['test']} ({h['n']} games)")
     em = h["exact_margin_log_loss"]
     print(f"  exact margin log loss: key-number model {em['key_weights']} vs plain normal {em['plain_normal']}")
@@ -338,7 +370,7 @@ def main() -> int:
         f"{L}: {v['model']:.4f}/{v['base']:.4f}" for L, v in h["total_over_log_loss"].items()))
     print(f"  key-number weights: 3 -> {params['key_weights']['3']}, 7 -> {params['key_weights']['7']},"
           f" 1 -> {params['key_weights']['1']}")
-    print(f"Wrote {PARAMS_PATH}")
+    print(f"Wrote {params_path(feed)}")
     return 0
 
 

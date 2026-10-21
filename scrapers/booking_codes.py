@@ -712,8 +712,8 @@ US_SPORTS = {
             "markets": {"Moneyline": "219", "Spread": "223", "Over/Under Points": "225"}},
     # Probed 20 Oct 2026: 219 "Winner (incl. overtime)", outcomes 4/5 as NFL.
     # NOT market 1 - basketball 1 is regulation-only (it has a draw).
-    "nba": {"sport_id": "sr:sport:2", "tournament": "NBA", "market_ids": "219",
-            "markets": {"Moneyline": "219"}},
+    "nba": {"sport_id": "sr:sport:2", "tournament": "NBA", "market_ids": "219,223,225",
+            "markets": {"Moneyline": "219", "Spread": "223", "Over/Under Points": "225"}},
 }
 _US_LEAGUE = {"NHL": "nhl", "NFL": "nfl", "NBA": "nba"}
 

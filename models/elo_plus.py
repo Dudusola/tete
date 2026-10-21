@@ -21,6 +21,7 @@ gain has a paired bootstrap 95% CI entirely below zero.
 Usage:
     python models/elo_plus.py --feed nhl
     python models/elo_plus.py --feed nfl
+    python models/elo_plus.py --feed nba
 """
 
 import argparse
@@ -39,10 +40,12 @@ from models.elo import HIST, MEAN, load, mov_mult, split_seasons, win_prob
 BUCKETS = {
     "nhl": [("b2b", 0, 1), ("normal", 2, 3), ("long", 4, 99)],
     "nfl": [("short", 0, 5), ("normal", 6, 8), ("bye", 9, 99)],
+    "nba": [("b2b", 0, 1), ("normal", 2, 2), ("long", 3, 99)],
 }
 GRID = {
     "nhl": {"rest": [0, 10, 20, 30, 40], "early_k": [1.0, 1.5, 2.0, 3.0], "early_n": [5, 10, 20]},
     "nfl": {"rest": [0, 10, 20, 30, 45], "early_k": [1.0, 1.5, 2.0, 3.0], "early_n": [2, 4, 6]},
+    "nba": {"rest": [0, 15, 30, 45, 60, 80], "early_k": [1.0, 1.5, 2.0, 3.0], "early_n": [5, 10, 20]},
 }
 
 
@@ -109,7 +112,7 @@ def mean_ll(pairs, seasons):
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--feed", choices=["nhl", "nfl"], required=True)
+    ap.add_argument("--feed", choices=["nhl", "nfl", "nba"], required=True)
     feed = ap.parse_args().feed
     base = json.load(open(os.path.join(HIST, "elo_params.json"), encoding="utf-8"))[feed]["params"]
     games = load(feed)

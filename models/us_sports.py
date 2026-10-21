@@ -39,7 +39,7 @@ from models.sports import AMERICAN_FOOTBALL, BASKETBALL, ICE_HOCKEY, sport_sql
 SPORTS = {
     "nhl": {"sport": ICE_HOCKEY, "label": "NHL", "grade": nhl_markets.grade},
     "nfl": {"sport": AMERICAN_FOOTBALL, "label": "NFL", "grade": nfl_markets.grade},
-    # Moneyline only (elo_shadow.py); nfl_markets.grade settles ml keys on the final.
+    # Moneyline (Elo) + spread/total at the book's price (elo_shadow.py); graded on the final.
     "nba": {"sport": BASKETBALL, "label": "NBA", "grade": nfl_markets.grade},
 }
 LABEL_TO_SPORT = {v["label"]: k for k, v in SPORTS.items()}
@@ -65,8 +65,9 @@ DISCLOSURE = {
             "Our numbers know results only - not quarterbacks, injuries or weather, "
             "which the bookmaker prices. Check its view beside each pick."),
     "nba": ("NBA picks are experimental and kept separate from our football record. "
-            "Our numbers know results only - not injuries, rest days or who sits out, "
-            "which the bookmaker prices. Check its view beside each pick."),
+            "Our numbers know results and back-to-backs, not injuries or who sits out. "
+            "On 5,400 past NBA games the bookmaker was sharper than us, so spread and "
+            "total legs in the Builder use its own price. Check its view beside each pick."),
 }
 
 
@@ -239,7 +240,9 @@ def picks(conn, codes: list) -> dict:
                     continue
                 name = sel[0] or (TOTAL_GOALS if code == "nhl" else TOTAL_POINTS)
                 markets.append({"market": name, "selection": sel[1], "key": it["key"],
-                                "probability": it["p"], "book_probability": it.get("market_p"),
+                                # model_p = an NBA leg priced at the book's number: we have no own view ("—")
+                                "probability": None if "model_p" in it else it["p"],
+                                "book_probability": it.get("market_p"),
                                 "book_odds": it.get("odds")})
             facts = json.loads(r["facts_json"]) if r["facts_json"] else {}
             out.append({
