@@ -114,17 +114,20 @@ def mov_mult(kind: str, margin: int, winner_diff: float) -> float:
     return math.log(margin + 1) * (2.2 / (winner_diff * 0.001 + 2.2))
 
 
-def run_elo(games: list, k: float, hfa: float, revert: float, mov: str):
+def run_elo(games: list, k: float, hfa: float, revert: float, mov: str,
+            early_k: float = 1.0, early_n: int = 0):
     """Walk the games in date order. Yields (game, p_home) with p_home computed
-    BEFORE the game updates anything, then returns the final ratings."""
-    ratings, season = {}, None
+    BEFORE the game updates anything, then returns the final ratings.
+    early_k/early_n: K x early_k for a team's first early_n games of a season
+    (models/elo_plus.py; NBA only, 21 Oct 2026)."""
+    ratings, season, played = {}, None, {}
     out = []
     for g in games:
         if g["season"] != season:
             if season is not None:
                 for t in ratings:
                     ratings[t] = ratings[t] * (1 - revert) + MEAN * revert
-            season = g["season"]
+            season, played = g["season"], {}
         rh = ratings.setdefault(g["home"], MEAN)
         ra = ratings.setdefault(g["away"], MEAN)
         adv = 0.0 if g["neutral"] else hfa
@@ -137,9 +140,12 @@ def run_elo(games: list, k: float, hfa: float, revert: float, mov: str):
             s = 1.0 if g["hs"] > g["as"] else 0.0
             diff = (rh + adv - ra) if s == 1.0 else (ra - rh - adv)
             mult = mov_mult(mov, abs(g["hs"] - g["as"]), diff)
-        delta = k * mult * (s - p)
-        ratings[g["home"]] = rh + delta
-        ratings[g["away"]] = ra - delta
+        kh = k * (early_k if played.get(g["home"], 0) < early_n else 1.0)
+        ka = k * (early_k if played.get(g["away"], 0) < early_n else 1.0)
+        ratings[g["home"]] = rh + kh * mult * (s - p)
+        ratings[g["away"]] = ra - ka * mult * (s - p)
+        played[g["home"]] = played.get(g["home"], 0) + 1
+        played[g["away"]] = played.get(g["away"], 0) + 1
     return out, ratings
 
 

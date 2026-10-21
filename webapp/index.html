@@ -674,6 +674,9 @@ async function loadPicks() {
     try {
         const wantFootball = SPORTS.includes("football");
         const us = SPORTS.filter(s => s !== "football");
+        // Draws is a football-only filter: NBA/NHL/NFL moneylines cannot draw.
+        document.querySelector('.tier-chip[data-tier="DRAWS"]').hidden = !wantFootball;
+        if (!wantFootball && CURRENT_TIER === "DRAWS") { CURRENT_TIER = "ALL"; paintTierChips(); }
         // NHL/NFL failing must not take football down with it (or vice versa):
         // each side degrades to its own message.
         const [data, stats, sp] = await Promise.all([

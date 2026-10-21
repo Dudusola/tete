@@ -264,7 +264,7 @@ function renderSlip(data) {
       <span class="text-body-md text-inverse-primary block">Legs</span>
       <span class="text-headline-md font-headline-md font-bold block">${data.actual_games}</span>
     </div>
-    ${data.sporty_total_odds ? `<div class="text-right mt-4 md:mt-0 md:mr-lg">
+    ${data.sporty_total_odds ? `<div class="text-center md:text-right mt-4 md:mt-0 md:mr-lg">
       <span class="text-body-md text-inverse-primary block">SportyBet Total Odds</span>
       <span class="text-headline-md font-headline-md font-bold text-on-primary block">~${data.sporty_total_odds.toFixed(2)}x</span>
       ${data.legs.some(l => !l.sporty_odds) ? `<span class="text-label-sm text-inverse-primary">(${data.legs.filter(l => l.sporty_odds).length}/${data.legs.length} legs priced)</span>` : ""}
@@ -273,7 +273,7 @@ function renderSlip(data) {
          loudest thing on the page (48px lime + a trending_up arrow), and it is
          the LEAST validated number here: a product of per-leg model estimates,
          most of them for markets the ledger has never graded. -->
-    <div class="text-right mt-4 md:mt-0">
+    <div class="text-center md:text-right mt-4 md:mt-0">
       <span class="text-body-md text-inverse-primary block">Model's estimate, all legs win</span>
       <span class="text-headline-md font-headline-md font-bold text-on-primary block">${accPct}%</span>
     </div>
@@ -285,7 +285,9 @@ function renderSlip(data) {
       markets on this slip are model estimates that haven't been checked
       against results yet.${data.legs.some(l => l.sport && l.sport !== "football") ? `
       NHL/NFL/NBA legs are experimental and kept separate from our football record;
-      they include overtime, and book on SportyBet and MSport only.` : ""}
+      they include overtime, and book on SportyBet and MSport only.` : ""}${data.legs.some(l => l.sport === "nba" && l.market !== "Moneyline") ? `
+      NBA spread and total legs show the bookmaker's own chance, not ours: on past
+      seasons its numbers beat our model there.` : ""}
     </span>
   </div>` : ""}
   <div class="bg-surface-container-low px-md py-sm border-t border-outline-variant">

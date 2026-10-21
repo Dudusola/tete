@@ -52,6 +52,9 @@ from models import nfl_markets, nhl_form, nhl_markets
 from models.elo import HIST, MEAN, load, run_elo, win_prob
 
 MODEL_VERSION = "elo_v1"
+# NBA Elo extensions, chosen on 2012-2024 and held out on 2025-26 by
+# models/elo_plus.py: log loss -0.0038 [-0.0061, -0.0013]. Elo points.
+NBA_PLUS = {"early_k": 1.5, "early_n": 10, "b2b": -45}
 NEW_SEASON_GAP_DAYS = 45
 FEEDS = {"nfl": "american_football", "nba": "basketball",
          "nhl": "ice_hockey", "mlb": "baseball"}
@@ -76,9 +79,11 @@ def ensure_table(conn) -> None:
     """)
 
 
-def ratings_for(feed: str, params: dict):
+def ratings_for(feed: str, params: dict, plus: dict | None = None):
     games = load(feed)
-    _, ratings = run_elo(games, params["k"], params["hfa"], params["revert"], params["mov"])
+    extra = {"early_k": plus["early_k"], "early_n": plus["early_n"]} if plus else {}
+    _, ratings = run_elo(games, params["k"], params["hfa"], params["revert"], params["mov"],
+                         **extra)
     name_to_id = {}
     for g in games:                     # later games overwrite earlier names
         name_to_id[g["home_name"]] = g["home"]
@@ -194,19 +199,25 @@ def run() -> int:
     nfl_params = nfl_markets.load_params()
     if not nfl_params:
         logger.warning("nfl: no fitted market params - run models/nfl_markets.py")
+    nba_params = nfl_markets.load_params("nba")
+    if not nba_params:
+        logger.warning("nba: no fitted market params - run models/nfl_markets.py --feed nba")
 
     for feed, sport in FEEDS.items():
         params = params_all.get(feed, {}).get("params")
         if not params:
             logger.warning(f"{feed}: no tuned Elo params - run models/elo.py")
             continue
-        ratings, name_to_id, last_played = ratings_for(feed, params)
+        ratings, name_to_id, last_played = ratings_for(feed, params,
+                                                       NBA_PLUS if feed == "nba" else None)
         nhl = feed == "nhl" and nhl_params
         nfl = feed == "nfl" and nfl_params
-        nba = feed == "nba"     # moneyline only: Elo is validated there (models/elo.py)
+        nba = feed == "nba" and nba_params
         if nhl or nfl or nba:
             if nhl:
                 nhl_state = nhl_markets.current_rates(nhl_params, params)
+            elif nba:
+                nba_state = nfl_markets.current_rates(nba_params, params)
             elif nfl:
                 nfl_state = nfl_markets.current_rates(nfl_params, params)
                 # Regular starting QB per team + ESPN injury status, once per run
@@ -237,7 +248,14 @@ def run() -> int:
             if gap > NEW_SEASON_GAP_DAYS:   # history has not reached the new season yet
                 rh = rh * (1 - params["revert"]) + MEAN * params["revert"]
                 ra = ra * (1 - params["revert"]) + MEAN * params["revert"]
-            p_home = win_prob(rh + params["hfa"] - ra)
+            adj = 0.0
+            if nba:     # second night of a back-to-back (elo_plus.py, held out 2025-26)
+                for team, sign in ((hid, 1), (aid, -1)):
+                    rest = nhl_form.team_facts(team, g["kickoff_utc"][:10], nhl_games,
+                                               "home")["rest_days"]
+                    if rest is not None and rest <= 1:
+                        adj += sign * NBA_PLUS["b2b"]
+            p_home = win_prob(rh + params["hfa"] - ra + adj)
 
             line = conn.execute("""
                 SELECT odds_home, odds_away, odds_draw, observed_at FROM market_lines
@@ -273,20 +291,23 @@ def run() -> int:
                                (("home", g["home_team"]), ("away", g["away_team"]))}
                 facts_json = json.dumps(facts)
             elif nba:
-                # shortcut: moneyline only - fit an NBA spread/total model (like nfl_markets) before offering those.
-                ml = _latest(conn, g["match_id"], "moneyline")
-                items = [{"key": "ml_home", "p": round(p_home, 4), "market_p": mp,
-                          "odds": ml["odds_home"] if ml else None},
-                         {"key": "ml_away", "p": round(1 - p_home, 4),
-                          "market_p": None if mp is None else round(1 - mp, 4),
-                          "odds": ml["odds_away"] if ml else None}]
-                markets_json = json.dumps({"version": "nba_mk_v1", "items": items})
+                mu_total = nfl_markets.expected_total(nba_state, nba_params, hid, aid,
+                                                      g["kickoff_utc"][:10])
+                items, movement, pushes = nfl_markets_for(conn, g["match_id"], p_home,
+                                                          mu_total, nba_params)
+                # Spread/total legs carry the BOOK's fair probability, not ours:
+                # on 5 past seasons our spread/total scored WORSE than a flat 50%
+                # at the book's line (models/nba_market_backtest.py). Moneyline
+                # stays Elo - that is the pick, and it is labelled experimental.
+                items = [it if it["key"].startswith("ml_")
+                         else dict(it, model_p=it["p"], p=it["market_p"])
+                         for it in items
+                         if it["key"].startswith("ml_") or it["market_p"] is not None]
+                markets_json = json.dumps({"version": "nba_mk_v2", "exp_total": round(mu_total, 1),
+                                           "pushes": pushes, "items": items})
                 facts = nhl_form.build(hid, aid, g["kickoff_utc"][:10], nhl_games,
                                        ranked, nhl_ranks)
-                if ml:
-                    facts["market_movement"] = {"moneyline": {
-                        "open": [ml["open_home"], ml["open_away"]],
-                        "now": [ml["odds_home"], ml["odds_away"]]}}
+                facts["market_movement"] = movement
                 facts_json = json.dumps(facts)
             conn.execute("""
                 INSERT INTO shadow_predictions

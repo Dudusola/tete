@@ -315,8 +315,23 @@ generate predictions on demand.
                           'nba' (grade = nfl_markets.grade); SportyBet sr:sport:2 tournament 'NBA', market
                           219 winner incl. OT (NOT 1 - regulation, has a draw); code HVCLK7 decoded back as
                           3x 'Winner (incl. overtime)'. ESPN DOES price NBA (the docs/basketball.md unknown).
-                          No spread/total yet - fit one like nfl_markets before offering them. Opening week:
-                          Elo knows no roster moves, gaps to the book of 10-17 pts were seen (Knicks 78 v 62).
+                          Opening week: Elo knows no roster moves, gaps to the book of 10-17 pts were seen
+                          (Knicks 78 v 62).
+                          21 Oct 2026 (Boss: "only home/away win in the Builder"):
+                          - Elo + back-to-back (-45 Elo) + early-season K x1.5 for 10 games
+                            (models/elo_plus.py --feed nba): held out 2025-26, log loss -0.0038
+                            [-0.0061, -0.0013] - the FIRST Elo extension that cleared noise in any sport.
+                            Live in elo_shadow (NBA_PLUS); run_elo gained optional early_k/early_n.
+                          - nfl_markets is now per-league (`--feed nba` -> nba_markets.json).
+                          - models/nba_market_backtest.py: SBR NBA odds 2018-19..2022-23 (last 5 it
+                            publishes; 2023-24+ redirect) -> nba_odds_sbr.csv, 5,435 games joined.
+                            The BOOK beats us on moneyline (+0.021), spread (+0.025) and total (+0.035),
+                            every CI clear of 0 - our spread/total were WORSE than a flat 50% at the
+                            book's line. So NBA spread/total legs are SERVED AT THE BOOK'S FAIR PROB
+                            (our number kept as `model_p`; Picks card shows "-" for ours). They exist so
+                            the Builder can offer them, not as tips. SportyBet 223/225 (incl. OT) at
+                            every half-point line; code NFE4DB decoded back right.
+                          - Next lever is player availability (late scratches, rest), not ratings.
 - models/nfl_markets.py   NFL moneyline (Elo) / spread / total at the BOOK's lines. Margin = normal
                           x KEY-NUMBER weights by |margin| (fitted 2011-23: 3 -> x2.54, 7 -> x1.75;
                           14.6% of games end by exactly 3), mu solved so P(home win) == Elo's.
