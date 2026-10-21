@@ -361,11 +361,17 @@ export default {
       return;
     }
     if (controller.cron === "*/10 * * * *") {
-      ctx.waitUntil(
-        fetch(`${env.API_BASE}/healthz`, { headers: { "User-Agent": "potentialpro-keepwarm" } })
-          .then((r) => { if (!r.ok) console.log(`keep-warm: healthz ${r.status}`); })
-          .catch((err) => console.log(`keep-warm: ${err}`))
-      );
+      // Also touch the two heaviest pages' data: the API serves an expired
+      // cache entry instantly and rebuilds it in the background (api/cache.py,
+      // 15-minute grace), so a ping every 10 minutes means no visitor waits
+      // for the 12 s /api/picks rebuild.
+      for (const path of ["/healthz", "/api/picks", "/api/stats"]) {
+        ctx.waitUntil(
+          fetch(`${env.API_BASE}${path}`, { headers: { "User-Agent": "potentialpro-keepwarm" } })
+            .then((r) => { if (!r.ok) console.log(`keep-warm: ${path} ${r.status}`); })
+            .catch((err) => console.log(`keep-warm: ${path} ${err}`))
+        );
+      }
       // Web push for tracked picks/slips rides the same 10-minute tick.
       ctx.waitUntil(runPush(env).catch((err) => console.log(`push: ${err}`)));
       return;

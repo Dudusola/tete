@@ -511,6 +511,19 @@ function ppPlainPick(sel) {
     return s;
 }
 
+/* Market names in plain words (display only, like ppPlainPick). */
+function ppPlainMarket(m) {
+    const map = {"Match Result": "Who wins", "Double Chance": "Two results covered",
+        "Draw No Bet": "Win, draw = money back", "Handicap": "Winning margin",
+        "Both Teams To Score": "Both teams score", "Result & Goals": "Winner and goals",
+        "Moneyline": "To win (overtime counts)", "60-Minute Result": "Result after 60 minutes",
+        "Puck Line": "Winning margin", "Spread": "Winning margin"};
+    const s = String(m || "");
+    if (map[s]) return map[s];
+    const ou = s.match(/^Over\/Under( Goals| Points)? ?(\S*)$/);
+    return ou ? `Total ${ou[1] === " Points" ? "points" : "goals"}${ou[2] ? `, over/under ${ou[2]}` : ""}` : s;
+}
+
 function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, c => (
         {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
@@ -1197,7 +1210,10 @@ function ppSportsGet() {
             if (ok.length) return ok;
         }
     } catch (e) { /* storage unavailable: use the default */ }
-    return PP_SPORTS.map(s => s.code);
+    // Football only until the visitor picks more (persona test, 21 Oct 2026):
+    // a casual football punter's first slip had an NBA game in it. The other
+    // sports are one tap away and the choice is remembered.
+    return ["football"];
 }
 function ppSportsSet(codes) {
     try { localStorage.setItem("pp-sports", JSON.stringify(codes)); } catch (e) { /* ignore */ }

@@ -117,7 +117,7 @@
       <legend class="text-label-sm text-on-surface-variant mb-xs">Markets (none ticked = all)</legend>
       <div class="flex flex-wrap gap-x-md gap-y-xs text-body-md" id="opt-markets">
         <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Match Result"/>Who wins</label>
-        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Double Chance"/>Win or draw (two results)</label>
+        <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Double Chance"/>Two results covered</label>
         <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Draw No Bet"/>Win, draw = money back</label>
         <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Over/Under"/>Total goals</label>
         <label class="inline-flex items-center gap-xs"><input type="checkbox" value="Both Teams To Score"/>Both teams to score</label>
@@ -262,7 +262,7 @@ function renderLeg(leg, idx) {
       <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(kickoffLabel(leg.match_date, leg.kickoff_time, leg.kickoff_utc))}</span>
     </div>
     <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
-    <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(leg.market)}</div>
+    <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(ppPlainMarket(leg.market))}</div>
   </div>
   <div class="flex items-center justify-between md:justify-end gap-lg flex-1">
     <div class="bg-primary-container text-on-primary rounded-md px-3 py-1 text-data-tabular font-data-tabular text-center min-w-[110px]" title="Bookmaker calls it: ${escapeHtml(leg.market)} · ${escapeHtml(leg.selection)}">${escapeHtml(ppPlainPick(leg.selection))}</div>
@@ -314,14 +314,15 @@ function renderSlip(data) {
     ${data.sporty_total_odds ? `<div class="text-center md:text-right mt-4 md:mt-0 md:mr-lg">
       <span class="text-body-md text-inverse-primary block">SportyBet Total Odds</span>
       <span class="text-headline-md font-headline-md font-bold text-on-primary block">~${data.sporty_total_odds.toFixed(2)}x</span>
-      ${data.legs.some(l => !l.sporty_odds) ? `<span class="text-label-sm text-inverse-primary">(${data.legs.filter(l => l.sporty_odds).length}/${data.legs.length} legs priced)</span>` : ""}
+      ${data.legs.some(l => !l.sporty_odds) ? `<span class="text-label-sm text-inverse-primary">(${data.legs.filter(l => l.sporty_odds).length}/${data.legs.length} legs priced)</span>`
+        : `<span class="text-label-sm text-inverse-primary">₦1,000 pays about ₦${Math.round(data.sporty_total_odds * 1000).toLocaleString()}</span>`}
     </div>` : ""}
     <!-- Same size and colour as the two figures beside it. This used to be the
          loudest thing on the page (48px lime + a trending_up arrow), and it is
          the LEAST validated number here: a product of per-leg model estimates,
          most of them for markets the ledger has never graded. -->
     <div class="text-center md:text-right mt-4 md:mt-0">
-      <span class="text-body-md text-inverse-primary block">Model's estimate, all legs win</span>
+      <span class="text-body-md text-inverse-primary block">Our chance all ${data.actual_games} win</span>
       <span class="text-headline-md font-headline-md font-bold text-on-primary block">${accPct}%</span>
     </div>
   </div>

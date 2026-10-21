@@ -104,6 +104,19 @@ def cached(ttl: float, max_age: int | None = None):
             if hit and hit[0] == version and now - hit[1] < ttl:
                 stats["hits"] += 1
                 return _response(hit[2], hit[3], browser_age)
+            # STALE-WHILE-REVALIDATE (21 Oct 2026, persona test): with few
+            # visitors nearly every request found its entry just past the TTL
+            # and waited for a full rebuild - /api/picks took 12 s on a WARM
+            # server. An expired entry for the SAME ledger is now served at
+            # once while one background thread rebuilds it, for up to
+            # STALE_GRACE; past that, or on a new ledger, the request waits.
+            if hit and hit[0] == version and now - hit[1] < STALE_GRACE:
+                lock = _lock_for(key)
+                if lock.acquire(blocking=False):      # one refresher; the rest take the stale copy
+                    threading.Thread(target=_refresh, args=(lock, key, version, fn, args, kwargs),
+                                     daemon=True).start()
+                stats["stale"] = stats.get("stale", 0) + 1
+                return _response(hit[2], hit[3], browser_age)
             with _lock_for(key):
                 hit = _store.get(key)                     # someone may have just filled it
                 if hit and hit[0] == version and time.monotonic() - hit[1] < ttl:
@@ -113,17 +126,38 @@ def cached(ttl: float, max_age: int | None = None):
                 value = fn(*args, **kwargs)
                 if isinstance(value, Response):           # errors etc. pass through
                     return value
-                body = _encode(value)
-                etag = '"' + hashlib.sha1(body).hexdigest()[:20] + '"'
-                if len(_store) >= MAX_ENTRIES:
-                    # Oldest first. Crude, and fine: the keys are a handful of
-                    # endpoints plus slip queries.
-                    for k in sorted(_store, key=lambda k: _store[k][1])[:MAX_ENTRIES // 4]:
-                        _store.pop(k, None)
-                _store[key] = (version, time.monotonic(), body, etag)
+                body, etag = _store_value(key, version, value)
                 return _response(body, etag, browser_age)
         return wrapper
     return deco
+
+
+STALE_GRACE = 900   # seconds an expired entry may still be served while it refreshes
+
+
+def _store_value(key, version, value):
+    body = _encode(value)
+    etag = '"' + hashlib.sha1(body).hexdigest()[:20] + '"'
+    if len(_store) >= MAX_ENTRIES:
+        # Oldest first. Crude, and fine: the keys are a handful of
+        # endpoints plus slip queries.
+        for k in sorted(_store, key=lambda k: _store[k][1])[:MAX_ENTRIES // 4]:
+            _store.pop(k, None)
+    _store[key] = (version, time.monotonic(), body, etag)
+    return body, etag
+
+
+def _refresh(lock, key, version, fn, args, kwargs):
+    """Background rebuild of a stale entry. Holds the key's lock, so a request
+    arriving past STALE_GRACE waits for this instead of computing twice."""
+    try:
+        value = fn(*args, **kwargs)
+        if not isinstance(value, Response):
+            _store_value(key, version, value)
+    except Exception as e:      # keep serving the stale copy; the next request retries
+        print(f"[cache] background refresh of {key[0]} failed: {e}", flush=True)
+    finally:
+        lock.release()
 
 
 async def not_modified_middleware(request, call_next):
@@ -146,3 +180,29 @@ async def not_modified_middleware(request, call_next):
                                          "content-encoding")}
             return Response(status_code=304, headers=keep)
     return response
+
+
+if __name__ == "__main__":
+    # Self-check of stale-while-revalidate: python -m api.cache
+    import tempfile
+    f = tempfile.NamedTemporaryFile(delete=False)
+    f.write(b"x")
+    f.close()
+    DB_PATH = f.name
+    calls = []
+
+    @cached(ttl=0.2)
+    def slow():
+        calls.append(1)
+        time.sleep(0.5)
+        return {"n": len(calls)}
+
+    get = lambda r: json.loads(r.body)["n"]
+    t = time.time(); r1 = slow(); first = time.time() - t
+    time.sleep(0.3)                                   # past the TTL, inside the grace
+    t = time.time(); r2 = slow(); stale = time.time() - t
+    time.sleep(0.8)                                   # the background rebuild lands
+    r3 = slow()
+    assert first >= 0.5 and stale < 0.1, (first, stale)
+    assert (get(r1), get(r2), get(r3)) == (1, 1, 2)
+    print(f"PASS - stale copy in {stale * 1000:.0f} ms, rebuilt value served next")

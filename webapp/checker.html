@@ -435,11 +435,6 @@ function renderFixtures(filter="") {
    models/markets.py emits them, so nothing is hardcoded and nothing goes stale.
    Over/Under keeps its line ("Over/Under 2.5") because picking a LINE is the
    point — collapsing them into one "Over/Under" entry would defeat it. */
-// Market names in plain words for the dropdown (values stay the API's).
-const PLAIN_MARKET = {"Match Result": "Who wins", "Double Chance": "Win or draw (two results)",
-    "Draw No Bet": "Win, draw = money back", "Handicap": "Winning margin",
-    "Both Teams To Score": "Both teams score", "Result & Goals": "Winner and goals"};
-
 function fillMarketFilter() {
     const sel = document.getElementById("market-filter");
     const seen = [];
@@ -448,7 +443,7 @@ function fillMarketFilter() {
     }));
     seen.sort();
     sel.innerHTML = `<option value="">All markets</option>` +
-        seen.map(m => `<option value="${esc(m)}">${esc(PLAIN_MARKET[m] || m.replace(/^Over\/Under (\S+)$/, "Total goals, over/under $1"))}</option>`).join("");
+        seen.map(m => `<option value="${esc(m)}">${esc(ppPlainMarket(m))}</option>`).join("");
 }
 
 function addLeg(mid, selection) {
