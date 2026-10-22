@@ -132,7 +132,10 @@ def attach(matches: list) -> None:
                                e["home"], e["away"])
             if score is not None and score > best_score:
                 best, best_score = e, score
-        if best:
+        # ESPN reports a game that has not started as "0-0 Scheduled". That is
+        # not a score: a kickoff time we hold can be early (rescheduled games),
+        # and the Matches page showed it as LIVE 0-0 (23 Oct 2026).
+        if best and best["state"] != "pre":
             m["live_score"] = f"{best['home_score']}-{best['away_score']}"
             m["live_detail"] = best["detail"]
             m["live_final"] = best["completed"]

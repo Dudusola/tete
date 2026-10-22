@@ -441,7 +441,12 @@ generate predictions on demand.
                           stay put), and Bankers (📌 pin locks a leg's exact market+selection through
                           risk/count/league changes and re-rolls; served via /api/slip pin= param).
                           index.html (Picks), slip.html (Builder), record.html (Track Record),
-                          consensus.html, checker.html (Slip Checker). js/api.js = fetch glue. logo.png in header.
+                          matches.html (Matches: every match by day/league, live + FT scores, our pick,
+                          favourite leagues; GET /api/matches - added 23 Oct 2026 when Boss split the
+                          live tracker off Picks), match.html (one fixture + ESPN/SportyBet match centre),
+                          checker.html (Slip Checker + Tools). consensus.html is now only a redirect to
+                          matches.html (page retired 23 Oct 2026; pick-card consensus badges and
+                          /api/consensus remain). js/api.js = fetch glue. logo.png in header.
                           Picks page has a summary stat strip, tier filter chips (All/High/Medium),
                           skeleton loaders, and per-card "Expected: H–A" scoreline. ACCESSIBILITY lives in
                           api.js too (27 Sep 2026): a :focus-visible outline on every control, and

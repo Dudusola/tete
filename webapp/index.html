@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,diagnosis,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,flip,floor,function,functions,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,hub,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,model_training,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,poll,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,schedule,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,star,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,animation,api,arrow_back,arrow_downward,arrow_forward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,bookmarks,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,done,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,floor,function,functions,games,gesture,grade,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,hub,image,info,input,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,personal_injury,phone,pill,pin,place,policy,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,star,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
 <style>
 /* No theme() calls in here. Tailwind only resolves theme() inside a
    <style type="text/tailwindcss"> block; in a plain <style> it is invalid CSS
@@ -60,7 +60,7 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <div class="flex gap-lg items-center">
 <a class="text-secondary font-bold text-label-sm border-b-2 border-secondary pb-1" href="index.html" aria-current="page">Picks</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="slip.html">Builder</a>
-<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="consensus.html">Consensus</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="matches.html">Matches</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
 <a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="record.html">Record</a>
 </div>
@@ -112,24 +112,12 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <!-- Prediction feed (cards injected here) -->
 <div id="picks-feed" class="grid grid-cols-1 md:grid-cols-2 gap-md md:gap-lg"></div>
 
-<!-- Matches that have kicked off. Deliberately quiet and BELOW the bettable
-     picks: they are not recommendations, they are there so the card doesn't
-     look empty once the day's football starts. Collapsed by default. -->
-<section id="started-section" class="mt-lg hidden">
-  <button id="started-toggle" class="w-full flex items-center justify-between text-left py-sm px-md rounded-lg bg-surface-container-low border border-outline-variant hover:bg-surface-container-high transition">
-    <span class="text-label-sm text-on-surface-variant uppercase tracking-wider">
-      <!-- NOT "today": the API deliberately spans a 2-day window so late
-           kickoffs (a 23:30 UTC match is 00:30 in Lagos) don't vanish. On
-           9 Aug, 19 of the 20 listed here had kicked off YESTERDAY while the
-           heading said "today". Each row now carries its own day too. -->
-      Recently kicked off · <span id="started-count">0</span><!--
-      -->&nbsp;<span id="started-live" class="hidden normal-case text-error font-bold"
-                     title="Scores on this list refresh every minute while matches are in play"><span class="pp-live-dot"></span> <span id="started-live-count">0</span> live</span>
-    </span>
-    <span id="started-chevron" class="material-symbols-outlined text-on-surface-variant text-[20px]">expand_more</span>
-  </button>
-  <div id="started-list" class="hidden mt-sm space-y-xs"></div>
-</section>
+<!-- Kicked-off games, live scores and results moved to Matches (23 Oct 2026):
+     Picks is about what to bet; matches.html is about what is on. -->
+<a href="matches.html" class="mt-lg flex items-center justify-between gap-sm px-md py-sm rounded-lg border border-outline-variant text-body-md text-on-surface-variant hover:bg-surface-container-high">
+  <span class="flex items-center gap-xs"><span class="pp-live-dot"></span>Live scores and results</span>
+  <span class="flex items-center gap-xs font-semibold text-secondary">Matches<span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span></span>
+</a>
 </main>
 
 <!-- Mobile Bottom Nav -->
@@ -141,8 +129,8 @@ body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px;
 <span class="material-symbols-outlined mb-1">receipt_long</span><span class="text-label-sm">Builder</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="record.html">
 <span class="material-symbols-outlined mb-1">query_stats</span><span class="text-label-sm">Record</span></a>
-<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="consensus.html">
-<span class="material-symbols-outlined mb-1">groups</span><span class="text-label-sm">Consensus</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="matches.html">
+<span class="material-symbols-outlined mb-1">scoreboard</span><span class="text-label-sm">Matches</span></a>
 <a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="checker.html">
 <span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
 </nav>
@@ -698,7 +686,6 @@ async function loadPicks() {
     const feed = document.getElementById("picks-feed");
     const status = document.getElementById("status");
     feed.innerHTML = Array(4).fill(skeletonCard()).join("");
-    // (renderStarted is defined below loadPicks so it can use the same helpers)
     status.textContent = "Loading…";
     try {
         const wantFootball = SPORTS.includes("football");
@@ -718,7 +705,6 @@ async function loadPicks() {
         ALL_PICKS = football.concat((sp && sp.picks) || []).sort((a, b) =>
             (kickoffDate(a.match_date, a.kickoff_time, a.kickoff_utc) || 0) - (kickoffDate(b.match_date, b.kickoff_time, b.kickoff_utc) || 0));
         UPDATED_AT = data.generated_at || null;
-        renderStarted(data.started || []);
         // The stat strip is FOOTBALL's track record. It is not shown for a
         // view without football, and NHL/NFL get their own line below it.
         if (wantFootball) renderStatStrip(football, stats);
@@ -747,7 +733,7 @@ async function loadPicks() {
             const startedToday = (data.started || []).length > 0;
             feed.innerHTML = ranToday && startedToday
                 ? `<div class="col-span-full text-center text-on-surface-variant py-xl">
-                     All of today's picks have kicked off — see <strong>Recently kicked off</strong> below. Tomorrow's arrive at about 07:00 Lagos time.</div>`
+                     All of today's picks have kicked off — follow them on <a href="matches.html" class="text-secondary font-semibold underline underline-offset-2">Matches</a>. Tomorrow's arrive at about 07:00 Lagos time.</div>`
                 : ranToday
                 ? `<div class="col-span-full text-center text-on-surface-variant py-xl">
                      No HIGH or MEDIUM picks today. The model checked today's fixtures and is sitting them out — no bet is also a decision.</div>`
@@ -769,155 +755,7 @@ async function loadPicks() {
     }
 }
 
-/* The running score has to actually RUN.
-   /api/picks fetches a live score per started match, but the page only ever
-   called it once — at load. So a match in play showed the score as it stood
-   the moment the tab was opened and then froze there, which reads as a broken
-   feed rather than a stale one: the red dot keeps pulsing next to a number
-   that never changes. Nothing server-side was wrong; the client just never
-   asked again.
-   LIVE_POLL_MS matches live_scores.CACHE_SECONDS — polling faster only burns
-   requests to be handed the same memoised payload. Polling stops entirely
-   when nothing is in play and while the tab is hidden, so an open tab left
-   overnight costs nothing. */
-const LIVE_POLL_MS = 60000;
-let LIVE_TIMER = null;
-
-function anyLegLive(started) {
-    return started.some(s => s.result_outcome == null &&
-        ((s.live_score && !s.live_final) || s.live_state === "in"));
-}
-
-function stopLivePolling() {
-    if (LIVE_TIMER) { clearTimeout(LIVE_TIMER); LIVE_TIMER = null; }
-}
-
-function scheduleLivePolling() {
-    stopLivePolling();
-    LIVE_TIMER = setTimeout(refreshStarted, LIVE_POLL_MS);
-}
-
-/* Re-fetch and re-render the started list ONLY. The main feed is deliberately
-   left alone: re-rendering it would reset the tier chips, the league filter
-   and the scroll position under someone who is reading it. */
-async function refreshStarted() {
-    // stopLivePolling(), not a bare `LIVE_TIMER = null`. This is called
-    // MANUALLY too — on visibilitychange and on opening the list — while the
-    // previous timer is still pending. Nulling the handle without cancelling
-    // orphaned that timer: it still fired, and started a second polling chain
-    // beside the one this call installs. Every tab-flip added another, so the
-    // poll rate doubled and kept doubling, which is the exact opposite of the
-    // "an open tab costs nothing" property the polling was built to have.
-    stopLivePolling();
-    if (document.hidden) { scheduleLivePolling(); return; }
-    try {
-        const data = await PotentialProAPI.picks();
-        renderStarted(data.started || []);   // reschedules itself if still live
-    } catch (err) {
-        // A failed poll is not a failed page — keep the last good score on
-        // screen and try again next tick.
-        console.error(err);
-        scheduleLivePolling();
-    }
-}
-
-/* Matches that already kicked off: one compact line each, muted, with the
-   result once it exists. Never styled like a recommendation — the point is
-   "here's what the model said about today's football", not "bet this". */
-function renderStarted(started) {
-    const section = document.getElementById("started-section");
-    const list = document.getElementById("started-list");
-    if (!section || !list) return;
-    if (!started.length) { section.classList.add("hidden"); stopLivePolling(); return; }
-
-    section.classList.remove("hidden");
-    document.getElementById("started-count").textContent = started.length;
-
-    // Say so in the header, because the list is collapsed by default: without
-    // this the one genuinely live thing on the page is hidden behind a chevron.
-    const liveCount = started.filter(s => s.result_outcome == null &&
-        ((s.live_score && !s.live_final) || s.live_state === "in")).length;
-    const liveBadge = document.getElementById("started-live");
-    if (liveBadge) {
-        liveBadge.classList.toggle("hidden", liveCount === 0);
-        document.getElementById("started-live-count").textContent = liveCount;
-    }
-
-    list.innerHTML = started.map(s => {
-        const graded = s.result_outcome != null;
-        const right = s.model_was_right;
-        // Three distinct states, and they were being collapsed into two:
-        //   graded            -> show the score and whether we called it
-        //   ESPN says 'in'    -> genuinely being played right now
-        //   anything else     -> the match is over, we just don't have the
-        //                        score yet (results land on the next pipeline
-        //                        run). Calling that "in play" was simply wrong.
-        // Not graded is still never shown as a loss.
-        // Four states, and every one of them now shows a NUMBER when a number
-        // exists. "score pending" used to cover three different situations —
-        // playing now, finished-but-ungraded, and no-source — which is why it
-        // could sit there for days looking like a delay.
-        let outcome;
-        if (graded) {
-            // Ledger score: the authoritative one, and the only one we grade on.
-            outcome = `<span class="text-label-sm font-bold ${right ? "text-secondary" : "text-error"}">
-                 ${s.result_home_goals}–${s.result_away_goals} ${right ? "✓" : "✗"}</span>`;
-        } else if (s.live_score && !s.live_final) {
-            // Being played right now, with the running score and ESPN's own
-            // clock text ("45'+2", "HT").
-            outcome = `<span class="text-label-sm text-error font-bold whitespace-nowrap">
-                 <span class="pp-live-dot"></span> ${escapeHtml(s.live_score)}
-                 <span class="font-normal text-on-surface-variant">${escapeHtml(s.live_detail || "live")}</span></span>`;
-        } else if (s.live_score) {
-            // Final score straight from the feed, ahead of the pipeline
-            // grading it. Shown WITHOUT a ✓/✗ on purpose: the tick means "the
-            // ledger scored this", and only a recorded result earns it.
-            outcome = `<span class="text-label-sm font-bold text-on-surface whitespace-nowrap">
-                 ${escapeHtml(s.live_score)}
-                 <span class="font-normal text-on-surface-variant">FT</span></span>`;
-        } else if (s.live_state === "in") {
-            outcome = `<span class="text-label-sm text-error font-bold"><span class="pp-live-dot"></span> live</span>`;
-        } else {
-            outcome = `<span class="text-label-sm text-on-surface-variant" title="No results source covers this competition yet — see track_record_health.py">no score source</span>`;
-        }
-        return `
-        <div class="flex items-center justify-between gap-sm px-md py-xs rounded-lg bg-surface-container-low opacity-70">
-          <div class="min-w-0">
-            <div class="text-body-md text-on-surface truncate">${escapeHtml(s.home_team)} vs ${escapeHtml(s.away_team)}</div>
-            <div class="text-label-sm text-on-surface-variant truncate">
-              ${escapeHtml(kickoffLabel(s.match_date, s.kickoff_time, s.kickoff_utc))} ·
-              ${escapeHtml(prettyLeague(s.league))} · we said ${escapeHtml(s.best_bet)} (${Math.round((s.best_bet_prob||0)*100)}%)
-            </div>
-          </div>
-          ${outcome}
-        </div>`;
-    }).join("");
-
-    // Keep polling only while there is something to poll FOR. A finished slate
-    // stops the timer dead, so an abandoned tab is not a standing request.
-    if (anyLegLive(started)) scheduleLivePolling(); else stopLivePolling();
-}
-
 document.addEventListener("DOMContentLoaded", () => {
-    const startedToggle = document.getElementById("started-toggle");
-    if (startedToggle) {
-        startedToggle.addEventListener("click", () => {
-            const list = document.getElementById("started-list");
-            const chev = document.getElementById("started-chevron");
-            const open = list.classList.toggle("hidden") === false;
-            chev.textContent = open ? "expand_less" : "expand_more";
-            // Opening the list is the moment the score actually matters — take
-            // it fresh rather than showing whatever the last tick left there.
-            if (open && LIVE_TIMER) refreshStarted();
-        });
-    }
-
-    // A backgrounded tab does not poll (see refreshStarted). Coming back to it
-    // must not mean waiting out the remainder of a minute on a stale number.
-    document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && LIVE_TIMER) refreshStarted();
-    });
-
     document.querySelectorAll(".tier-chip").forEach(c =>
         c.addEventListener("click", async () => {
             CURRENT_TIER = c.dataset.tier; paintTierChips();

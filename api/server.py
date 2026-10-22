@@ -1296,6 +1296,44 @@ def get_roundups(days: int = Query(7, ge=1, le=30)):
     return {"days": result}
 
 
+@app.get("/api/matches")
+@cached(ttl=60, max_age=60)
+def get_matches():
+    """The Matches page (23 Oct 2026, Boss: "separate the match tracker from
+    the picks page"): every football match from yesterday to six days ahead,
+    one light row each - teams, kickoff, our pick if we made one, and the
+    recorded result or ESPN's live score once it has kicked off. /api/fixtures
+    carries every market (~730 KB) and is for building slips, not for this."""
+    conn = get_connection()
+    rows = [dict(r) for r in conn.execute(f"""
+        SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
+               m.kickoff_time, m.kickoff_utc, m.live_state, m.espn_league,
+               mp.confidence, mp.best_bet, mp.best_bet_prob,
+               r.home_goals AS result_home_goals, r.away_goals AS result_away_goals,
+               r.outcome AS result_outcome
+        FROM matches m
+        LEFT JOIN model_predictions mp ON mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
+                                                   WHERE mp2.match_id = m.match_id)
+        LEFT JOIN results r ON r.match_id = m.match_id
+        WHERE m.match_date BETWEEN date('now', '-1 day') AND date('now', '+6 day') {SPORT_SQL}
+        ORDER BY COALESCE(m.kickoff_utc, m.match_date)
+    """).fetchall()]
+    conn.close()
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    for r in rows:
+        r["live_state"] = effective_live_state(r)
+        r["league_display"] = pretty_league(r["league"])
+    started = [r for r in rows if r["result_outcome"] is None and
+               (r["live_state"] in ("in", "post") or (r["kickoff_utc"] or "9") <= now)]
+    try:
+        attach_live_scores(started)
+    except Exception as e:      # decoration; the list still loads
+        print(f"[matches] live scores failed: {e}", flush=True)
+    for r in rows:
+        r.pop("espn_league", None)
+    return {"matches": rows}
+
+
 @app.get("/api/match/{match_id}/centre")
 @cached(ttl=60, max_age=60)
 def get_match_centre(match_id: str):
