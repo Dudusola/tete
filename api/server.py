@@ -1344,6 +1344,16 @@ def get_match(match_id: str):
     d["live_state"] = effective_live_state(d)
     d["league_display"] = pretty_league(d["league"])
     d["warnings"] = price_warnings(d)
+    # Most likely scores (from Puntrr's match page): independent Poisson on the
+    # same team scoring rates the goals prices use. None when a team is unrated.
+    eg = expected_goals(d["home_team"], d["away_team"])
+    if eg:
+        import math
+        pois = lambda mu, k: math.exp(-mu) * mu ** k / math.factorial(k)
+        grid = [(h, a, pois(eg[0], h) * pois(eg[1], a)) for h in range(7) for a in range(7)]
+        d["expected_goals"] = [round(eg[0], 2), round(eg[1], 2)]
+        d["likely_scores"] = [{"home": h, "away": a, "probability": round(p, 4)}
+                              for h, a, p in sorted(grid, key=lambda x: -x[2])[:6]]
     return {
         **d,
         "facts": facts,
