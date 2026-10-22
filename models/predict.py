@@ -402,6 +402,21 @@ def recent_results(hist: list, n: int = FORM_WINDOW) -> str:
     return "".join(m["result"] for m in hist[-n:])
 
 
+def goals_record(hist: list, n: int = 10) -> dict:
+    """How this team's last n games went for goals, as counts out of `games`
+    (the match page shows "over 2.5 goals in 6 of 10"). Display only."""
+    g = hist[-n:]
+    tot = [m["goals_for"] + m["goals_against"] for m in g]
+    return {"games": len(g),
+            "over_1_5": sum(t >= 2 for t in tot), "over_2_5": sum(t >= 3 for t in tot),
+            "btts": sum(m["goals_for"] > 0 and m["goals_against"] > 0 for m in g),
+            "clean_sheets": sum(m["goals_against"] == 0 for m in g),
+            "failed_to_score": sum(m["goals_for"] == 0 for m in g)}
+
+
+assert goals_record([{"goals_for": 2, "goals_against": 1}, {"goals_for": 0, "goals_against": 0}]) ==     {"games": 2, "over_1_5": 1, "over_2_5": 1, "btts": 1, "clean_sheets": 1, "failed_to_score": 1}
+
+
 def build_analysis_facts(home_hist: list, away_hist: list, feats: dict,
                          match: dict, away_matched: str) -> dict:
     """The evidence the analyst gets: the model's own features, plus enough
@@ -432,6 +447,8 @@ def build_analysis_facts(home_hist: list, away_hist: list, feats: dict,
         # fixture would silently report "no previous meetings". Same reason
         # build_live_features gets the matched names for h2h_wins.
         "h2h_record": h2h_record(home_hist, away_matched),
+        "home_goals_record": goals_record(home_hist),
+        "away_goals_record": goals_record(away_hist),
         "odds_home": match.get("odds_home"),
         "odds_draw": match.get("odds_draw"),
         "odds_away": match.get("odds_away"),

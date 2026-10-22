@@ -1296,6 +1296,28 @@ def get_roundups(days: int = Query(7, ge=1, le=30)):
     return {"days": result}
 
 
+@app.get("/api/match/{match_id}/centre")
+@cached(ttl=60, max_age=60)
+def get_match_centre(match_id: str):
+    """Free match detail for the match page (models/match_centre.py): ESPN's
+    lineups, goals and cards, team stats, commentary, table and last five,
+    plus SportyBet's correct-score prices while the match can still be bet.
+    Its own endpoint so the main match page never waits on two outside feeds."""
+    from models.match_centre import espn_centre, sporty_correct_scores
+    conn = get_connection()
+    row = conn.execute(f"""SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
+                                 m.kickoff_utc, m.live_state, m.espn_league
+                          FROM matches m WHERE m.match_id = ? {SPORT_SQL}""", [match_id]).fetchone()
+    conn.close()
+    if not row:
+        raise HTTPException(404, "No such match.")
+    d = dict(row)
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+    started = effective_live_state(d) in ("in", "post") or (d["kickoff_utc"] or "9") <= now
+    return {"espn": espn_centre(d["match_id"], d["espn_league"], live=started),
+            "correct_scores": {} if started else sporty_correct_scores(d)}
+
+
 @app.get("/api/match/{match_id}")
 @cached(ttl=60, max_age=60)
 def get_match(match_id: str):

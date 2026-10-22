@@ -149,6 +149,7 @@ function formBlock(d) {
             <li>Scores <b class="text-primary tabular-nums">${n(f[`${side}_goals_for_avg`])}</b>, lets in <b class="text-primary tabular-nums">${n(f[`${side}_goals_against_avg`])}</b> a game</li>
             <li>${venueWord}: <b class="text-primary tabular-nums">${n(f[venueKey])}</b> points a game</li>
           </ul>
+          ${goalsRecord(f[`${side}_goals_record`])}
           ${games < (f.form_window || 5) ? `<p class="text-label-sm text-on-surface-variant mt-xs">Based on only ${games} game${games === 1 ? "" : "s"}, so treat it with care.</p>` : ""}
         </div>`;
     };
@@ -161,13 +162,87 @@ function formBlock(d) {
       <p class="text-body-md text-on-surface-variant mt-sm">${h2h}</p>`);
 }
 
-function scoresBlock(d) {
+function scoresBlock(d, cs) {
     const ls = d.likely_scores || [];
     if (!ls.length) return "";
-    return card("Most likely scores", `<div class="flex flex-wrap gap-xs">${ls.map(x =>
-        `<span class="inline-flex items-center gap-xs px-sm py-xs rounded-lg border border-outline-variant text-body-md">
-           <b class="text-primary tabular-nums">${x.home}–${x.away}</b><span class="text-on-surface-variant tabular-nums">${pct(x.probability)}</span></span>`).join("")}</div>
+    cs = cs || {};
+    return card("Most likely scores", `<div class="flex flex-wrap gap-xs">${ls.map(x => {
+        const odds = cs[`${x.home}:${x.away}`];
+        return `<span class="inline-flex items-center gap-xs px-sm py-xs rounded-lg border border-outline-variant text-body-md">
+           <b class="text-primary tabular-nums">${x.home}–${x.away}</b><span class="text-on-surface-variant tabular-nums">${pct(x.probability)}</span>
+           ${odds ? `<span class="text-label-sm text-on-surface-variant tabular-nums">· SportyBet ${odds.toFixed(2)}</span>` : ""}</span>`; }).join("")}</div>
       <p class="text-label-sm text-on-surface-variant mt-xs">From how often each team scores and concedes (about ${d.expected_goals[0].toFixed(1)} and ${d.expected_goals[1].toFixed(1)} goals). Any one exact score is unlikely; these are just the most likely few.</p>`);
+}
+
+function goalsRecord(g) {
+    if (!g || !g.games) return "";
+    return `<p class="text-label-sm text-on-surface-variant mt-sm">Last ${g.games} games: 3+ goals in <b class="text-primary">${g.over_2_5}</b>,
+      both teams scored in <b class="text-primary">${g.btts}</b>, kept a clean sheet in <b class="text-primary">${g.clean_sheets}</b>,
+      failed to score in <b class="text-primary">${g.failed_to_score}</b>.</p>`;
+}
+
+/* ── Match centre (GET /api/match/<id>/centre: ESPN + SportyBet, free) ── */
+function eventsBlock(c, d) {
+    if (!c || !c.events || !c.events.length) return "";
+    const icon = k => k === "goal" || k === "own goal"
+        ? `<span class="material-symbols-outlined text-[18px] text-secondary" aria-hidden="true">sports_soccer</span>`
+        : `<span class="inline-block w-3 h-4 rounded-sm ${k === "red" ? "bg-error" : k === "yellow" ? "bg-[#f5c518]" : "bg-surface-container-high"}" aria-hidden="true"></span>`;
+    const word = {"goal": "Goal", "own goal": "Own goal", "yellow": "Yellow card", "red": "Red card", "penalty missed": "Penalty missed"};
+    return card("Match events", `<ul class="divide-y divide-outline-variant text-body-md">${c.events.map(e => `
+      <li class="flex items-center gap-sm py-xs ${e.team === d.away_team ? "flex-row-reverse text-right" : ""}">
+        <span class="w-10 shrink-0 tabular-nums text-on-surface-variant ${e.team === d.away_team ? "text-right" : ""}">${esc(e.minute || "")}</span>${icon(e.kind)}
+        <span class="min-w-0"><b class="text-primary">${esc(e.player || "")}</b> <span class="text-label-sm text-on-surface-variant">${word[e.kind] || ""}, ${esc(e.team || "")}</span></span></li>`).join("")}</ul>`);
+}
+function statsBlock(c, d) {
+    if (!c || !c.stats || !c.stats.length) return "";
+    const row = s => {
+        const h = parseFloat(s.home) || 0, a = parseFloat(s.away) || 0, share = h + a ? Math.round(h / (h + a) * 100) : 50;
+        return `<div class="py-xs"><div class="flex justify-between text-body-md"><b class="text-primary tabular-nums">${esc(s.home)}</b>
+          <span class="text-label-sm text-on-surface-variant">${esc(s.label)}</span><b class="text-primary tabular-nums">${esc(s.away)}</b></div>
+          <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-container-high mt-[2px]">${h + a ? `<div class="bg-secondary" style="width:${share}%"></div>` : ""}</div></div>`;
+    };
+    return card("Match stats", `<div class="flex justify-between text-label-sm text-on-surface-variant mb-xs"><span>${esc(d.home_team)}</span><span>${esc(d.away_team)}</span></div>${c.stats.map(row).join("")}`);
+}
+function lineupsBlock(c) {
+    if (!c || !c.lineups || !c.lineups.length) return "";
+    return card("Line-ups", `<details><summary class="cursor-pointer text-body-md text-secondary font-semibold">Show the starting line-ups</summary>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm mt-sm">${c.lineups.map(l => `<div class="rounded-lg border border-outline-variant p-sm">
+        <div class="font-semibold text-primary">${esc(l.team)} <span class="text-label-sm text-on-surface-variant font-normal">${esc(l.formation || "")}</span></div>
+        <ul class="mt-xs text-body-md text-on-surface-variant">${l.starters.map(p => `<li>${esc(p.name || "")} <span class="text-label-sm">${esc(p.position || "")}</span></li>`).join("")}</ul></div>`).join("")}</div></details>`);
+}
+function recentBlock(c, d) {
+    if (!c) return "";
+    const last5 = (c.last5 || []).filter(t => t.games && t.games.length);
+    const rows = (c.table || []).filter(r => r.team === d.home_team || r.team === d.away_team);
+    if (!last5.length && !rows.length) return "";
+    const tile = g => `<span title="${esc(`${g.at === "@" ? "at" : "vs"} ${g.opponent || ""} ${g.score || ""} (${g.competition || ""})`)}"
+        class="w-6 h-6 inline-flex items-center justify-center rounded text-label-sm font-bold ${g.result === "W" ? "bg-secondary-container text-on-secondary-container" : g.result === "L" ? "bg-error-container text-on-error-container" : "bg-surface-container-high text-on-surface-variant"}">${esc(g.result || "?")}</span>`;
+    const ord = n => { const v = +n; const s = ["th", "st", "nd", "rd"], m = v % 100; return v + (s[(m - 20) % 10] || s[m] || s[0]); };
+    return card("Latest results and table", `
+      ${last5.map(t => `<div class="flex items-center justify-between gap-sm py-xs"><span class="text-body-md text-primary truncate">${esc(t.team)}</span>
+        <span class="flex gap-xs shrink-0" role="img" aria-label="Last five, newest first: ${esc(t.games.map(g => g.result).join(""))}">${t.games.map(tile).join("")}</span></div>`).join("")}
+      ${rows.length ? `<p class="text-body-md text-on-surface-variant mt-sm">${rows.map(r => `${esc(r.team)}: <b class="text-primary">${ord(r.rank)}</b>, ${esc(r.points)} pts from ${esc(r.played)} games`).join(" · ")}.</p>` : ""}
+      <p class="text-label-sm text-on-surface-variant mt-xs">From ESPN, all competitions. Tap a box for the opponent and score.</p>`);
+}
+function commentaryBlock(c) {
+    if (!c || !c.commentary || !c.commentary.length) return "";
+    return card("Commentary", `<details><summary class="cursor-pointer text-body-md text-secondary font-semibold">Latest ${c.commentary.length} updates</summary>
+      <ul class="mt-sm space-y-xs text-body-md text-on-surface-variant">${c.commentary.map(x => `<li><b class="text-primary tabular-nums">${esc(x.minute || "")}</b> ${esc(x.text)}</li>`).join("")}</ul></details>`);
+}
+
+async function loadCentre(id, d) {
+    try {
+        const c = await PotentialProAPI.matchCentre(id);
+        const e = c.espn;
+        if (e && e.venue) document.getElementById("venue").textContent = ` · ${e.venue}`;
+        document.getElementById("centre-top").innerHTML = eventsBlock(e, d) + statsBlock(e, d);
+        document.getElementById("centre-mid").innerHTML = recentBlock(e, d) + lineupsBlock(e);
+        document.getElementById("centre-end").innerHTML = commentaryBlock(e);
+        if (c.correct_scores && Object.keys(c.correct_scores).length)
+            document.getElementById("scores").innerHTML = scoresBlock(d, c.correct_scores);
+    } catch (err) {
+        console.error("match centre:", err);    // extra detail only; the page stands without it
+    }
 }
 
 function marketsBlock(d) {
@@ -189,15 +264,17 @@ async function load() {
     try {
         const d = await PotentialProAPI.match(id);
         document.title = `${d.home_team} vs ${d.away_team} - PotentialPro`;
+        setTimeout(() => loadCentre(id, d));
         box.innerHTML = `
           <header>
-            <div class="text-label-sm text-on-surface-variant">${esc(d.league_display || prettyLeague(d.league))} · ${esc(kickoffLabel(d.match_date, d.kickoff_time, d.kickoff_utc))}</div>
+            <div class="text-label-sm text-on-surface-variant">${esc(d.league_display || prettyLeague(d.league))} · ${esc(kickoffLabel(d.match_date, d.kickoff_time, d.kickoff_utc))}<span id="venue"></span></div>
             <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary mt-xs">${esc(d.home_team)} vs ${esc(d.away_team)}</h1>
             ${scoreLine(d)}
           </header>
-          ${pickBlock(d)}${priceBlock(d)}${formBlock(d)}${scoresBlock(d)}
+          <div id="centre-top"></div>
+          ${pickBlock(d)}${priceBlock(d)}${formBlock(d)}<div id="centre-mid"></div><div id="scores">${scoresBlock(d)}</div>
           ${d.gemma_analysis ? card("Why we picked it", `<p class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${esc(d.gemma_analysis)}</p>`) : ""}
-          ${marketsBlock(d)}
+          ${marketsBlock(d)}<div id="centre-end"></div>
           <p class="mt-xl text-label-sm text-on-surface-variant">Predictions are not guarantees. 18+ only; never stake what you can't afford to lose.</p>`;
     } catch (err) {
         box.innerHTML = ppErrorBox(err, "load this match", "load");
