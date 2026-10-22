@@ -259,6 +259,8 @@
       <div class="mt-sm pt-sm border-t border-outline-variant flex flex-wrap items-center gap-sm">
         <button type="button" id="track-slip-btn" class="inline-flex items-center gap-xs px-md py-sm rounded-full border border-outline-variant text-label-sm font-bold text-on-surface-variant hover:border-secondary">
           <span class="material-symbols-outlined text-[18px]" aria-hidden="true">bookmark_add</span>Track this slip in My Record</button>
+        <button type="button" id="share-slip-btn" class="inline-flex items-center gap-xs px-md py-sm rounded-full border border-outline-variant text-label-sm font-bold text-on-surface-variant hover:border-secondary">
+          <span class="material-symbols-outlined text-[18px]" aria-hidden="true">share</span>Share</button>
         <span id="track-slip-msg" class="text-label-sm text-on-surface-variant" aria-live="polite">Graded as one bet: it wins only if every leg does.</span>
       </div>`;
     window.ppWireTrackSlip = (getLegs, source, { fetchOdds = false } = {}) => {
@@ -266,6 +268,9 @@
         const msg = document.getElementById("track-slip-msg");
         if (!btn || btn.dataset.wired) return;
         btn.dataset.wired = "1";
+        // Share needs no account: the slip travels inside the link (api.js ppShareSlip).
+        const share = document.getElementById("share-slip-btn");
+        if (share) share.addEventListener("click", () => ppShareSlip(getLegs(), msg));
         btn.addEventListener("click", async () => {
             const legs = getLegs();
             if (!legs.length) return;
