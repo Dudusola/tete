@@ -311,6 +311,18 @@ function renderSportCard(p) {
 </article>`;
 }
 
+/* A safer second option under the main pick (Puntrr leads with "win or
+   draw"): the picked side OR a draw, from our own three chances. Not graded
+   yet - only who-wins is - and the tooltip says so. */
+function saferLine(p) {
+    const side = p.best_bet === "Home Win" ? [p.home_team, p.home_win_prob]
+               : p.best_bet === "Away Win" ? [p.away_team, p.away_win_prob] : null;
+    if (!side || side[1] == null || p.draw_prob == null) return "";
+    const pc = Math.round((side[1] + p.draw_prob) * 100);
+    return `<div class="text-label-sm text-on-surface-variant mt-base" title="Double chance. Not part of our graded record yet: only who-wins picks are graded.">
+              Safer option: ${escapeHtml(side[0])} win or draw · <b class="text-primary tabular-nums">${pc}%</b></div>`;
+}
+
 function renderCard(p) {
     if (p.sport && p.sport !== "football") return renderSportCard(p);
     /* Draw-leaning cards are a DIFFERENT KIND OF THING and must not borrow the
@@ -387,6 +399,7 @@ function renderCard(p) {
              Model's own lean: ${escapeHtml(p.best_bet)} (${Math.round((p.best_bet_prob||0)*100)}%) —
              it has never once rated a draw most likely.</div>`
         : `<div class="text-body-lg font-semibold text-primary" title="${escapeHtml(p.best_bet)}">${escapeHtml(ppPlainPick(p.best_bet === "Home Win" ? `${p.home_team} Win` : p.best_bet === "Away Win" ? `${p.away_team} Win` : p.best_bet))}</div>
+           ${saferLine(p)}
            ${expectedGoalsLine(p)}`}
     </div>
     <div class="text-right flex flex-col items-end">

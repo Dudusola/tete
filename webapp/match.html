@@ -161,6 +161,15 @@ function formBlock(d) {
       <p class="text-body-md text-on-surface-variant mt-sm">${h2h}</p>`);
 }
 
+function scoresBlock(d) {
+    const ls = d.likely_scores || [];
+    if (!ls.length) return "";
+    return card("Most likely scores", `<div class="flex flex-wrap gap-xs">${ls.map(x =>
+        `<span class="inline-flex items-center gap-xs px-sm py-xs rounded-lg border border-outline-variant text-body-md">
+           <b class="text-primary tabular-nums">${x.home}–${x.away}</b><span class="text-on-surface-variant tabular-nums">${pct(x.probability)}</span></span>`).join("")}</div>
+      <p class="text-label-sm text-on-surface-variant mt-xs">From how often each team scores and concedes (about ${d.expected_goals[0].toFixed(1)} and ${d.expected_goals[1].toFixed(1)} goals). Any one exact score is unlikely; these are just the most likely few.</p>`);
+}
+
 function marketsBlock(d) {
     const ms = d.markets || [];
     if (!ms.length) return "";
@@ -186,7 +195,7 @@ async function load() {
             <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary mt-xs">${esc(d.home_team)} vs ${esc(d.away_team)}</h1>
             ${scoreLine(d)}
           </header>
-          ${pickBlock(d)}${priceBlock(d)}${formBlock(d)}
+          ${pickBlock(d)}${priceBlock(d)}${formBlock(d)}${scoresBlock(d)}
           ${d.gemma_analysis ? card("Why we picked it", `<p class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${esc(d.gemma_analysis)}</p>`) : ""}
           ${marketsBlock(d)}
           <p class="mt-xl text-label-sm text-on-surface-variant">Predictions are not guarantees. 18+ only; never stake what you can't afford to lose.</p>`;
