@@ -524,6 +524,47 @@ function ppPlainMarket(m) {
     return ou ? `Total ${ou[1] === " Points" ? "points" : "goals"}${ou[2] ? `, over/under ${ou[2]}` : ""}` : s;
 }
 
+/* ── Shareable slips (step 8 of the Puntrr audit) ─────────────────────
+   The slip travels INSIDE the link: nothing is stored, nothing to look up,
+   and the reader sees only what the sender chose to share. shared.html
+   decodes it, shows each leg's status from /api/slip/settle and can book it.
+   Leg = [match_id, home, away, league, kickoff_utc, market, selection, odds]. */
+function ppSlipShareCode(legs) {
+    const rows = legs.slice(0, 30).map(l => [l.match_id || "", l.home_team, l.away_team, l.league || "",
+        l.kickoff_utc || "", l.market, l.selection, l.odds || l.sporty_odds || null]);
+    const bytes = new TextEncoder().encode(JSON.stringify(rows));
+    let bin = "";
+    bytes.forEach(b => { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function ppSlipFromShareCode(code) {
+    const b64 = String(code || "").replace(/-/g, "+").replace(/_/g, "/");
+    const bin = atob(b64 + "===".slice((b64.length + 3) % 4));
+    const rows = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, c => c.charCodeAt(0))));
+    if (!Array.isArray(rows) || !rows.length) throw new Error("empty slip");
+    return rows.slice(0, 30).map(r => ({match_id: String(r[0] || ""), home_team: String(r[1] || ""), away_team: String(r[2] || ""),
+        league: String(r[3] || ""), kickoff_utc: r[4] || null, market: String(r[5] || ""), selection: String(r[6] || ""),
+        odds: typeof r[7] === "number" && r[7] > 1 ? r[7] : null}));
+}
+function ppSlipShareUrl(legs) {
+    return new URL(`shared.html?s=${ppSlipShareCode(legs)}`, location.href).href;
+}
+/* The phone's share sheet (WhatsApp, Telegram...) where there is one; else copy. */
+async function ppShareSlip(legs, statusEl) {
+    const url = ppSlipShareUrl(legs);
+    const text = `My ${legs.length}-leg slip on PotentialPro`;
+    try {
+        if (navigator.share) { await navigator.share({title: text, text, url}); return; }
+        if (statusEl) statusEl.classList.remove("hidden");
+        await navigator.clipboard.writeText(url);
+        if (statusEl) statusEl.textContent = "Link copied. Paste it into WhatsApp or anywhere.";
+    } catch (err) {
+        if (err && err.name === "AbortError") return;     // closed the share sheet
+        if (statusEl) statusEl.classList.remove("hidden");
+        if (statusEl) statusEl.innerHTML = `Copy this link: <input readonly class="w-full text-label-sm border border-outline-variant rounded px-xs" value="${escapeHtml(url)}" onclick="this.select()">`;
+    }
+}
+
 function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, c => (
         {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]
