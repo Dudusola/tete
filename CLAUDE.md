@@ -475,6 +475,14 @@ generate predictions on demand.
                           PWA (July 2026): manifest.json + icons/ (from logo.png) + sw.js registered by
                           api.js. sw.js is NETWORK-FIRST on purpose (cache only serves offline) — never
                           switch it to cache-first for HTML/JS or the stale-api.js bug returns.
+                          OFFLINE FALLBACK (23 Oct 2026, free, instead of a native app): sw.js also
+                          saves the read endpoints people open the app for (picks, picks/sports,
+                          stats, stats/trend|tiers, matches, roundups) - network first, saved copy only
+                          when the API is unreachable or errors. The copy carries `_pp_saved` IN the
+                          JSON (a custom header does not reach the page on a cross-origin response -
+                          tried) and apiGet shows "showing what was saved at...". Within ~10 min of a
+                          visit the browser's own HTTP cache (max-age + stale-while-revalidate) answers
+                          first, silently. Booking/slips/POSTs are never cached.
                           prettyLeague() in api.js is the shared league-slug prettifier (all 5 pages).
                           Project is a git repo now (initial commit July 2026; .gitignore excludes
                           .env, venv, db/*.db, data/, models/*.joblib). NEVER edit these html files with

@@ -836,11 +836,29 @@ async function apiGet(path) {
                 e.status = res.status;
                 throw e;
             }
-            return res.json();
+            const data = await res.json();
+            if (data && data._pp_saved) ppSavedNotice(data._pp_saved);   // set only by sw.js's offline fallback
+            return data;
         }
     } finally {
         ppWakeEnd();
     }
+}
+
+/* Shown when sw.js answered from its saved copy because the API couldn't be
+   reached. Says how old the data is; one notice per page. */
+function ppSavedNotice(iso) {
+    if (document.getElementById("pp-saved-notice")) return;
+    const when = new Date(iso);
+    const label = isNaN(when) ? "earlier" : when.toLocaleString([], {weekday: "short", hour: "2-digit", minute: "2-digit"});
+    const bar = document.createElement("div");
+    bar.id = "pp-saved-notice";
+    bar.setAttribute("role", "status");
+    bar.className = "fixed top-0 left-0 right-0 z-[60] flex items-center justify-between gap-sm px-md py-sm bg-surface-container-high text-on-surface text-label-sm border-b border-outline-variant";
+    bar.innerHTML = `<span>You're offline or our server isn't answering. Showing what was saved ${escapeHtml(label)}.</span>
+      <button type="button" class="shrink-0 font-bold text-secondary" aria-label="Hide this notice">OK</button>`;
+    bar.querySelector("button").addEventListener("click", () => bar.remove());
+    document.body.appendChild(bar);
 }
 
 async function apiPost(path, body) {
