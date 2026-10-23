@@ -83,14 +83,39 @@ const card = (title, inner) => `<section class="mt-lg"><h2 class="text-body-lg f
 const TIER_CLASS = {HIGH: "bg-secondary-container text-on-secondary-container",
                     MEDIUM: "bg-surface-container-high text-primary", LOW: "bg-surface-container-high text-on-surface-variant"};
 
-function scoreLine(d) {
+const isLiveNow = d => d.result_home_goals == null && !d.live_final && hasKickedOff(d) && !!d.live_score;
+
+// Home | score | away, score in the middle (Boss, 23 Oct 2026, after Sofascore).
+function scoreboard(d) {
     const final = d.result_home_goals != null;
-    if (!final && !hasKickedOff(d)) return "";   // no "0-0 Scheduled" before kickoff
-    const score = final ? `${d.result_home_goals}–${d.result_away_goals}` : (d.live_score || "").replace("-", "–");
-    if (!score) return "";
-    const live = !final && !d.live_final;
-    return `<p class="mt-sm text-headline-md font-headline-md tabular-nums ${live ? "text-error" : "text-primary"}">${esc(score)}
-      <span class="text-label-sm font-semibold align-middle">${live ? `<span class="pp-live-dot"></span> ${esc(d.live_detail || "live")}` : "full time"}</span></p>`;
+    const score = final ? `${d.result_home_goals}–${d.result_away_goals}`
+                : hasKickedOff(d) ? (d.live_score || "").replace("-", "–") : "";   // no "0-0" before kickoff
+    const live = isLiveNow(d);
+    const status = !score ? "" : live ? `<span class="pp-live-dot"></span> ${esc(d.live_detail || "live")}`
+                 : final || d.live_final ? "Full time" : "";
+    const team = name => `<div class="min-w-0 text-center text-title-md font-semibold text-primary [overflow-wrap:anywhere]">${esc(name)}</div>`;
+    return `<div class="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-sm mt-md">
+      ${team(d.home_team)}
+      <div class="text-center px-sm">
+        <div class="text-headline-lg font-headline-lg tabular-nums ${live ? "text-error" : "text-primary"}">${score ? esc(score) : `<span class="text-on-surface-variant text-body-lg">vs</span>`}</div>
+        ${status ? `<div class="text-label-sm font-semibold ${live ? "text-error" : "text-on-surface-variant"}">${status}</div>` : ""}
+      </div>
+      ${team(d.away_team)}
+    </div>`;
+}
+
+// The score and events refresh every 30 s while the match is live and the tab is visible. 30 s, not 60:
+// the API answers a just-expired entry with the old copy while it rebuilds (api/cache.py), so a
+// 60 s poll always showed the previous minute's score.
+function pollLive(id, d) {
+    if (!isLiveNow(d)) return;
+    const timer = setInterval(async () => {
+        if (document.visibilityState !== "visible") return;
+        try { d = await PotentialProAPI.match(id, true); } catch (err) { return; }   // keep the last score on a blip
+        document.getElementById("scoreboard").innerHTML = scoreboard(d);
+        loadCentre(id, d, true);
+        if (!isLiveNow(d)) clearInterval(timer);
+    }, 30000);
 }
 
 function pickBlock(d) {
@@ -235,9 +260,9 @@ function commentaryBlock(c) {
       <ul class="mt-sm space-y-xs text-body-md text-on-surface-variant">${c.commentary.map(x => `<li><b class="text-primary tabular-nums">${esc(x.minute || "")}</b> ${esc(x.text)}</li>`).join("")}</ul></details>`);
 }
 
-async function loadCentre(id, d) {
+async function loadCentre(id, d, fresh = false) {
     try {
-        const c = await PotentialProAPI.matchCentre(id);
+        const c = await PotentialProAPI.matchCentre(id, fresh);
         const e = c.espn;
         if (e && e.venue) document.getElementById("venue").textContent = ` · ${e.venue}`;
         document.getElementById("centre-top").innerHTML = eventsBlock(e, d) + statsBlock(e, d);
@@ -267,20 +292,21 @@ async function load() {
     if (!id) { box.innerHTML = `<p class="text-body-md">No match chosen. <a class="text-secondary underline" href="index.html">Back to Matches</a></p>`; return; }
     box.innerHTML = `<div class="space-y-md">${ppSkeleton(80)}${ppSkeleton(140)}${ppSkeleton(140)}</div>`;
     try {
-        const d = await PotentialProAPI.match(id);
+        const d = await PotentialProAPI.match(id, true);   // a score must never come from a saved copy
         document.title = `${d.home_team} vs ${d.away_team} - PotentialPro`;
-        setTimeout(() => loadCentre(id, d));
+        setTimeout(() => loadCentre(id, d, true));
         box.innerHTML = `
           <header>
             <div class="text-label-sm text-on-surface-variant">${esc(d.league_display || prettyLeague(d.league))} · ${esc(kickoffLabel(d.match_date, d.kickoff_time, d.kickoff_utc))}<span id="venue"></span></div>
-            <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary mt-xs">${esc(d.home_team)} vs ${esc(d.away_team)}</h1>
-            ${scoreLine(d)}
+            <h1 class="sr-only">${esc(d.home_team)} vs ${esc(d.away_team)}</h1>
+            <div id="scoreboard">${scoreboard(d)}</div>
           </header>
           <div id="centre-top"></div>
           ${pickBlock(d)}${d.has_prediction ? priceBlock(d) + formBlock(d) : ""}<div id="centre-mid"></div><div id="scores">${scoresBlock(d)}</div>
           ${d.gemma_analysis ? card("Why we picked it", `<p class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${esc(d.gemma_analysis)}</p>`) : ""}
           ${marketsBlock(d)}<div id="centre-end"></div>
           <p class="mt-xl text-label-sm text-on-surface-variant">Predictions are not guarantees. 18+ only; never stake what you can't afford to lose.</p>`;
+        pollLive(id, d);
     } catch (err) {
         box.innerHTML = ppErrorBox(err, "load this match", "load");
         console.error(err);
