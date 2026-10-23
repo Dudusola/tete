@@ -1463,8 +1463,15 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     - CORS: our Pages origin (+ preview subdomains) and localhost, not `*`.
     - Worker webhook check fails CLOSED when WEBHOOK_SECRET is unset.
     - Pages: X-Frame-Options DENY / frame-ancestors, nosniff, Referrer-Policy,
-      Permissions-Policy. **No full CSP yet** - inline scripts/handlers need
-      nonces first or a CSP breaks the site. That is the next step.
+      Permissions-Policy.
+    - **Full CSP (23 Oct 2026).** `tools/csp.py` writes the policy into
+      webapp/_headers: page scripts allowed by SHA-256 hash (re-hashed on every
+      deploy, after stamping), our CDNs by host, everything else blocked. It
+      REFUSES to run while any inline onclick="" exists - use a delegated
+      listener ([data-toggle-next], [data-select-all], .pp-copy-code in api.js).
+      Verified with the real header: every page loads clean, an injected
+      <script> and an <img onerror> are both blocked. Cloudflare drops _headers
+      lines over 2,000 chars; the tool asserts < 1,900 (9 hashes ~ 1,000).
 
 37. **Two football model experiments that did NOT help - don't re-run them
     (10 Oct 2026).** Both on the same features, RF settings and 80/20 time
@@ -1891,8 +1898,13 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    Each run logs "N subscriptions, N due, N delivered, N failed, N expired";
    404/410 deletes the subscription. Toggle on account.html; sign-out removes
    the device. Secrets: VAPID_PRIVATE_KEY + SUPABASE_SERVICE_KEY (GitHub ->
-   deploy-worker.yml -> Worker); without both, push logs "skipping". Not yet:
-   "price moved" alerts. Free-plan cap: 50 subrequests per cron run, so ~40
+   deploy-worker.yml -> Worker); without both, push logs "skipping".
+   "Price moved" alerts (23 Oct 2026): a tracked pick within 24 h of kickoff
+   whose Picks card carries the price warning (same side only) gets one push,
+   read from /api/picks + /api/picks/sports so push and card agree. Needs
+   db/supabase/004_push_price.sql (push_sent.kind 'price'); until it runs the
+   Worker logs "price alerts off" and skips them - each is recorded BEFORE it
+   is sent, alone, so a rejected row can neither repeat nor sink the batch. Free-plan cap: 50 subrequests per cron run, so ~40
    pushes a tick; the rest go out next tick.
    Original design notes (Aug 2026, DESIGNED, DEFERRED ON PURPOSE):
    Not built because Telegram ALREADY delivers a real push notification to the

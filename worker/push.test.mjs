@@ -1,7 +1,7 @@
 // node worker/push.test.mjs - checks web push encryption against RFC 8291's
 // own test vector, the VAPID signature, and the settle rules.
 import assert from "node:assert/strict";
-import { b64u, encrypt, vapidJwt, pickStatus, slipStatus } from "./push.js";
+import { b64u, encrypt, vapidJwt, pickStatus, slipStatus, priceAlerts } from "./push.js";
 
 const body = await encrypt("When I grow up, I want to be a watermelon",
   "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4",
@@ -31,4 +31,15 @@ assert.equal(slipStatus(["won", "pending", "lost"]), "lost");
 assert.equal(slipStatus(["won", "pending"]), "pending");
 assert.equal(slipStatus(["won", "void"]), "won");
 assert.equal(slipStatus(["won", "ungradable"]), "pending");
+// Price alerts: only our side, only before kickoff, only once.
+const now = Date.parse("2026-10-23T12:00:00Z");
+const warn = [{ type: "price", text: "Price has moved against this pick since it was made (4 points)" }];
+const served = new Map([["m1", { selection: "Home Win", warnings: warn }], ["m2", { selection: "Away Win", warnings: [] }]]);
+const tp = (id, match_id, selection, kickoff_utc) => ({ id, user_id: "u", match_id, selection, kickoff_utc, home_team: "A", away_team: "B" });
+const yes = () => true;
+assert.equal(priceAlerts([tp(1, "m1", "Home Win", "2026-10-23 18:00")], served, now, yes).length, 1);
+assert.equal(priceAlerts([tp(2, "m1", "Away Win", "2026-10-23 18:00")], served, now, yes).length, 0);  // other side
+assert.equal(priceAlerts([tp(3, "m1", "Home Win", "2026-10-23 11:00")], served, now, yes).length, 0);  // kicked off
+assert.equal(priceAlerts([tp(4, "m2", "Away Win", "2026-10-23 18:00")], served, now, yes).length, 0);  // no warning
+assert.equal(priceAlerts([tp(5, "m1", "Home Win", "2026-10-23 18:00")], served, now, () => false).length, 0);  // already sent
 console.log("push tests OK");

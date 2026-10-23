@@ -649,8 +649,8 @@ function codeChip(code, label) {
         <div class="text-label-sm">${esc(label)}</div>
         <div class="text-headline-md font-headline-md font-bold tracking-widest">${esc(code)}</div>
       </div>
-      <button class="bg-surface text-primary rounded-lg px-md py-sm text-label-sm font-bold"
-        onclick="navigator.clipboard.writeText('${esc(code)}').then(()=>{this.textContent='Copied!'})">Copy</button>
+      <button type="button" class="pp-copy-code bg-surface text-primary rounded-lg px-md py-sm text-label-sm font-bold"
+        data-code="${esc(code)}" data-provider="Booking">Copy</button>
     </div>`;
 }
 
