@@ -113,7 +113,7 @@ function pollLive(id, d) {
         if (document.visibilityState !== "visible") return;
         try { d = await PotentialProAPI.match(id, true); } catch (err) { return; }   // keep the last score on a blip
         document.getElementById("scoreboard").innerHTML = scoreboard(d);
-        loadCentre(id, d, true);
+        if (!d.sport || d.sport === "football") loadCentre(id, d, true);
         if (!isLiveNow(d)) clearInterval(timer);
     }, 30000);
 }
@@ -291,6 +291,80 @@ function marketsBlock(d) {
         <ul class="divide-y divide-outline-variant">${ms.slice(8).map(row).join("")}</ul></details>` : ""}`);
 }
 
+/* ── NHL, NBA, NFL (23 Oct 2026): the same card Picks shows, laid out like
+   football's page. Data: /api/match/<id> -> models/us_sports.game. ── */
+function usPickBlock(d) {
+    if (!d.has_prediction) return card("Our pick", `<p class="text-body-md text-on-surface-variant">We didn't rate this game.
+        The score below still updates.</p>`);
+    const ot = d.sport === "nhl" ? "overtime and shootout count" : "overtime counts";
+    let verdict = "";
+    if (d.result_home_goals != null) {
+        const tie = d.result_home_goals === d.result_away_goals;
+        const homeWon = d.result_home_goals > d.result_away_goals;
+        verdict = tie ? `<b class="text-on-surface-variant">A tie, so the bet is void.</b>`
+            : (homeWon === (d.track_selection === "Home Win")) ? `<b class="text-secondary">Our pick won.</b>` : `<b class="text-error">Our pick lost.</b>`;
+    }
+    const bar = (label, v) => `<div class="flex-1 min-w-0"><div class="h-2 rounded-full bg-surface-container-high overflow-hidden">
+        <div class="h-full bg-secondary" style="width:${Math.round((v || 0) * 100)}%"></div></div>
+        <div class="text-label-sm text-on-surface-variant mt-xs truncate">${esc(label)} <b class="text-primary tabular-nums">${pct(v)}</b></div></div>`;
+    const low = d.confidence === "LOW"
+        ? `<p class="text-label-sm text-on-surface-variant mt-sm">Low confidence, so this is not one of our recommended picks.</p>` : "";
+    const first = (d.first_game_teams || []).length
+        ? `<p class="text-label-sm text-on-surface-variant mt-sm">${esc(d.first_game_teams.join(" and "))}: first game of the season, so the rating has not seen ${d.first_game_teams.length > 1 ? "either" : "this"} new roster yet.</p>` : "";
+    return card("Our pick", `
+      <div class="flex items-start justify-between gap-md">
+        <div><div class="text-headline-md font-headline-md text-primary">${esc(d.best_bet)} to win</div>
+          <div class="text-label-sm text-on-surface-variant">Moneyline, ${ot}</div>
+          <div class="text-body-md text-on-surface-variant mt-xs">We give it a <b class="text-primary tabular-nums">${pct(d.best_bet_prob)}</b> chance. ${verdict}</div></div>
+        <span class="shrink-0 ${TIER_CLASS[d.confidence] || TIER_CLASS.LOW} px-sm py-base rounded-full text-label-sm font-bold">${esc(d.confidence)}</span>
+      </div>
+      <div class="flex gap-sm mt-md">${bar(d.home_team, d.home_win_prob)}${bar(d.away_team, d.away_win_prob)}</div>${low}${first}`);
+}
+function usPriceBlock(d) {
+    const warn = (d.warnings || []).map(w => `<p class="mt-sm text-body-md text-error flex gap-xs"><span class="material-symbols-outlined text-[18px]" aria-hidden="true">warning</span>${esc(w.text || w)}</p>`).join("");
+    if (!d.book_odds) return card("The price", `<p class="text-body-md text-on-surface-variant">No bookmaker price yet for this game.</p>${warn}`);
+    const gap = d.book_probability == null ? null : (d.best_bet_prob || 0) - d.book_probability;
+    return card("The price", `<dl class="divide-y divide-outline-variant text-body-md"><div class="flex justify-between py-xs"><dt class="text-on-surface-variant">${esc(d.best_bet)} to win</dt><dd class="font-semibold text-primary tabular-nums">${Number(d.book_odds).toFixed(2)}</dd></div></dl>
+      ${gap == null ? "" : `<p class="text-body-md text-on-surface-variant mt-sm">We give it ${pct(d.best_bet_prob)}; the bookmaker's price says about ${pct(d.book_probability)}.
+        ${Math.abs(gap) < 0.03 ? "We broadly agree with the bookmaker." : gap > 0 ? "We rate it higher than the bookmaker does." : "The bookmaker rates it higher than we do."}</p>`}${warn}`);
+}
+function usFormBlock(d) {
+    const f = d.form || {};
+    const unit = d.sport === "nhl" ? "goals" : "points";
+    const team = (name, r) => r && r.n ? `<div class="rounded-lg border border-outline-variant p-md">
+        <div class="font-semibold text-primary">${esc(name)}</div>
+        <div class="text-body-md text-on-surface-variant mt-xs">Last ${r.n}: <b class="text-primary tabular-nums">${r.w}-${r.l}${r.otl ? "-" + r.otl : ""}${r.t ? "-" + r.t + "T" : ""}</b></div>
+        ${r.gf_pg != null ? `<div class="text-body-md text-on-surface-variant">Scores <b class="text-primary tabular-nums">${Number(r.gf_pg).toFixed(1)}</b>, lets in <b class="text-primary tabular-nums">${Number(r.ga_pg).toFixed(1)}</b> ${unit} a game</div>` : ""}
+      </div>` : "";
+    const body = team(d.home_team, f.home) + team(d.away_team, f.away);
+    if (!body) return "";
+    return card("Form", `<p class="text-label-sm text-on-surface-variant mb-sm">As it stood when we rated the game. Wins-losses${d.sport === "nhl" ? "-overtime losses" : ""}.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm">${body}</div>
+      ${d.expected_total ? `<p class="text-body-md text-on-surface-variant mt-sm">We expect about <b class="text-primary tabular-nums">${Number(d.expected_total).toFixed(1)}</b> ${unit} in total.</p>` : ""}`);
+}
+function usMarketsBlock(d) {
+    const ms = (d.markets || []).filter(m => m.market !== "Moneyline");
+    if (!ms.length) return "";
+    return card("Other ways to bet it", `<p class="text-label-sm text-on-surface-variant mb-xs">Our chance and the bookmaker's. Only "who wins" has a graded record so far.${d.sport === "nba" ? " For NBA spreads and totals we show only the bookmaker's number: on past seasons it beat ours." : ""}</p>
+      <table class="w-full text-body-md"><thead><tr class="text-label-sm text-on-surface-variant"><th class="text-left font-medium py-xs">Bet</th><th class="text-right font-medium px-xs">Ours</th><th class="text-right font-medium pl-xs">Book</th></tr></thead>
+      <tbody class="divide-y divide-outline-variant">${ms.map(m => `<tr><td class="py-xs pr-sm">${esc(m.market)} · ${esc(m.selection)}</td>
+        <td class="py-xs px-xs text-right tabular-nums font-semibold text-primary">${pct(m.probability)}</td>
+        <td class="py-xs pl-xs text-right tabular-nums text-on-surface-variant">${pct(m.book_probability)}</td></tr>`).join("")}</tbody></table>`);
+}
+function renderUs(box, d) {
+    box.innerHTML = `
+      <header>
+        <div class="text-label-sm text-on-surface-variant">${esc(d.league_display)} · ${esc(kickoffLabel(d.match_date, d.kickoff_time, d.kickoff_utc))}</div>
+        <h1 class="sr-only">${esc(d.home_team)} vs ${esc(d.away_team)}</h1>
+        <div id="scoreboard">${scoreboard(d)}</div>
+      </header>
+      ${usPickBlock(d)}${d.has_prediction ? usPriceBlock(d) + usFormBlock(d) : ""}
+      ${d.analysis ? card("Why we picked it", `<p class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${esc(d.analysis)}</p>`) : ""}
+      ${usMarketsBlock(d)}
+      <p class="mt-lg text-label-sm text-on-surface-variant">${esc(d.league_display)} picks are tracked separately from our football record. <a class="text-secondary underline" href="record.html#other-sports">See the record</a>.</p>
+      <p class="mt-sm text-label-sm text-on-surface-variant">Predictions are not guarantees. 18+ only; never stake what you can't afford to lose.</p>`;
+}
+
 async function load() {
     const id = new URLSearchParams(location.search).get("id");
     const box = document.getElementById("match");
@@ -299,6 +373,7 @@ async function load() {
     try {
         const d = await PotentialProAPI.match(id, true);   // a score must never come from a saved copy
         document.title = `${d.home_team} vs ${d.away_team} - PotentialPro`;
+        if (d.sport && d.sport !== "football") { renderUs(box, d); pollLive(id, d); return; }
         setTimeout(() => loadCentre(id, d, true));
         box.innerHTML = `
           <header>

@@ -226,6 +226,82 @@ def record(conn, code: str) -> dict:
             "warned": {"won": warned[0], "graded": warned[1]}}
 
 
+def _card(code: str, r, pk: dict, t: str) -> dict:
+    """One game as Picks and the match page show it."""
+    cfg = SPORTS[code]
+    mk = json.loads(r["markets_json"])
+    gap = (None if pk["market_p"] is None
+           else round((pk["p"] - pk["market_p"]) * 100, 1))
+    markets = []
+    for it in mk["items"]:
+        if not _offered(it):
+            continue
+        sel = selection(it["key"], r["home_team"], r["away_team"])
+        if not sel:
+            continue
+        name = sel[0] or (TOTAL_GOALS if code == "nhl" else TOTAL_POINTS)
+        markets.append({"market": name, "selection": sel[1], "key": it["key"],
+                        # model_p = an NBA leg priced at the book's number: we have no own view ("—")
+                        "probability": None if "model_p" in it else it["p"],
+                        "book_probability": it.get("market_p"),
+                        "book_odds": it.get("odds")})
+    facts = json.loads(r["facts_json"]) if r["facts_json"] else {}
+    return {
+        "match_id": r["match_id"], "sport": code, "league": cfg["label"],
+        "league_display": cfg["label"],
+        "home_team": r["home_team"], "away_team": r["away_team"],
+        "match_date": r["match_date"], "kickoff_utc": r["kickoff_utc"],
+        "best_bet": pk["team"], "best_bet_market": MONEYLINE,
+        # What My Record stores and grades (account.html compares it
+        # with results.outcome). The moneyline includes overtime, and
+        # so does the stored final, so "Home Win" is exactly this bet.
+        "track_selection": "Home Win" if pk["key"] == "ml_home" else "Away Win",
+        "best_bet_label": f"{pk['team']} to win (overtime counts)",
+        "best_bet_prob": pk["p"], "confidence": t,
+        "home_win_prob": round(r["p_home"], 4), "away_win_prob": round(1 - r["p_home"], 4),
+        "book_odds": pk["odds"], "book_probability": pk["market_p"], "market_gap": gap,
+        "expected_total": mk.get("exp_total"),
+        "markets": markets,
+        "warnings": warnings(code, facts, pk["key"]),
+        "analysis": r["analysis"],
+        "form": {s: (facts.get(s) or {}).get("last10") for s in ("home", "away")},
+        # WHICH side has not played yet - the card must not imply both.
+        "first_game_teams": [name for side, name in (("home", r["home_team"]),
+                                                     ("away", r["away_team"]))
+                             if (facts.get(side) or {}).get("new_season")],
+    }
+
+
+def game(conn, match_id: str) -> dict | None:
+    """One NHL/NBA/NFL game for the match page, started or not, LOW included:
+    the same card Picks shows (None when the match isn't one of these sports)."""
+    row = conn.execute("""
+        SELECT m.match_id, m.sport, m.home_team, m.away_team, m.kickoff_utc, m.kickoff_time,
+               m.match_date, m.live_state, s.p_home, s.market_p_home, s.markets_json, s.facts_json,
+               s.analysis, s.predicted_at,
+               r.home_goals, r.away_goals, r.reg_home_goals, r.reg_away_goals, r.outcome
+        FROM matches m
+        LEFT JOIN shadow_predictions s ON s.id = (
+            SELECT MAX(s2.id) FROM shadow_predictions s2
+            WHERE s2.match_id = m.match_id AND s2.markets_json IS NOT NULL)
+        LEFT JOIN results r ON r.match_id = m.match_id
+        WHERE m.match_id = ?""", [match_id]).fetchone()
+    code = next((c for c, cfg in SPORTS.items() if row and cfg["sport"] == row["sport"]), None)
+    if not code:
+        return None
+    base = {"match_id": row["match_id"], "sport": code, "league": SPORTS[code]["label"],
+            "league_display": SPORTS[code]["label"], "home_team": row["home_team"],
+            "away_team": row["away_team"], "match_date": row["match_date"],
+            "kickoff_time": row["kickoff_time"], "kickoff_utc": row["kickoff_utc"],
+            "live_state": row["live_state"], "result_home_goals": row["home_goals"],
+            "result_away_goals": row["away_goals"], "result_outcome": row["outcome"]}
+    if not row["markets_json"]:
+        return {**base, "has_prediction": False, "markets": [], "warnings": []}
+    pk = _pick(row)
+    card = _card(code, row, pk, tier(pk["p"]))
+    return {**card, **base, "has_prediction": True}
+
+
 def picks(conn, codes: list) -> dict:
     out, records = [], {}
     for code in codes:
@@ -236,47 +312,7 @@ def picks(conn, codes: list) -> dict:
             t = tier(pk["p"])
             if t == "LOW":
                 continue
-            mk = json.loads(r["markets_json"])
-            gap = (None if pk["market_p"] is None
-                   else round((pk["p"] - pk["market_p"]) * 100, 1))
-            markets = []
-            for it in mk["items"]:
-                if not _offered(it):
-                    continue
-                sel = selection(it["key"], r["home_team"], r["away_team"])
-                if not sel:
-                    continue
-                name = sel[0] or (TOTAL_GOALS if code == "nhl" else TOTAL_POINTS)
-                markets.append({"market": name, "selection": sel[1], "key": it["key"],
-                                # model_p = an NBA leg priced at the book's number: we have no own view ("—")
-                                "probability": None if "model_p" in it else it["p"],
-                                "book_probability": it.get("market_p"),
-                                "book_odds": it.get("odds")})
-            facts = json.loads(r["facts_json"]) if r["facts_json"] else {}
-            out.append({
-                "match_id": r["match_id"], "sport": code, "league": cfg["label"],
-                "league_display": cfg["label"],
-                "home_team": r["home_team"], "away_team": r["away_team"],
-                "match_date": r["match_date"], "kickoff_utc": r["kickoff_utc"],
-                "best_bet": pk["team"], "best_bet_market": MONEYLINE,
-                # What My Record stores and grades (account.html compares it
-                # with results.outcome). The moneyline includes overtime, and
-                # so does the stored final, so "Home Win" is exactly this bet.
-                "track_selection": "Home Win" if pk["key"] == "ml_home" else "Away Win",
-                "best_bet_label": f"{pk['team']} to win (overtime counts)",
-                "best_bet_prob": pk["p"], "confidence": t,
-                "home_win_prob": round(r["p_home"], 4), "away_win_prob": round(1 - r["p_home"], 4),
-                "book_odds": pk["odds"], "book_probability": pk["market_p"], "market_gap": gap,
-                "expected_total": mk.get("exp_total"),
-                "markets": markets,
-                "warnings": warnings(code, facts, pk["key"]),
-                "analysis": r["analysis"],
-                "form": {s: (facts.get(s) or {}).get("last10") for s in ("home", "away")},
-                # WHICH side has not played yet - the card must not imply both.
-                "first_game_teams": [name for side, name in (("home", r["home_team"]),
-                                                             ("away", r["away_team"]))
-                                     if (facts.get(side) or {}).get("new_season")],
-            })
+            out.append(_card(code, r, pk, t))
     out.sort(key=lambda p: p["kickoff_utc"] or "")
     return {"picks": out, "records": records,
             "disclosures": {c: DISCLOSURE[c] for c in codes}}
