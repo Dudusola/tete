@@ -483,6 +483,17 @@ generate predictions on demand.
                           tried) and apiGet shows "showing what was saved at...". Within ~10 min of a
                           visit the browser's own HTTP cache (max-age + stale-while-revalidate) answers
                           first, silently. Booking/slips/POSTs are never cached.
+                          ANDROID APP (23 Oct 2026, free - no Play Store $25): a Trusted Web Activity,
+                          i.e. the live site in its own window, so site changes need NO rebuild.
+                          android/twa-manifest.json + .github/workflows/android-apk.yml (Bubblewrap
+                          on the runner's JDK 17 + SDK) -> webapp/download/potentialpro.apk, offered
+                          on webapp/app.html and by an Android-only dismissible bar (api.js). Package
+                          dev.pages.potentialpro.twa, minSdk 24. SIGNING KEY: GitHub secrets
+                          ANDROID_KEYSTORE_B64/_PASSWORD (write-only) + the ONLY readable copy in
+                          Boss's Documents/"PotentialPro Android signing key". Lose it and installed
+                          apps can never update. webapp/.well-known/assetlinks.json holds its SHA-256
+                          (Google's checker confirms it); the workflow refuses an APK signed with any
+                          other key. A wrong/missing assetlinks shows a URL bar, it does not fail.
                           prettyLeague() in api.js is the shared league-slug prettifier (all 5 pages).
                           Project is a git repo now (initial commit July 2026; .gitignore excludes
                           .env, venv, db/*.db, data/, models/*.joblib). NEVER edit these html files with
