@@ -40,20 +40,24 @@ from loguru import logger
 # vs ESPN's "Union St.-Gilloise": 0.65 there against a 0.80 floor, 1.00 here.
 from models.team_match import pair_score
 
-SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/soccer/{league}/scoreboard"
+SCOREBOARD = "https://site.api.espn.com/apis/site/v2/sports/{path}/{league}/scoreboard"
+# NHL/NBA/NFL rows carry ESPN's event id in their match_id (espnnhl_<id>...,
+# scrapers/espn_ledger.py), so they join on the id exactly - no team matcher.
+# ESPN's path is stated, never derived: it calls the NFL "football".
+US_FEEDS = {"NHL": ("hockey", "nhl"), "NBA": ("basketball", "nba"), "NFL": ("football", "nfl")}
 CACHE_SECONDS = 60
 
-_cache: dict = {}         # (league, yyyymmdd) -> (fetched_at, events)
+_cache: dict = {}         # (path, league, yyyymmdd) -> (fetched_at, events)
 
 
 def _fetch(job) -> list:
-    league, day = job
-    key = (league, day)
+    path, league, day = job if len(job) == 3 else ("soccer", *job)
+    key = (path, league, day)
     hit = _cache.get(key)
     if hit and (time.time() - hit[0]) < CACHE_SECONDS:
         return hit[1]
     try:
-        r = requests.get(SCOREBOARD.format(league=league),
+        r = requests.get(SCOREBOARD.format(path=path, league=league),
                          params={"dates": day}, timeout=8)
         r.raise_for_status()
         events = r.json().get("events") or []
@@ -77,6 +81,7 @@ def _fetch(job) -> list:
         if not (home and away) or hs is None or as_ is None:
             continue
         out.append({
+            "id": str(ev.get("id")),
             "home": home, "away": away,
             "home_score": hs, "away_score": as_,
             "state": status.get("state"),          # pre / in / post
@@ -139,3 +144,30 @@ def attach(matches: list) -> None:
             m["live_score"] = f"{best['home_score']}-{best['away_score']}"
             m["live_detail"] = best["detail"]
             m["live_final"] = best["completed"]
+
+
+def attach_us(matches: list) -> None:
+    """Live score for started, ungraded NHL/NBA/NFL rows, in place - joined on
+    ESPN's event id, so a game can never take another game's score."""
+    jobs, want = set(), {}
+    for m in matches:
+        feed = US_FEEDS.get(m.get("league"))
+        if m.get("result_outcome") is not None or not feed or "_" not in m.get("match_id", ""):
+            continue
+        try:
+            d0 = datetime.strptime(m["match_date"], "%Y-%m-%d").date()
+        except (TypeError, ValueError):
+            continue
+        want[m["match_id"].split("_", 1)[1]] = m
+        for delta in (-1, 0, 1):     # ESPN dates US games in US time
+            jobs.add((*feed, (d0 + timedelta(days=delta)).strftime("%Y%m%d")))
+    if not jobs:
+        return
+    with ThreadPoolExecutor(max_workers=min(6, len(jobs))) as pool:
+        events = [e for batch in pool.map(_fetch, jobs) for e in batch]
+    for e in events:
+        m = want.get(e["id"])
+        if m is not None and e["state"] != "pre":
+            m["live_score"] = f"{e['home_score']}-{e['away_score']}"
+            m["live_detail"] = e["detail"]
+            m["live_final"] = e["completed"]
