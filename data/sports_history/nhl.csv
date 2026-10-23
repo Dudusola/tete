@@ -20731,3 +20731,15 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892549,2026-10-21,2026-10-21 02:45,2027,2,Vegas Golden Knights,Tampa Bay Lightning,37,20,2,6,A,REG,2,6,0
 401892550,2026-10-21,2026-10-21 23:30,2027,2,Buffalo Sabres,Philadelphia Flyers,2,15,1,3,A,REG,1,3,0
 401892551,2026-10-21,2026-10-21 23:30,2027,2,Ottawa Senators,Florida Panthers,14,26,5,1,H,REG,5,1,0
+401892552,2026-10-22,2026-10-22 23:00,2027,2,Boston Bruins,Nashville Predators,1,27,6,0,H,REG,6,0,0
+401892553,2026-10-22,2026-10-22 23:00,2027,2,Toronto Maple Leafs,New York Rangers,21,13,5,4,H,REG,5,4,0
+401892554,2026-10-22,2026-10-22 23:00,2027,2,Ottawa Senators,San Jose Sharks,14,18,2,6,A,REG,2,6,0
+401892555,2026-10-22,2026-10-22 23:00,2027,2,New Jersey Devils,Anaheim Ducks,11,25,4,1,H,REG,4,1,0
+401892556,2026-10-22,2026-10-22 23:00,2027,2,Pittsburgh Penguins,Florida Panthers,16,26,4,0,H,REG,4,0,0
+401892557,2026-10-22,2026-10-22 23:30,2027,2,New York Islanders,Los Angeles Kings,12,8,2,3,A,OT,2,2,0
+401892558,2026-10-23,2026-10-23 00:00,2027,2,St. Louis Blues,Vegas Golden Knights,19,37,6,2,H,REG,6,2,0
+401892559,2026-10-23,2026-10-23 00:00,2027,2,Dallas Stars,Winnipeg Jets,9,28,3,2,H,OT,2,2,0
+401892560,2026-10-23,2026-10-23 01:00,2027,2,Calgary Flames,Minnesota Wild,3,30,2,1,H,REG,2,1,0
+401892561,2026-10-23,2026-10-23 01:00,2027,2,Edmonton Oilers,Carolina Hurricanes,6,7,6,5,H,SO,5,5,0
+401892562,2026-10-23,2026-10-23 02:00,2027,2,Seattle Kraken,Utah Mammoth,124292,129764,5,3,H,REG,5,3,0
+401892563,2026-10-23,2026-10-23 02:00,2027,2,Vancouver Canucks,Detroit Red Wings,22,5,2,5,A,REG,2,5,0

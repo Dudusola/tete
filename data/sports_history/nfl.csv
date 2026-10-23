@@ -4455,3 +4455,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873006,2026-10-18,2026-10-18 20:25,2026,2,Kansas City Chiefs,Los Angeles Chargers,12,24,22,6,H,REG,22,6,0
 401873007,2026-10-19,2026-10-19 00:20,2026,2,Green Bay Packers,Dallas Cowboys,9,6,23,13,H,REG,23,13,0
 401873008,2026-10-20,2026-10-20 00:15,2026,2,San Francisco 49ers,Washington Commanders,25,28,23,17,H,REG,23,17,0
+401873010,2026-10-23,2026-10-23 00:15,2026,2,Chicago Bears,New England Patriots,3,17,30,24,H,REG,30,24,0
