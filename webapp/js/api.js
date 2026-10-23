@@ -1018,6 +1018,14 @@ async function apiPost(path, body) {
 function ppErrorMessage(err, what) {
     const target = what ? ` to ${what}` : "";
     const trying = what ? ` while trying to ${what}` : "";
+    // Not every error status is a server fault: a missing item and a rate limit
+    // said "hit a problem... that's on our side", which was not true.
+    if (err && err.status === 404) {
+        return `We couldn't find that${what ? ` (trying to ${what})` : ""}. It may have been removed, or the link is old.`;
+    }
+    if (err && err.status === 429) {
+        return `Too many requests in a short time${trying}. Wait a minute, then try again.`;
+    }
     if (err && err.status) {
         return `The prediction server hit a problem${trying} (error ${err.status}). ` +
                `That's on our side, not yours. Try again in a minute.`;

@@ -1396,7 +1396,10 @@ def get_match_centre(match_id: str):
 @app.get("/api/match/{match_id}")
 @cached(ttl=60, max_age=60)
 def get_match(match_id: str):
-    """One football fixture for the match page (step 6 of the Puntrr audit):
+    """One football fixture for the match page (step 6 of the Puntrr audit).
+    Any match the Matches page lists opens here, predicted or not (23 Oct 2026:
+    an unpredicted live match 404'd and the page blamed the server); without a
+    prediction the pick fields are null and has_prediction is false. With one:
     our pick and every derived market, the price when we picked and just
     before kickoff, SportyBet's price history, the facts the pick was made on
     (stored at prediction time, so they are as they stood before kickoff),
@@ -1413,20 +1416,21 @@ def get_match(match_id: str):
                r.home_goals AS result_home_goals, r.away_goals AS result_away_goals,
                r.outcome AS result_outcome
         FROM matches m
-        JOIN model_predictions mp ON mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
-                                              WHERE mp2.match_id = m.match_id)
+        LEFT JOIN model_predictions mp ON mp.id = (SELECT MAX(mp2.id) FROM model_predictions mp2
+                                                   WHERE mp2.match_id = m.match_id)
         LEFT JOIN results r ON r.match_id = m.match_id
         WHERE m.match_id = ? {SPORT_SQL}
     """, [match_id]).fetchone()
     if not row:
         conn.close()
-        raise HTTPException(404, "We have no prediction for that match.")
+        raise HTTPException(404, "We don't have that match.")
     history = [dict(r) for r in conn.execute("""
         SELECT odds_home, odds_draw, odds_away, observed_at FROM sporty_lines
         WHERE match_id = ? AND market = '1X2' ORDER BY observed_at""", [match_id]).fetchall()]
     conn.close()
 
     d = dict(row)
+    d["has_prediction"] = d["home_win_prob"] is not None
     facts = _json.loads(d.pop("facts_json")) if d.get("facts_json") else None
     # Only once it has kicked off: ESPN lists upcoming games as "0-0 Scheduled",
     # which the page would show as a score (seen on PSG v Lyon, 4 days out).
@@ -1456,7 +1460,8 @@ def get_match(match_id: str):
         "facts": facts,
         "markets": [{"market": o.market, "selection": o.selection,
                      "probability": round(o.probability, 4), "risk": o.risk}
-                    for o in sorted(derive_markets(d), key=lambda o: o.probability, reverse=True)],
+                    for o in sorted(derive_markets(d), key=lambda o: o.probability, reverse=True)]
+                   if d["has_prediction"] else [],
         "price_history": history,
     }
 
