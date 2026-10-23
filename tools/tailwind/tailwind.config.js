@@ -61,6 +61,8 @@ module.exports = {
             "body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],
             "headline-lg":["32px",{"lineHeight":"40px","letterSpacing":"-0.01em","fontWeight":"700"}],
             "headline-md":["24px",{"lineHeight":"32px","fontWeight":"600"}],
+            // Card titles ("Team A vs Team B"): headline-md wrapped long names to three lines on a phone.
+            "title-md":["19px",{"lineHeight":"25px","letterSpacing":"-0.01em","fontWeight":"600"}],
             "display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"800"}],
             "headline-lg-mobile":["24px",{"lineHeight":"32px","fontWeight":"700"}],
             "data-tabular":["14px",{"lineHeight":"20px","letterSpacing":"0.02em","fontWeight":"600"}]

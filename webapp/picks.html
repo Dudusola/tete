@@ -1,0 +1,790 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/png" href="icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="icons/icon-180.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="PotentialPro"/>
+<title>PotentialPro - Upcoming Picks</title>
+<!-- Open the API and font connections while the page parses, not after its
+     scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
+<link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,android,animation,api,apps,arrow_back,arrow_downward,arrow_forward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,bookmarks,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,done,download,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,floor,function,functions,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,hub,image,info,input,install_mobile,iso,join,keep,key,keyboard,label,landscape,language,laptop,launch,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,person,personal_injury,phone,phone_iphone,pill,pin,place,policy,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,star,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
+<style>
+/* No theme() calls in here. Tailwind only resolves theme() inside a
+   <style type="text/tailwindcss"> block; in a plain <style> it is invalid CSS
+   and the browser silently drops the whole declaration. This block had three of
+   them, so for a long time the body had no background colour and no text
+   colour, and every .glass-card on this page rendered with NO border at all
+   while the cards on the other four pages had one. Colours belong on the
+   element as token classes — same as consensus.html and record.html do it. */
+body { font-family:'Inter',sans-serif; margin:0; padding:0; padding-bottom:80px; padding-top:0; }
+/* Only reserve space for the fixed top nav on desktop; it's hidden on mobile
+   (mobile uses the bottom nav), so 80px there was just dead space. */
+@media (min-width:768px){ body { padding-top:64px; } }
+/* Border comes from `border border-outline-variant` at each call site, so the
+   dark-mode override in api.js (html.dark .glass-card { border-color … }) has a
+   width to colour in. */
+.glass-card { background: rgba(255,255,255,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.material-symbols-outlined { font-family:'Material Symbols Outlined'; font-weight:normal; font-style:normal; font-size:24px; line-height:1; display:inline-block; -webkit-font-smoothing:antialiased; }
+</style>
+<link rel="stylesheet" href="css/app.css?v=1"/>
+</head>
+<body class="bg-background text-on-background">
+<!-- Desktop Top Nav -->
+<nav class="hidden md:flex fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+<!-- Brand and links are SIBLINGS of the nav, not wrapped together. The nav is
+     justify-between, which needs two children to push apart; wrapping both in
+     one div left it with a single child, so everything packed against the left
+     edge with ~900px of dead space to the right.
+
+     This block is now BYTE-IDENTICAL across all five pages apart from which
+     link carries the active classes. It had drifted: index used px-lg (24px)
+     against px-gutter (16px) everywhere else, so the logo jumped 8px sideways
+     when you navigated to or from Picks; the link row was spaced three
+     different ways (gap-md / space-x-lg / gap-lg); record alone had /90 +
+     backdrop-blur-md, so the header was translucent on exactly one page; and
+     transition-colors was present on three pages, making hover animate here
+     and snap there. js/api.js section 8 already normalised main/body for the
+     same reason — this is the one piece of shared chrome it does not inject.
+     Keep the five copies identical, or move the whole thing into api.js. -->
+<div class="flex items-center gap-2">
+  <img src="logo-mark.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+  <span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex gap-lg items-center">
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="index.html">Matches</a>
+<a class="text-secondary font-bold text-label-sm border-b-2 border-secondary pb-1" href="picks.html" aria-current="page">Picks</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="slip.html">Builder</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="record.html">Record</a>
+</div>
+</nav>
+<!-- The mobile brand bar is injected by api.js so all five pages share one
+     copy. This page's title lives below and shows at EVERY width — it used to
+     be hidden md:block, which meant a phone never saw "Today's Picks". -->
+<main class="max-w-container-max mx-auto px-gutter md:px-lg py-md md:py-xl">
+<header class="mb-lg md:mb-xl">
+<h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Upcoming Picks</h1>
+<p class="text-body-md md:text-body-lg text-on-surface-variant mt-base">The model's picks for the next few days, soonest first. Every one is graded against the final score.</p>
+</header>
+
+<!-- Sports. One preference shared with the Builder (ppSportChips in api.js).
+     NHL and NFL used to be a separate tab; they live here now, with their
+     own record and disclosure, never blended into football's numbers. -->
+<div id="sport-filter" class="flex gap-xs mb-md overflow-x-auto [scrollbar-width:none] md:flex-wrap [&>*]:shrink-0 -mx-gutter px-gutter md:mx-0 md:px-0" role="group" aria-label="Sports"></div>
+
+<!-- Summary stat strip (FOOTBALL's record - hidden when football is off) -->
+<div id="stat-strip" class="mb-lg"></div>
+
+<!-- One line per chosen NHL/NFL sport: its own record and its disclosure. -->
+<div id="sport-notes" class="mb-md flex flex-col"></div>
+
+<!-- Tier filter chips + status -->
+<div class="flex flex-wrap items-center justify-between gap-sm mb-md">
+  <div id="tier-filter" class="flex gap-xs">
+    <button data-tier="ALL"    class="tier-chip min-h-[36px] px-md py-xs rounded-full text-label-sm font-bold border border-outline-variant transition">All</button>
+    <button data-tier="HIGH"   class="tier-chip min-h-[36px] px-md py-xs rounded-full text-label-sm font-bold border border-outline-variant transition">High</button>
+    <button data-tier="MEDIUM" class="tier-chip min-h-[36px] px-md py-xs rounded-full text-label-sm font-bold border border-outline-variant transition">Medium</button>
+    <!-- Draws is not a confidence tier, it is a different QUESTION: not "how
+         sure are we" but "where is a draw plausible". It sits with the tier
+         chips because that is where a user looks to change the list, but it
+         swaps in its own feed and always shows its disclosure. -->
+    <button data-tier="DRAWS"  class="tier-chip min-h-[36px] px-md py-xs rounded-full text-label-sm font-bold border border-outline-variant transition">Draws</button>
+  </div>
+  <div id="status" class="text-label-sm text-on-surface-variant"></div>
+  <!-- Shown only in the Draws view. The text comes from the API so the
+       caveat cannot drift from the measurement that justifies it. -->
+  <p id="draw-disclosure" class="hidden mt-md p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
+</div>
+
+<!-- League filter. The Builder has had one for weeks; Picks did not, so on a
+     busy day the only way to find a league was to scroll. Built from the
+     leagues actually present in today's picks rather than a fixed list, so it
+     can never offer a league with nothing behind it. -->
+<div id="league-filter" class="flex gap-xs mb-md overflow-x-auto [scrollbar-width:none] md:flex-wrap [&>*]:shrink-0 -mx-gutter px-gutter md:mx-0 md:px-0"></div>
+
+<!-- Prediction feed (cards injected here) -->
+<div id="picks-feed" class="grid grid-cols-1 md:grid-cols-2 gap-md md:gap-lg"></div>
+
+<!-- Kicked-off games, live scores and results moved to Matches (23 Oct 2026):
+     Picks is about what to bet; matches.html is about what is on. -->
+<a href="index.html" class="mt-lg flex items-center justify-between gap-sm px-md py-sm rounded-lg border border-outline-variant text-body-md text-on-surface-variant hover:bg-surface-container-high">
+  <span class="flex items-center gap-xs"><span class="pp-live-dot"></span>Live scores and results</span>
+  <span class="flex items-center gap-xs font-semibold text-secondary">Matches<span class="material-symbols-outlined text-[18px]" aria-hidden="true">arrow_forward</span></span>
+</a>
+</main>
+
+<!-- Mobile Bottom Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-1 py-2 bg-surface-container-lowest border-t border-outline-variant shadow-lg pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="index.html"><span class="material-symbols-outlined mb-1">scoreboard</span><span class="text-label-sm">Matches</span></a>
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-xl py-2 px-0 flex-1 min-w-0" href="picks.html" aria-current="page"><span class="material-symbols-outlined mb-1 icon-fill">analytics</span><span class="text-label-sm">Picks</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span><span class="text-label-sm">Builder</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="record.html"><span class="material-symbols-outlined mb-1">query_stats</span><span class="text-label-sm">Record</span></a>
+</nav>
+
+<script src="config.js?v=2"></script>
+<script src="js/api.js?v=37"></script>
+<script src="js/auth.js?v=1"></script>
+<script>
+// HIGH -> green badge, MEDIUM -> blue badge
+function badgeClasses(conf) {
+    return conf === "HIGH"
+        ? "bg-secondary-container text-on-secondary-container"
+        : "bg-tertiary-fixed-dim text-tertiary-container";
+}
+
+// Cross-source agreement badge: shown only when 2+ sources cover the fixture
+function consensusBadge(c) {
+    if (!c) return "";
+    if (c.agree) {
+        return `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Every source covering this fixture points to the same result">
+          <span class="material-symbols-outlined text-[14px]">handshake</span>${c.sources} sources agree</span>`;
+    }
+    return `<span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold" title="Sources disagree on the outcome — extra caution">
+      <span class="material-symbols-outlined text-[14px]">alt_route</span>sources split</span>`;
+}
+
+/* The bookmaker's price for this exact pick, beside our own number.
+
+   A bookmaker's line is the closest thing to a market consensus that exists,
+   and this app learned the hard way what happens without it: the engine priced
+   "Under 2.5" at 91% while the book paid odds implying half that, and nobody
+   noticed until Boss spotted it from the betting side. Now every pick carries
+   the comparison. A wide gap is either real value or a bug in our maths — and
+   either way it should be visible rather than discovered weeks later.
+
+   Neutral styling on purpose. A green "VALUE" badge would be a recommendation,
+   and a 15-point gap on a model whose HIGH tier has 34 graded picks has not
+   earned that. It states two numbers and lets the reader judge. */
+/* Cautions from the API (price moved against the pick, QB news). Shared by the
+   football and NHL/NFL/NBA cards so they cannot drift apart. */
+function warningsHtml(p) {
+    return (p.warnings || []).map(w => `<div class="flex items-start gap-xs mb-sm px-sm py-1 rounded-lg bg-error-container text-on-error-container text-label-sm"
+        title="${escapeHtml(w.why || (w.type === "price" ? "Picks the price moved this far against went 6-12 points under their claim on past seasons. A caution, not a change to the pick." : "Our numbers cannot see quarterback news; the bookmaker can."))}">
+      <span class="material-symbols-outlined text-[16px]" aria-hidden="true">${w.type === "qb" || w.type === "injury" ? "personal_injury" : "trending_down"}</span><span>${escapeHtml(w.text)}</span></div>`).join("");
+}
+
+function marketCheck(p) {
+    if (p.book_probability == null || p.book_odds == null) return "";
+    const ours = Math.round((p.best_bet_prob || 0) * 100);
+    const book = Math.round(p.book_probability * 100);
+    const gap = ours - book;
+    const wide = Math.abs(gap) >= 15;
+    // NHL/NFL prices come from DraftKings via ESPN, not SportyBet - say which.
+    const bookName = p.sport && p.sport !== "football" ? "Bookmaker" : "SportyBet";
+    return `
+  <div class="flex flex-wrap items-baseline gap-x-md mb-md pt-sm border-t border-outline-variant text-label-sm">
+    <span class="text-on-surface-variant">Our model <strong class="text-primary">${ours}%</strong></span>
+    <span class="text-on-surface-variant">${bookName} <strong class="text-primary">${Number(p.book_odds).toFixed(2)}</strong> (${book}%)</span>
+    <span class="ml-auto tabular-nums ${wide ? "text-error font-bold" : "text-on-surface-variant"}"
+          title="${wide ? "We disagree with the market by more than 15 points — treat with caution" : "Our probability minus the bookmaker's, in percentage points"}">
+      ${gap === 0 ? "same as bookmaker" : `${gap > 0 ? "+" : ""}${gap} vs bookmaker`}
+    </span>
+  </div>`;
+}
+
+/* The expected-goals line under the recommendation.
+
+   This used to read "Expected: 2 – 1", rendered from predicted_home_goals —
+   Forebet's MODAL scoreline, the single most likely result. PR #7 established
+   that is not a rate: 49% of them contain a zero, and consuming one as a Poisson
+   mean is what priced "Under 2.5" at 91% while the bookmaker sat near even
+   money. Every price on this card now comes from goals_model, so showing the
+   modal scoreline beside them invited exactly the inference that was removed
+   from the pricing — a card could read "Expected: 2 – 0" above its own BTTS leg
+   priced near 50%.
+
+   So it shows the fitted RATE the prices are actually built from, to two
+   decimals. The decimals are load-bearing: an integer is what makes it read as a
+   scoreline. Absent when either team is unrated — 64% of served picks in the
+   ledger carry a rate, but only 42% of today's qualifier-heavy slate — and the
+   line then disappears rather than showing a blank or a fabricated zero. */
+function expectedGoalsLine(p) {
+    const eg = p.expected_goals;
+    if (!eg || eg.home == null || eg.away == null) return "";
+    const n = v => v.toFixed(2);
+    return `<div class="text-label-sm text-on-surface-variant mt-base flex items-center gap-xs"
+                 title="Goals per team we expect on average from fitted attack/defence rates (98,422 historical matches) — a rate, not a predicted scoreline. This is the number the Over/Under and BTTS prices are built from.">
+             <span class="material-symbols-outlined text-[14px]">scoreboard</span>
+             Expected goals: ${n(eg.home)} – ${n(eg.away)}</div>`;
+}
+
+/* NHL / NFL card - the football card's shape (badge, recommendation, ring,
+   bookmaker check, details, Track) so a mixed feed reads as one list. The
+   sport is named in the meta line, and "overtime counts" is spelled out
+   because a 60-minute 1X2 is a different bet on SportyBet. Track stores the
+   pick as "Home Win"/"Away Win" (p.track_selection), which My Record grades
+   against the final score - overtime included, exactly like this moneyline. */
+function renderSportCard(p) {
+    const prob = Math.round((p.best_bet_prob || 0) * 100);
+    const started = hasKickedOff(p);
+    const pct = v => v == null ? "—" : `${Math.round(v * 100)}%`;
+    const form = (r, name) => r && r.n
+        ? `<span>${escapeHtml(name)}: last ${r.n} ${r.w}-${r.l}${r.otl ? "-" + r.otl : ""}${r.t ? "-" + r.t + "T" : ""}</span>` : "";
+    const markets = (p.markets || []).filter(m => m.market !== "Moneyline").map(m => `
+        <tr><td class="py-base pr-sm text-primary">${escapeHtml(m.market)} · ${escapeHtml(m.selection)}</td>
+            <td class="py-base px-xs text-right tabular-nums">${pct(m.probability)}</td>
+            <td class="py-base pl-xs text-right tabular-nums text-on-surface-variant">${pct(m.book_probability)}</td></tr>`).join("");
+    return `
+<article class="glass-card rounded-xl border border-outline-variant p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden${started ? " opacity-60" : ""}">
+  <div class="flex justify-between items-start gap-sm mb-sm">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-xs min-w-0 text-label-sm text-surface-tint uppercase tracking-wider"><span class="truncate">${escapeHtml(p.league)}</span><span aria-hidden="true">·</span><span class="whitespace-nowrap normal-case tracking-normal font-semibold text-on-surface-variant">${escapeHtml(kickoffLabel(p.match_date, null, p.kickoff_utc))}</span></div>
+      <h2 class="text-title-md font-semibold text-primary mt-xs text-balance">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
+    </div>
+    <div class="flex flex-col items-end gap-xs shrink-0">
+      <div class="${badgeClasses(p.confidence)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${p.confidence}</div>
+      <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold"
+            title="Kept separate from our football record">experimental</span>
+      ${!started && p.track_selection
+        ? `<button type="button" class="pp-track-btn inline-flex items-center gap-xs px-sm py-base rounded-full text-label-sm font-bold border border-outline-variant text-on-surface-variant hover:border-secondary"
+                  data-track="${escapeHtml(p.match_id)}" data-sel="${escapeHtml(p.track_selection)}" aria-pressed="false"
+                  title="Add this pick to your own record (My Record)">
+             <span class="material-symbols-outlined text-[14px]" aria-hidden="true">bookmark_add</span><span class="pp-track-label">Track</span></button>`
+        : ""}
+    </div>
+  </div>
+  <div class="mb-md flex justify-between items-center">
+    <div>
+      <div class="text-label-sm text-on-surface-variant mb-base">Recommendation</div>
+      <div class="text-body-lg font-semibold text-primary">${escapeHtml(p.best_bet)} to win</div>
+      <div class="text-label-sm text-on-surface-variant mt-base">Moneyline · ${p.sport === "nhl" ? "overtime and shootout count" : "overtime counts"}</div>
+    </div>
+    <div class="text-right flex flex-col items-end">
+      <div class="text-label-sm text-on-surface-variant mb-base">Probability</div>
+      <div class="relative w-12 h-12 flex items-center justify-center">
+        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+          <path class="text-surface-container-high stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"></path>
+          <path class="text-secondary stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-dasharray="${prob}, 100" stroke-width="3"></path>
+        </svg>
+        <span class="absolute text-label-sm font-bold text-primary">${prob}%</span>
+      </div>
+    </div>
+  </div>
+  ${marketCheck(p)}
+  ${warningsHtml(p)}
+  ${(p.first_game_teams || []).length ? `<p class="text-label-sm text-on-surface-variant mb-sm">${escapeHtml(p.first_game_teams.join(" and "))}: first game of the season, so the rating has not seen ${p.first_game_teams.length > 1 ? "either" : "this"} new roster yet.</p>` : ""}
+  <div class="border-t border-outline-variant pt-sm">
+    <button type="button" aria-expanded="false" class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary rounded"
+            data-toggle-next>
+      <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> Details${p.analysis ? " &amp; AI analysis" : ""}</span>
+      <span class="material-symbols-outlined text-[18px] transition-transform">expand_more</span>
+    </button>
+    <div class="hidden mt-sm">
+      <div class="text-label-sm text-on-surface-variant mb-xs">Model's chances to win (overtime counts)</div>
+      <div class="flex gap-xs mb-sm text-label-sm text-on-surface-variant tabular-nums">
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">${escapeHtml(p.home_team)} ${pct(p.home_win_prob)}</span>
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">${escapeHtml(p.away_team)} ${pct(p.away_win_prob)}</span>
+      </div>
+      <div class="flex flex-wrap gap-x-md text-label-sm text-on-surface-variant mb-sm">${form(p.form && p.form.home, p.home_team)}${form(p.form && p.form.away, p.away_team)}</div>
+      ${markets ? `<table class="w-full text-label-sm mb-sm">
+        <thead><tr class="text-on-surface-variant"><th class="text-left font-medium">Other markets</th><th class="text-right font-medium px-xs">Ours</th><th class="text-right font-medium pl-xs">Book</th></tr></thead>
+        <tbody>${markets}</tbody></table>` : ""}
+      ${p.analysis ? `<div class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${escapeHtml(p.analysis)}</div>` : ""}
+    </div>
+  </div>
+</article>`;
+}
+
+/* A safer second option under the main pick (Puntrr leads with "win or
+   draw"): the picked side OR a draw, from our own three chances. Not graded
+   yet - only who-wins is - and the tooltip says so. */
+function saferLine(p) {
+    const side = p.best_bet === "Home Win" ? [p.home_team, p.home_win_prob]
+               : p.best_bet === "Away Win" ? [p.away_team, p.away_win_prob] : null;
+    if (!side || side[1] == null || p.draw_prob == null) return "";
+    const pc = Math.round((side[1] + p.draw_prob) * 100);
+    return `<div class="text-label-sm text-on-surface-variant mt-base" title="Double chance. Not part of our graded record yet: only who-wins picks are graded.">
+              Safer option: ${escapeHtml(side[0])} win or draw · <b class="text-primary tabular-nums">${pc}%</b></div>`;
+}
+
+function renderCard(p) {
+    if (p.sport && p.sport !== "football") return renderSportCard(p);
+    /* Draw-leaning cards are a DIFFERENT KIND OF THING and must not borrow the
+       1X2 card's furniture. Without this branch the Draws tab headlined
+       "Recommendation: Away Win, 44%" with a LOW badge, directly above AI text
+       arguing the match could end level — the card contradicted its own
+       analysis, in our own voice, on a tab labelled Draws. (The model has
+       never once rated a draw most likely, 0 of 360, so best_bet on this tab
+       is ALWAYS a home or away win. The contradiction was guaranteed, not
+       occasional.)
+
+       Note what this deliberately does NOT do: it does not overwrite best_bet
+       with "Draw" server-side. That would read as a tip, and models/draws.py
+       is explicit that this is a FILTER, not a tip — backing every draw
+       returns -7.2%. So the card leads with the measured base rate for this
+       band, names it as history rather than as a prediction, and still shows
+       the model's own 1X2 lean underneath. Nothing is hidden and nothing is
+       recommended. */
+    const isDraw = !!p.draw_lean;
+    const conf = p.confidence || "MEDIUM";
+    const prob = isDraw ? Math.round(p.draw_lean.expected_pct || 0)
+                        : Math.round((p.best_bet_prob || 0) * 100);
+    const homePct = Math.round((p.home_win_prob || 0) * 100);
+    const drawPct = Math.round((p.draw_prob || 0) * 100);
+    const awayPct = Math.round((p.away_win_prob || 0) * 100);
+    const analysis = p.gemma_analysis ? escapeHtml(p.gemma_analysis) : "No analysis available for this pick.";
+    const started = hasKickedOff(p);
+    const live = isLive(p);
+    const finished = p.result_home_goals != null;
+    // For finished games: did the model's 1X2 lean match the real outcome?
+    let ftBadge = "";
+    if (finished) {
+        const lean = [["H", p.home_win_prob], ["D", p.draw_prob], ["A", p.away_win_prob]]
+            .sort((a, b) => (b[1]||0) - (a[1]||0))[0][0];
+        const hit = lean === p.result_outcome;
+        ftBadge = ` <span class="inline-flex items-center gap-xs px-sm rounded-full normal-case font-bold ${hit ? "bg-secondary-container text-on-secondary-container" : "bg-error-container text-on-error-container"}"
+            title="Full time — ${hit ? "model called the outcome" : "model missed the outcome"}">FT ${p.result_home_goals}–${p.result_away_goals} ${hit ? "✓" : "✗"}</span>`;
+    }
+    const tbc = hasKnownKickoff(p) ? ""
+        : ` <span class="normal-case tracking-normal opacity-60">· time tbc</span>`;
+    const meta = `<span class="truncate">${escapeHtml(prettyLeague(p.league))}</span><span aria-hidden="true">·</span><span class="whitespace-nowrap normal-case tracking-normal font-semibold text-on-surface-variant">${escapeHtml(kickoffLabel(p.match_date, p.kickoff_time, p.kickoff_utc))}</span>${tbc}`
+        + (finished ? ftBadge
+           : live ? ` <span class="inline-flex items-center gap-xs bg-error-container text-on-error-container px-sm rounded-full normal-case font-bold" title="Being played right now — too late to bet"><span class="pp-live-dot"></span>LIVE</span>`
+           : started ? ` <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm rounded-full normal-case" title="Kickoff has passed — too late to bet this one">started</span>` : "");
+
+    return `
+<article class="glass-card rounded-xl border border-outline-variant p-md shadow-sm hover:shadow-md transition-shadow relative overflow-hidden group${started ? " opacity-60" : ""}">
+  <div class="flex justify-between items-start gap-sm mb-sm">
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-xs min-w-0 text-label-sm text-surface-tint uppercase tracking-wider">${meta}</div>
+      <h2 class="text-title-md font-semibold text-primary mt-xs text-balance"><a href="match.html?id=${encodeURIComponent(p.match_id)}" class="hover:underline underline-offset-4">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</a></h2>
+    </div>
+    <div class="flex flex-col items-end gap-xs shrink-0">
+      ${isDraw
+        ? `<div class="bg-tertiary-container text-on-tertiary-container px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs" title="How evenly the bookmaker prices the two sides — this is what ranks the list, not the model">${escapeHtml(p.draw_lean.tier)}</div>`
+        : `<div class="${badgeClasses(conf)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${conf}</div>`}
+      ${consensusBadge(p.consensus)}
+      ${p.consensus_adj === "boosted" ? `<span class="inline-flex items-center gap-xs bg-secondary-container text-on-secondary-container px-sm py-base rounded-full text-label-sm font-bold" title="Raised to HIGH because both sources back the model's pick"><span class="material-symbols-outlined text-[14px]">arrow_upward</span>consensus boost</span>` : ""}
+      ${!isDraw && !started && ["Home Win", "Away Win", "Draw"].includes(p.best_bet)
+        ? `<button type="button" class="pp-track-btn inline-flex items-center gap-xs px-sm py-base rounded-full text-label-sm font-bold border border-outline-variant text-on-surface-variant hover:border-secondary"
+                  data-track="${escapeHtml(p.match_id)}" data-sel="${escapeHtml(p.best_bet)}" aria-pressed="false"
+                  title="Add this pick to your own record (My Record)">
+             <span class="material-symbols-outlined text-[14px]" aria-hidden="true">bookmark_add</span><span class="pp-track-label">Track</span></button>`
+        : ""}
+      ${p.consensus_adj === "demoted" ? `<span class="inline-flex items-center gap-xs bg-error-container text-on-error-container px-sm py-base rounded-full text-label-sm font-bold" title="Lowered to MEDIUM because both sources back a different outcome"><span class="material-symbols-outlined text-[14px]">arrow_downward</span>tier lowered</span>` : ""}
+    </div>
+  </div>
+  <div class="mb-md flex justify-between items-center">
+    <div>
+      <div class="text-label-sm text-on-surface-variant mb-base">${isDraw ? "Evenly matched" : "Recommendation"}</div>
+      ${isDraw
+        ? `<div class="text-body-lg font-semibold text-primary">Draw is live here</div>
+           <div class="text-label-sm text-on-surface-variant mt-base">
+             Model's own lean: ${escapeHtml(p.best_bet)} (${Math.round((p.best_bet_prob||0)*100)}%) —
+             it has never once rated a draw most likely.</div>`
+        : `<div class="text-body-lg font-semibold text-primary" title="${escapeHtml(p.best_bet)}">${escapeHtml(ppPlainPick(p.best_bet === "Home Win" ? `${p.home_team} Win` : p.best_bet === "Away Win" ? `${p.away_team} Win` : p.best_bet))}</div>
+           ${saferLine(p)}
+           ${expectedGoalsLine(p)}`}
+    </div>
+    <div class="text-right flex flex-col items-end">
+      <div class="text-label-sm text-on-surface-variant mb-base" ${isDraw ? 'title="Measured on 90,381 matches — the historical draw rate for fixtures priced this evenly. NOT a prediction about this match."' : ""}>${isDraw ? "Draws, historically" : "Probability"}</div>
+      <div class="relative w-12 h-12 flex items-center justify-center">
+        <svg class="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+          <path class="text-surface-container-high stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-width="3"></path>
+          <path class="text-secondary stroke-current" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke-dasharray="${prob}, 100" stroke-width="3"></path>
+        </svg>
+        <span class="absolute text-label-sm font-bold text-primary">${prob}%</span>
+      </div>
+    </div>
+  </div>
+  ${marketCheck(p)}
+  ${warningsHtml(p)}
+  <div class="border-t border-outline-variant pt-sm">
+    <button type="button" aria-expanded="false" class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary rounded"
+            data-toggle-next>
+      <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> Details &amp; AI analysis</span>
+      <span class="material-symbols-outlined text-[18px] transition-transform">expand_more</span>
+    </button>
+    <div class="hidden mt-sm">
+      <div class="text-label-sm text-on-surface-variant mb-xs">Model's chances for each result</div>
+      <div class="flex gap-xs mb-sm text-label-sm text-on-surface-variant tabular-nums">
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">Home ${homePct}%</span>
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">Draw ${drawPct}%</span>
+        <span class="flex-1 text-center bg-surface rounded p-1 border border-outline-variant">Away ${awayPct}%</span>
+      </div>
+      <div class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${analysis}</div>
+    </div>
+  </div>
+</article>`;
+}
+
+// ── Summary line ──────────────────────────────────────────────────
+function renderStatStrip(picks, stats) {
+    const high = picks.filter(p => p.confidence === "HIGH").length;
+    // stats.accuracy is HIGH+MEDIUM only (the picks we serve), which is the
+    // flattering subset. The tile used to show it bare as "Hit rate"; it now
+    // says which picks it counts and puts the every-prediction figure beside
+    // it, the same order of honesty the Record page uses.
+    const acc = stats && stats.accuracy != null ? `${stats.accuracy}%` : "—";
+    const all = stats && stats.all_tiers && stats.all_tiers.accuracy != null
+        ? ` · all picks ${stats.all_tiers.accuracy}%` : "";
+    const accSub = stats && stats.scored_picks
+        ? `${stats.correct}/${stats.scored_picks} High+Medium${all}` : "building";
+    /* One sentence, not four tiles. The tiles filled a phone's whole first
+       screen before a single pick, and "Sources agree: 0" was noise most days
+       (consensus still shows on each card when it exists). The record claim
+       keeps its denominator and the every-prediction figure, and leads to the
+       page that proves it. */
+    const n = picks.length;
+    /* The feed runs up to five days ahead (ESPN fixtures, PR #18), so "66
+       picks today" was false on most days - measured 8 Oct: the list ran to
+       Tue 13 Oct. Say "upcoming", and count today's separately (the reader's
+       own local day, which is what "today" means to them). */
+    const todayStr = new Date().toDateString();
+    const nToday = picks.filter(p => {
+        const d = kickoffDate(p.match_date, p.kickoff_time, p.kickoff_utc);
+        return d && d.toDateString() === todayStr;
+    }).length;
+    const recordLine = stats && stats.scored_picks
+        ? `Picks we serve have won <strong class="text-primary tabular-nums">${acc}</strong>
+             <span class="tabular-nums">(${stats.correct} of ${stats.scored_picks} graded${all ? `;${all.replace(" · ", " ")}` : ""})</span>.
+             <a href="record.html" class="text-secondary font-semibold underline underline-offset-2 whitespace-nowrap">See the full record</a>`
+        : "";
+    // Hit rate is not profit. Say what following the picks has actually
+    // returned, in words that follow the interval (models/returns.py).
+    const rt = stats && stats.returns;
+    const moneyLine = rt && rt.roi_pct != null
+        ? `<span>${{
+              break_even: "Backing them all at SportyBet prices has roughly broken even so far",
+              profit: "Backing them all at SportyBet prices has made a small profit so far",
+              loss: "Backing them all at SportyBet prices has lost money so far",
+          }[rt.verdict] || "It's too early to say whether backing them pays"} <span class="tabular-nums">(${rt.roi_pct > 0 ? "+" : ""}${rt.roi_pct}%)</span> — <a href="record.html#honest" class="text-secondary font-semibold underline underline-offset-2 whitespace-nowrap">what that means</a>.</span>`
+        : "";
+    /* Labelled rows instead of one paragraph (UI pass, 23 Oct 2026): the same
+       sentences, each under the question it answers, so a reader can find
+       "how has it done?" without reading everything before it. */
+    const row = (label, body) => body ? `<div class="grid grid-cols-1 sm:grid-cols-[minmax(0,6.5rem)_minmax(0,1fr)] gap-x-sm gap-y-[2px] py-xs border-t border-outline-variant first:border-t-0">
+        <dt class="text-label-sm font-bold text-on-surface-variant uppercase tracking-wider sm:pt-[3px]">${label}</dt>
+        <dd class="text-body-md text-on-surface-variant">${body}</dd></div>` : "";
+    document.getElementById("stat-strip").innerHTML =
+        `<dl class="rounded-xl border border-outline-variant bg-surface-container-lowest px-md py-xs max-w-3xl">
+          ${row("Upcoming", `<strong class="text-primary">${n} ${SPORTS.length > 1 ? "football " : ""}${n === 1 ? "pick" : "picks"}</strong>${nToday && nToday < n ? `, ${nToday} today` : nToday === n && n ? ", all today" : ""}${high ? `, ${high} with high confidence` : ""}.`)}
+          ${row("Record", recordLine)}
+          ${row("Money", moneyLine)}
+          ${row("Last 7 days", recentStrip(stats && stats.last_7_days))}
+        </dl>`;
+}
+
+/* The last 7 days of served picks, every one, and the latest 10 results win
+   or lose (/api/stats last_7_days). Puntrr shows "79 of 98 landed" for its
+   chosen top picks; this is the same window over everything we served. */
+function recentStrip(r) {
+    if (!r || !r.graded) return "";
+    const latest = (r.latest || []).slice().reverse();   // oldest left, newest right
+    const won = latest.filter(x => x.won).length;
+    const sq = x => `<span class="w-3 h-3 rounded-sm ${x.won ? "bg-secondary" : "bg-error"}"
+        title="${escapeHtml(`${x.home_team} ${x.home_goals}–${x.away_goals} ${x.away_team} · picked ${x.best_bet} · ${x.won ? "won" : "lost"}`)}"></span>`;
+    return `<div class="flex flex-wrap items-center gap-x-sm gap-y-xs">
+      <span><strong class="text-primary tabular-nums">${r.won} of ${r.graded}</strong> won
+        <span class="tabular-nums">(${Math.round(r.won / r.graded * 100)}%)</span>, every pick we served.</span>
+      <a href="record.html#roundups" class="flex items-center gap-[3px]" role="img"
+         aria-label="Latest ${latest.length} results: ${won} won, ${latest.length - won} lost. Open the full record.">${latest.map(sq).join("")}</a>
+    </div>`;
+}
+
+// ── Skeleton loading cards ───────────────────────────────────────────
+function skeletonCard() {
+    return `<article class="glass-card rounded-xl border border-outline-variant p-md animate-pulse">
+      <div class="h-3 w-1/3 bg-surface-container-high rounded mb-sm"></div>
+      <div class="h-5 w-2/3 bg-surface-container-high rounded mb-md"></div>
+      <div class="h-16 bg-surface-container-high rounded mb-md"></div>
+      <div class="flex gap-xs"><div class="h-6 flex-1 bg-surface-container-high rounded"></div>
+        <div class="h-6 flex-1 bg-surface-container-high rounded"></div>
+        <div class="h-6 flex-1 bg-surface-container-high rounded"></div></div>
+    </article>`;
+}
+
+let ALL_PICKS = [];
+let DRAW_PICKS = [];
+let DRAW_CONSIDERED = 0;
+let DRAW_DISCLOSURE = "";
+let CURRENT_TIER = "ALL";
+let CURRENT_LEAGUE = "ALL";
+let LEAGUES_EXPANDED = false;
+// Eight chips are two rows on a desktop but five on a phone, so phones get four.
+const LEAGUE_CHIPS_SHOWN = window.matchMedia("(min-width: 640px)").matches ? 8 : 4;
+let UPDATED_AT = null;
+
+function paintTierChips() {
+    document.querySelectorAll(".tier-chip").forEach(c => {
+        const on = c.dataset.tier === CURRENT_TIER;
+        c.classList.toggle("bg-primary", on);
+        c.classList.toggle("text-on-primary", on);
+        c.classList.toggle("border-primary", on);
+        c.classList.toggle("text-on-surface-variant", !on);
+        c.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+}
+
+function buildLeagueChips() {
+    const box = document.getElementById("league-filter");
+    if (!box) return;
+    // Count by DISPLAY name so "serie-a" and "Serie A" cannot appear twice.
+    const counts = new Map();
+    ALL_PICKS.forEach(p => {
+        const name = p.league_display || prettyLeague(p.league);
+        counts.set(name, (counts.get(name) || 0) + 1);
+    });
+    if (counts.size < 2) { box.innerHTML = ""; return; }   // one league: pointless
+    const names = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    /* Biggest leagues first, the rest behind "+N more". On 8 Oct all 34 chips
+       showed at once: six rows on desktop, a full phone screen, and the first
+       pick pushed below the fold by a filter most visitors never touch. The
+       selected league always stays visible, even if it is in the hidden set. */
+    const shown = LEAGUES_EXPANDED ? names
+        : names.filter(([n], i) => i < LEAGUE_CHIPS_SHOWN || n === CURRENT_LEAGUE);
+    const hidden = names.length - shown.length;
+    box.innerHTML =
+        `<button data-league="ALL" class="league-chip min-h-[36px] px-md py-xs rounded-full text-label-sm font-bold border border-outline-variant transition">All leagues</button>` +
+        shown.map(([n, c]) =>
+            `<button data-league="${escapeHtml(n)}" class="league-chip min-h-[36px] px-md py-xs rounded-full text-label-sm border border-outline-variant transition">${escapeHtml(n)} (${c})</button>`
+        ).join("") +
+        (hidden > 0
+            ? `<button type="button" id="league-more" class="px-md py-base rounded-full text-label-sm font-semibold text-secondary border border-dashed border-outline-variant transition">+${hidden} more</button>`
+            : "");
+    box.querySelectorAll(".league-chip").forEach(ch =>
+        ch.addEventListener("click", () => {
+            CURRENT_LEAGUE = ch.dataset.league; paintLeagueChips(); renderFeed();
+        }));
+    const more = document.getElementById("league-more");
+    if (more) more.addEventListener("click", () => {
+        LEAGUES_EXPANDED = true;
+        buildLeagueChips();
+        // The button removes itself; hand keyboard focus to the first chip it revealed.
+        const first = box.querySelectorAll(".league-chip")[shown.length + 1];
+        if (first) first.focus();
+    });
+    paintLeagueChips();
+}
+
+function paintLeagueChips() {
+    document.querySelectorAll(".league-chip").forEach(c => {
+        const on = c.dataset.league === CURRENT_LEAGUE;
+        c.classList.toggle("bg-primary", on);
+        c.classList.toggle("text-on-primary", on);
+        c.classList.toggle("border-primary", on);
+        c.classList.toggle("text-on-surface-variant", !on);
+        c.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+}
+
+function renderFeed() {
+    const feed = document.getElementById("picks-feed");
+    const status = document.getElementById("status");
+    const note = document.getElementById("draw-disclosure");
+
+    // Draws is its own feed, fetched separately, and it never renders without
+    // the disclosure. The measurement behind it (90,381 matches) says the
+    // pattern is real and already priced in — presenting these as tips would
+    // misrepresent our own evidence.
+    if (CURRENT_TIER === "DRAWS") {
+        if (note) {
+            note.textContent = DRAW_DISCLOSURE || "";
+            note.classList.toggle("hidden", !DRAW_DISCLOSURE);
+        }
+        let d = DRAW_PICKS;
+        if (CURRENT_LEAGUE !== "ALL") {
+            d = d.filter(p =>
+                (p.league_display || prettyLeague(p.league)) === CURRENT_LEAGUE);
+        }
+        feed.innerHTML = d.length
+            ? d.map(renderCard).join("")
+            : `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                 No evenly-matched fixtures right now. This list is deliberately
+                 short — only about 3% of matches qualify.</div>`;
+        const agoD = timeAgo(UPDATED_AT);
+        status.textContent =
+            `${d.length} draw-leaning of ${DRAW_CONSIDERED} priced fixtures` +
+            (agoD ? ` • updated ${agoD}` : "");
+        return;
+    }
+    if (note) note.classList.add("hidden");
+
+    let shown = CURRENT_TIER === "ALL"
+        ? ALL_PICKS : ALL_PICKS.filter(p => p.confidence === CURRENT_TIER);
+    if (CURRENT_LEAGUE !== "ALL") {
+        shown = shown.filter(p =>
+            (p.league_display || prettyLeague(p.league)) === CURRENT_LEAGUE);
+    }
+    if (shown.length === 0) {
+        feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
+          No ${CURRENT_TIER === "ALL" ? "" : CURRENT_TIER.toLowerCase() + " "}picks in this view.</div>`;
+    } else {
+        feed.innerHTML = shown.map(renderCard).join("");
+        syncTrackButtons();
+    }
+    const ago = timeAgo(UPDATED_AT);
+    status.textContent = `${shown.length} of ${ALL_PICKS.length} shown${ago ? ` • updated ${ago}` : ""}`;
+}
+
+/* Track buttons -> the signed-in user's own record (js/auth.js, Supabase).
+   One delegated handler for the whole feed, because cards are re-rendered by
+   the tier/league filters. Signed out, the button goes to the sign-in page
+   rather than failing silently. */
+function syncTrackButtons() {
+    if (!window.PPAuth) return;
+    document.querySelectorAll(".pp-track-btn").forEach(b => {
+        const on = PPAuth.isTracked(b.dataset.track, b.dataset.sel);
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.querySelector(".pp-track-label").textContent = on ? "Tracking" : "Track";
+    });
+}
+document.addEventListener("click", async (e) => {
+    const b = e.target.closest(".pp-track-btn");
+    if (!b || !window.PPAuth) return;
+    await PPAuth.ready();
+    if (!PPAuth.user()) { location.href = "account.html?next=index.html"; return; }
+    const pick = ALL_PICKS.find(p => p.match_id === b.dataset.track);
+    b.disabled = true;
+    try {
+        if (PPAuth.isTracked(b.dataset.track, b.dataset.sel)) await PPAuth.untrack(b.dataset.track, b.dataset.sel);
+        // NHL/NFL picks are stored as "Home Win"/"Away Win" so My Record can
+        // grade them like football's (see renderSportCard).
+        else if (pick) await PPAuth.track(pick.track_selection ? {...pick, best_bet: pick.track_selection} : pick);
+    } catch (err) {
+        console.error(err);
+        showToast("Couldn't update your record — try again.");
+    } finally {
+        b.disabled = false;
+        syncTrackButtons();
+    }
+});
+if (window.PPAuth) PPAuth.onChange(syncTrackButtons);
+
+let SPORTS = ppSportsGet();
+
+/* One line per chosen NHL/NFL sport: its own record (never football's) and
+   its disclosure, from the API so the caveat cannot drift from the evidence. */
+function renderSportNotes(sp, us) {
+    const box = document.getElementById("sport-notes");
+    if (!box) return;
+    if (!us.length) { box.innerHTML = ""; return; }
+    if (!sp || sp.error) {
+        box.innerHTML = `<p class="text-body-md text-on-surface-variant">${escapeHtml(ppErrorMessage(sp && sp.error, "load NHL/NFL/NBA picks"))}</p>`;
+        return;
+    }
+    box.innerHTML = us.map(code => {
+        const r = (sp.records || {})[code] || {};
+        const rec = r.graded
+            ? `<strong class="text-primary tabular-nums">${r.won}-${r.lost}</strong> on ${r.graded} graded picks (${r.hit_pct}%)`
+            : "no graded picks yet";
+        // One line each, so three sports don't push the first pick off a phone
+        // screen; "experimental" stays in the visible line, the rest is a tap away.
+        return `<details class="text-label-sm text-on-surface-variant">
+          <summary class="cursor-pointer block py-1"><span class="font-bold text-primary">${code.toUpperCase()}</span>
+            · ${rec} · experimental</summary>
+          <p class="pb-sm max-w-prose">${escapeHtml((sp.disclosures || {})[code] || "")}</p></details>`;
+    }).join("");
+}
+
+async function loadPicks() {
+    const feed = document.getElementById("picks-feed");
+    const status = document.getElementById("status");
+    feed.innerHTML = Array(4).fill(skeletonCard()).join("");
+    status.textContent = "Loading…";
+    try {
+        const wantFootball = SPORTS.includes("football");
+        const us = SPORTS.filter(s => s !== "football");
+        // Draws is a football-only filter: NBA/NHL/NFL moneylines cannot draw.
+        document.querySelector('.tier-chip[data-tier="DRAWS"]').hidden = !wantFootball;
+        if (!wantFootball && CURRENT_TIER === "DRAWS") { CURRENT_TIER = "ALL"; paintTierChips(); }
+        // NHL/NFL failing must not take football down with it (or vice versa):
+        // each side degrades to its own message.
+        const [data, stats, sp] = await Promise.all([
+            wantFootball ? PotentialProAPI.picks() : Promise.resolve({picks: [], started: []}),
+            wantFootball ? PotentialProAPI.stats().catch(() => null) : Promise.resolve(null),
+            us.length ? PotentialProAPI.sportPicks(us).catch(err => ({error: err, picks: []}))
+                      : Promise.resolve(null),
+        ]);
+        const football = (data.picks || []).map(p => ({...p, sport: "football"}));
+        ALL_PICKS = football.concat((sp && sp.picks) || []).sort((a, b) =>
+            (kickoffDate(a.match_date, a.kickoff_time, a.kickoff_utc) || 0) - (kickoffDate(b.match_date, b.kickoff_time, b.kickoff_utc) || 0));
+        UPDATED_AT = data.generated_at || null;
+        // The stat strip is FOOTBALL's track record. It is not shown for a
+        // view without football, and NHL/NFL get their own line below it.
+        if (wantFootball) renderStatStrip(football, stats);
+        else document.getElementById("stat-strip").innerHTML = "";
+        renderSportNotes(sp, us);
+        if (ALL_PICKS.length === 0 && !wantFootball) {
+            feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                No HIGH or MEDIUM ${us.map(c => c.toUpperCase()).join(" or ")} picks right now.
+                Lower-confidence games are left out, as they are for football.</div>`;
+            status.textContent = "";
+            return;
+        }
+        if (ALL_PICKS.length === 0) {
+            /* Two different empties, and the old message conflated them. "The
+               model is sitting today's fixtures out" is only true if TODAY's
+               run happened and chose nothing. Before today's run lands - every
+               morning - it was a false statement about a decision nobody had
+               made yet. Compared on the LAGOS calendar (UTC+1, no DST): that is
+               the users' "today". */
+            const lagosDay = d => new Date(d.getTime() + 3600e3).toISOString().slice(0, 10);
+            const ran = UPDATED_AT ? new Date(UPDATED_AT.replace(" ", "T") + "Z") : null;
+            const ranToday = ran && !isNaN(ran) && lagosDay(ran) === lagosDay(new Date());
+            const ago = timeAgo(UPDATED_AT);
+            // Third case: today's picks existed but have all kicked off - true
+            // every evening, and "sitting them out" would deny picks we made.
+            const startedToday = (data.started || []).length > 0;
+            feed.innerHTML = ranToday && startedToday
+                ? `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                     All of today's picks have kicked off — follow them on <a href="index.html" class="text-secondary font-semibold underline underline-offset-2">Matches</a>. Tomorrow's arrive at about 07:00 Lagos time.</div>`
+                : ranToday
+                ? `<div class="col-span-full text-center text-on-surface-variant py-xl">
+                     No HIGH or MEDIUM picks today. The model checked today's fixtures and is sitting them out — no bet is also a decision.</div>`
+                : `<div class="col-span-full text-center py-xl">
+                     <p class="text-body-lg font-semibold text-primary">Today's picks haven't been published yet.</p>
+                     <p class="text-body-md text-on-surface-variant mt-xs">The daily run hasn't finished${ago ? ` — the last one was ${ago}` : ""}. Check back shortly; nothing on this page is a pick for today until it does.</p>
+                   </div>`;
+            status.textContent = "";
+            return;
+        }
+        buildLeagueChips();
+        renderFeed();
+    } catch (err) {
+        feed.innerHTML = "";
+        status.textContent = "";
+        document.getElementById("stat-strip").innerHTML =
+          ppErrorBox(err, "load today's picks", "loadPicks");
+        console.error(err);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    document.querySelectorAll(".tier-chip").forEach(c =>
+        c.addEventListener("click", async () => {
+            CURRENT_TIER = c.dataset.tier; paintTierChips();
+            // Fetched on first use, not on page load: most visits never open
+            // this tab, and the picks feed must not wait on it.
+            if (CURRENT_TIER === "DRAWS" && !DRAW_DISCLOSURE) {
+                try {
+                    const d = await PotentialProAPI.drawPicks();
+                    DRAW_PICKS = d.picks || [];
+                    DRAW_CONSIDERED = d.considered || 0;
+                    DRAW_DISCLOSURE = d.disclosure || "";
+                } catch (e) {
+                    document.getElementById("status").textContent =
+                        ppErrorMessage(e, "load the draw list");
+                    return;
+                }
+            }
+            renderFeed();
+        }));
+    paintTierChips();
+    ppSportChips(document.getElementById("sport-filter"), SPORTS, sel => {
+        SPORTS = sel;
+        CURRENT_LEAGUE = "ALL";   // a league from a sport no longer shown would empty the list
+        loadPicks();
+    });
+    loadPicks();
+});
+</script>
+</body></html>
