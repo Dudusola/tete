@@ -89,16 +89,19 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 <div class="text-display-lg font-display-lg text-on-primary relative z-10 flex items-baseline">
 <span id="overall-rate">—</span><span class="text-headline-lg font-headline-lg ml-1">%</span>
 </div>
-<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10 max-w-xl"><span class="text-on-primary font-semibold">of the picks we recommend won</span> <span id="served-count" class="tabular-nums"></span> — HIGH and MEDIUM picks, labelled before kickoff and scored against real full-time results.</p>
+<p class="text-body-md text-primary-fixed-dim mt-xs relative z-10 max-w-xl"><span class="text-on-primary font-semibold">of the picks we recommend won</span> <span id="served-count" class="tabular-nums"></span>. Labelled before kickoff, scored on the real final score.</p>
 <div class="w-full h-px bg-surface-tint/30 my-4 relative z-10"></div>
 <!-- primary-fixed-dim, not on-primary-container: the latter renders ~4:1 on
      this dark hero, and the whole point of this line is that it be read. -->
 <p class="relative z-10 max-w-xl text-body-md text-primary-fixed-dim">
-  <span class="text-on-primary font-semibold">Every prediction, including LOW:</span>
+  <span class="text-on-primary font-semibold">Every prediction, low confidence included:</span>
   <strong class="text-on-primary tabular-nums" id="all-rate">—</strong>
   <span class="tabular-nums">(<span id="total-correct">—</span> of <span id="total-picks">—</span>)</span>.
-  A bookmaker's favourite wins about 53–55%, so that figure alone is not an edge — which is why LOW picks are never recommended, and why the calibration below is where the claim lives.
 </p>
+<details class="relative z-10 max-w-xl mt-xs text-body-md text-primary-fixed-dim">
+  <summary class="cursor-pointer text-label-sm font-semibold text-on-primary underline underline-offset-2">Why we don't recommend those</summary>
+  <p class="mt-xs">A bookmaker's favourite wins about 53–55%, so that figure alone is not an edge. That is why low-confidence picks are never recommended, and why the "said vs won" check below is where our claim lives.</p>
+</details>
 </section>
 
 <!-- WHAT THIS IS - AND ISN'T (28 Sep 2026). The hit rate above is true and
@@ -113,18 +116,18 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      that landed on big games; this shows all of ours. -->
 <section id="roundups" aria-labelledby="roundups-h" class="hidden mt-lg">
   <h2 id="roundups-h" class="text-body-lg font-semibold text-primary">What we called, what landed</h2>
-  <p class="text-body-md text-on-surface-variant mt-xs">Every pick we recommended, day by day, with the final score. Wins and losses both.</p>
+  <p class="text-body-md text-on-surface-variant mt-xs">Every recommended pick by day, wins and losses.</p>
   <div id="roundup-days" class="mt-sm space-y-sm"></div>
 </section>
 
 <section id="honest" aria-labelledby="honest-h" class="hidden bg-surface-container-lowest border border-outline-variant rounded-xl p-md md:p-lg">
-  <h2 id="honest-h" class="text-body-lg font-semibold text-primary">What this is — and what it isn't yet</h2>
+  <h2 id="honest-h" class="text-body-lg font-semibold text-primary">What this is, and what it isn't yet</h2>
   <div class="grid md:grid-cols-2 gap-md md:gap-lg mt-sm text-body-md text-on-surface-variant">
     <div>
       <h3 class="text-label-sm font-bold uppercase tracking-wider text-secondary mb-xs">What it is</h3>
       <ul class="space-y-xs list-disc pl-md">
         <li id="honest-calibrated"></li>
-        <li>Fully public. Every pick is graded against the real final score, losses included, and only predictions made before kickoff count.</li>
+        <li>Public. Every pick counts, losses included, and only if it was made before kickoff.</li>
         <li id="honest-warned" class="hidden"></li>
       </ul>
     </div>
@@ -136,7 +139,6 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
       </ul>
     </div>
   </div>
-  <p class="mt-sm text-label-sm text-on-surface-variant">These figures update automatically from the record, so this note changes the moment the numbers do.</p>
 </section>
 
 <!-- Per-tier -->
@@ -170,10 +172,11 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      uses, so this can never disagree with it. Hidden until the numbers arrive. -->
 <section id="calibration-section" class="hidden mt-xl p-md md:p-lg bg-surface-container-lowest border border-outline-variant rounded-xl">
   <h2 class="text-body-lg md:text-headline-md font-semibold text-primary">Does a stated probability mean what it says?</h2>
-  <p class="text-body-md text-on-surface-variant mt-xs">Every graded pick we serve, by tier.
-    <span class="whitespace-nowrap"><span class="cal-tick-key inline-block w-[2px] h-3 bg-primary align-middle" aria-hidden="true"></span> the chance the model stated, on average;</span>
-    <span class="whitespace-nowrap"><span class="inline-block w-2.5 h-2.5 rounded-full bg-secondary align-middle" aria-hidden="true"></span> how often those picks actually won;</span>
-    <span class="whitespace-nowrap"><span class="inline-block w-4 h-2.5 rounded-sm bg-secondary-container align-middle" aria-hidden="true"></span> the 95% range</span> the true rate could sit in, given how many picks there are.</p>
+  <p class="text-body-md text-on-surface-variant mt-xs">What we said each pick's chance was, against how often they won.</p>
+  <p class="mt-xs flex flex-wrap gap-x-md gap-y-xs text-label-sm text-on-surface-variant">
+    <span class="whitespace-nowrap"><span class="cal-tick-key inline-block w-[2px] h-3 bg-primary align-middle" aria-hidden="true"></span> we said</span>
+    <span class="whitespace-nowrap"><span class="inline-block w-2.5 h-2.5 rounded-full bg-secondary align-middle" aria-hidden="true"></span> they won</span>
+    <span class="whitespace-nowrap"><span class="inline-block w-4 h-2.5 rounded-sm bg-secondary-container align-middle" aria-hidden="true"></span> likely range (95%)</span></p>
   <div id="calibration-rows" class="mt-md"></div>
   <p id="calibration-note" class="text-label-sm text-on-surface-variant mt-sm"></p>
 </section>
@@ -223,7 +226,8 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 
 <!-- NHL/NFL/NBA: each sport's own record, never added into football's. -->
 <section id="other-sports" class="mt-xl">
-<h2 class="text-body-lg font-semibold text-primary mb-sm">NHL, NFL and NBA</h2>
+<h2 class="text-body-lg font-semibold text-primary">NHL, NFL and NBA</h2>
+<p class="text-label-sm text-on-surface-variant mt-xs mb-sm">Each sport keeps its own record, separate from football's. Tap one for what to know.</p>
 <div id="other-sports-list" class="flex flex-col gap-xs"><span class="text-label-sm text-on-surface-variant">Loading…</span></div>
 </section>
 
@@ -414,8 +418,8 @@ async function renderTrend() {
     const thinCount = weeks.filter(w => w.total < THIN && !w.in_progress).length;
     const live = weeks.find(w => w.in_progress);
     note.textContent = [
-        live ? `The dashed bar is the current week — ${live.total} graded picks so far; it is not finished.` : "",
-        thinCount ? `Faded bars are weeks with fewer than ${THIN} graded picks — too few to read as a trend.` : "",
+        live ? `Dashed: this week so far (${live.total} picks).` : "",
+        thinCount ? `Faded: under ${THIN} picks, too few to read.` : "",
     ].filter(Boolean).join(" ");
     section.classList.remove("hidden");
 }
@@ -432,6 +436,11 @@ const CAL_VERDICT = {
     over_confident:  "wins LESS often than stated",
     too_few:         "too few picks to judge yet",
 };
+/* A short line with its explanation one tap away (Boss, 23 Oct 2026: "a lot
+   of words being thrown at a user"). Nothing is removed - it is one tap down. */
+const why = (body, label = "Why?") => ` <details class="inline"><summary class="inline cursor-pointer text-secondary font-semibold">${label}</summary>
+    <span class="block mt-xs">${body}</span></details>`;
+
 function renderHonest(overall) {
     const r = overall.returns || {};
     const cal = overall.calibration || [];
@@ -440,28 +449,28 @@ function renderHonest(overall) {
     const high = cal.find(c => c.tier === "HIGH");
     const pct = v => `${v > 0 ? "+" : ""}${Number(v).toFixed(1)}%`;
     document.getElementById("honest-calibrated").innerHTML = high
-        ? `Calibrated. Picks labelled HIGH were given about <strong class="text-primary tabular-nums">${Math.round(high.claim)}%</strong> and have won <strong class="text-primary tabular-nums">${Number(high.actual).toFixed(1)}%</strong>; the chart below shows every level.`
-        : `Calibrated: the chart below shows how often each confidence level has won.`;
+        ? `Honest about chances: HIGH picks were given about <strong class="text-primary tabular-nums">${Math.round(high.claim)}%</strong> and have won <strong class="text-primary tabular-nums">${Number(high.actual).toFixed(1)}%</strong>.`
+        : `Honest about chances: see "said vs won" below.`;
     const verdict = {
-        break_even: "not yet distinguishable from breaking even",
-        profit: "a profit so far, with the whole likely range above zero",
-        loss: "a loss so far, with the whole likely range below zero",
+        break_even: "about break-even so far",
+        profit: "a profit so far, and likely a real one",
+        loss: "a loss so far, and likely a real one",
     }[r.verdict] || "too early to call";
     document.getElementById("honest-money").innerHTML =
-        `A proven way to make money. Backing every recommended pick with the same stake, at the SportyBet price when it was made, ` +
-        `would have returned <strong class="text-primary tabular-nums">${pct(r.roi_pct)}</strong> over ` +
-        `<span class="tabular-nums">${r.priced.toLocaleString("en")}</span> priced picks: ${verdict} ` +
-        `(likely range <span class="tabular-nums">${pct(r.roi_lo)} to ${pct(r.roi_hi)}</span>). ` +
-        `Most picks are favourites at short odds (average <span class="tabular-nums">${Number(r.avg_odds).toFixed(2)}</span>), ` +
-        `so they must win <span class="tabular-nums">${r.breakeven_pct}%</span> just to break even; they have won <span class="tabular-nums">${r.hit_pct}%</span>.`;
+        `Proven to make money. Backing them all has returned <strong class="text-primary tabular-nums">${pct(r.roi_pct)}</strong>: ${verdict}.` +
+        why(`Same stake on every recommended pick, at the SportyBet price when it was made, over ` +
+            `<span class="tabular-nums">${r.priced.toLocaleString("en")}</span> priced picks; likely range ` +
+            `<span class="tabular-nums">${pct(r.roi_lo)} to ${pct(r.roi_hi)}</span>. Most picks are favourites at short odds ` +
+            `(average <span class="tabular-nums">${Number(r.avg_odds).toFixed(2)}</span>), so they must win ` +
+            `<span class="tabular-nums">${r.breakeven_pct}%</span> just to break even; they have won <span class="tabular-nums">${r.hit_pct}%</span>.`);
     const loseEvery = high && high.actual < 100 ? Math.round(100 / (100 - high.actual)) : null;
     document.getElementById("honest-guarantee").innerHTML =
-        `A guarantee. ${loseEvery ? `Even HIGH picks lose about one in ${loseEvery}.` : "Any pick can lose."} Only stake what you can afford to lose. 18+.`;
+        `A guarantee. ${loseEvery ? `Even HIGH picks lose about one in ${loseEvery}.` : "Any pick can lose."} 18+; stake only what you can afford to lose.`;
     const w = overall.price_warned;
     if (w && w.graded) {
         const li = document.getElementById("honest-warned");
-        li.innerHTML = `Warned when the price turns. Picks whose price moved 3+ points against them before kickoff carry a warning; ` +
-            `those have won <strong class="text-primary tabular-nums">${w.won} of ${w.graded}</strong> (${Math.round(100 * w.won / w.graded)}%), counted in the record like every other pick.`;
+        li.innerHTML = `Warned when the price turns: those picks have won <strong class="text-primary tabular-nums">${w.won} of ${w.graded}</strong> (${Math.round(100 * w.won / w.graded)}%).` +
+            why(`A pick whose price moved 3+ points against it before kickoff carries a warning on its card. They are counted in the record like every other pick.`);
         li.classList.remove("hidden");
     }
     box.classList.remove("hidden");
@@ -489,8 +498,7 @@ function renderCalibration(rows) {
       </div>`).join("");
     const n = rows.reduce((a, r) => a + r.n, 0);
     document.getElementById("calibration-note").textContent =
-        `LOW is never served, so it is not shown. Measured on ${n} graded picks and ` +
-        `recalculated as every new result is recorded.`;
+        `${n} graded picks. Low confidence is never recommended, so it is not shown.`;
     section.classList.remove("hidden");
 }
 
@@ -520,12 +528,11 @@ async function loadRecord() {
         const ceil = document.getElementById("draw-ceiling");
         if (ceil && overall.ceiling_pct != null) {
             ceil.innerHTML =
-                `<strong class="text-primary">Why ${overall.ceiling_pct}% is the ceiling.</strong> ` +
-                `The model always backs a home or away win — it has never rated a draw as the ` +
-                `most likely result. ${overall.draws} of ${(at.scored_picks || 0).toLocaleString("en")} scored matches ` +
-                `(${overall.draw_pct}%) ended level, and each one counts as a loss it could not ` +
-                `avoid. So the best achievable hit rate on this ledger is ${overall.ceiling_pct}%, ` +
-                `not 100%.`;
+                `<strong class="text-primary">The best possible is ${overall.ceiling_pct}%, not 100%:</strong> ` +
+                `${overall.draw_pct}% of matches end in a draw.` +
+                why(`The model always backs a home or away win; it has never rated a draw as the most likely result. ` +
+                    `${overall.draws} of ${(at.scored_picks || 0).toLocaleString("en")} scored matches ended level, and each one ` +
+                    `counts as a loss it could not avoid.`);
             ceil.classList.remove("hidden");
         }
 
@@ -546,12 +553,11 @@ async function loadRecord() {
                     `to be able to grade them at all.`;
             }
             covEl.innerHTML =
-                `<strong class="text-primary">${cov.pct}% of the ledger was actually checked.</strong> ` +
-                `${cov.graded.toLocaleString("en")} of ${cov.eligible.toLocaleString("en")} predictions old enough to have a result ` +
-                `have been graded against a real full-time score. The remaining ` +
-                `${cov.ungraded} are not counted in any number on this page — neither as ` +
-                `wins nor losses.${extra} ` +
-                `Read every percentage above as a figure over the ${cov.pct}% we could verify.`;
+                `<strong class="text-primary">${cov.pct}% of predictions were checked</strong> against a real final score; ` +
+                `the rest aren't counted, as wins or losses.` +
+                why(`${cov.graded.toLocaleString("en")} of ${cov.eligible.toLocaleString("en")} predictions old enough to have a result ` +
+                    `have been graded. The other ${cov.ungraded} are left out of every number on this page.${extra} ` +
+                    `Read every percentage here as a figure over the ${cov.pct}% we could verify.`);
             covEl.classList.remove("hidden");
         }
 
@@ -591,9 +597,9 @@ async function loadOtherSports() {
             const rec = r.graded
                 ? `<strong class="text-primary tabular-nums">${r.won}-${r.lost}</strong> on ${r.graded} graded picks (${r.hit_pct}%)${tierTxt ? ` · ${tierTxt}` : ""}`
                 : "no graded picks yet";
-            return `<div class="p-sm rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
-              <span class="font-bold text-primary">${code.toUpperCase()}</span> · ${rec}
-              <p class="mt-xs max-w-prose">${escapeHtml((d.disclosures || {})[code] || "")}</p></div>`;
+            return `<details class="p-sm rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
+              <summary class="cursor-pointer"><span class="font-bold text-primary">${code.toUpperCase()}</span> · ${rec}</summary>
+              <p class="mt-xs max-w-prose">${escapeHtml((d.disclosures || {})[code] || "")}</p></details>`;
         }).join("");
     } catch (err) {
         box.innerHTML = `<span class="text-label-sm text-on-surface-variant">${escapeHtml(ppErrorMessage(err, "load the NHL/NFL/NBA records"))}</span>`;

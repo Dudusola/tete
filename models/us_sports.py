@@ -58,13 +58,13 @@ TOTAL_GOALS = "Over/Under Goals"      # "Over/Under" prefix -> build_slip
 TOTAL_POINTS = "Over/Under Points"    # splits overs from unders (correlation cap)
 
 DISCLOSURE = {
-    "nhl": ("NHL picks are experimental and kept separate from our football record. "
+    "nhl": ("NHL picks are tracked separately from our football record. "
             "On 5,000 past NHL games the bookmaker's prices were sharper than ours, "
             "so check its view beside each pick."),
-    "nfl": ("NFL picks are experimental and kept separate from our football record. "
+    "nfl": ("NFL picks are tracked separately from our football record. "
             "Our numbers know results only - not quarterbacks, injuries or weather, "
             "which the bookmaker prices. Check its view beside each pick."),
-    "nba": ("NBA picks are experimental and kept separate from our football record. "
+    "nba": ("NBA picks are tracked separately from our football record. "
             "Our numbers know results and back-to-backs, not injuries or who sits out. "
             "On 5,400 past NBA games the bookmaker was sharper than us, so spread and "
             "total legs in the Builder use its own price. Check its view beside each pick."),

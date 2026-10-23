@@ -176,6 +176,7 @@ let selectedCount = 5;
 let selectedLeagues = new Set();
 let excludedPairs = [];   // [{home, away}] fixtures the user removed
 let pinnedLegs = [];      // Bankers: [{home_team, away_team, market, selection}]
+let NBA_MARKETS = null;   // match_id -> [{market, selection, probability}] from the NBA picks feed
 let selectedSports = ppSportsGet();
 
 function paintLeagueSection() {
@@ -263,6 +264,7 @@ function renderLeg(leg, idx) {
     </div>
     <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
     <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(ppPlainMarket(leg.market))}</div>
+    ${leg.sport === "nba" ? `<div class="nba-bet-slot" data-idx="${idx}"></div>` : ""}
   </div>
   <div class="flex items-center justify-between md:justify-end gap-lg flex-1">
     <div class="bg-primary-container text-on-primary rounded-md px-3 py-1 text-data-tabular font-data-tabular text-center min-w-[110px]" title="Bookmaker calls it: ${escapeHtml(leg.market)} · ${escapeHtml(leg.selection)}">${escapeHtml(ppPlainPick(leg.selection))}</div>
@@ -332,7 +334,7 @@ function renderSlip(data) {
       Only football Match Result picks have a graded track record so far. The other
       markets on this slip are model estimates that haven't been checked
       against results yet.${data.legs.some(l => l.sport && l.sport !== "football") ? `
-      NHL/NFL/NBA legs are experimental and kept separate from our football record;
+      NHL/NFL/NBA legs have their own record, kept separate from football's;
       they include overtime, and book on SportyBet and MSport only.` : ""}${data.legs.some(l => l.sport === "nba" && l.market !== "Moneyline") ? `
       NBA spread and total legs show the bookmaker's own chance, not ours: on past
       seasons its numbers beat our model there.` : ""}
@@ -359,6 +361,7 @@ function renderSlip(data) {
   </div>
 </section>`;
     LAST_SLIP = data.legs;
+    fillNbaBetTypes(data.legs);
     document.querySelectorAll(".book-provider-btn").forEach(b =>
         b.addEventListener("click", () => bookSlip(b.dataset.provider)));
     ppWireTrackSlip(() => LAST_SLIP.map(l => ({ ...l, odds: l.sporty_odds })), "builder");
@@ -385,6 +388,37 @@ function renderSlip(data) {
         }));
     const reset = document.getElementById("reset-excluded");
     if (reset) reset.addEventListener("click", () => { excludedPairs = []; generateSlip(); });
+}
+
+/* NBA legs: offer the game's other priced bets (win, spread, total points) when
+   the bookmaker has posted lines. Only games on the NBA picks feed carry them. */
+async function fillNbaBetTypes(legs) {
+    const slots = document.querySelectorAll(".nba-bet-slot");
+    if (!slots.length) return;
+    if (!NBA_MARKETS) {
+        try {
+            const d = await PotentialProAPI.sportPicks(["nba"]);
+            NBA_MARKETS = Object.fromEntries((d.picks || []).map(p => [p.match_id, (p.markets || [])
+                .map(m => ({market: m.market, selection: m.selection, probability: m.probability ?? m.book_probability}))]));
+        } catch (err) { console.error("nba markets:", err); return; }
+    }
+    slots.forEach(slot => {
+        const leg = legs[parseInt(slot.dataset.idx)];
+        const opts = (NBA_MARKETS[leg.match_id] || []).filter(o => o.probability != null);
+        if (opts.length <= 2) return;           // win/lose only: nothing to switch to
+        const key = o => `${o.market}||${o.selection}`;
+        slot.innerHTML = `<label class="mt-xs flex items-center gap-xs text-label-sm text-on-surface-variant"><span class="whitespace-nowrap">Bet type</span>
+          <select class="nba-bet min-w-0 max-w-full flex-1 md:flex-none rounded-lg border border-outline-variant bg-surface text-label-sm py-1 pl-2 pr-8">
+            ${opts.map(o => `<option value="${escapeHtml(key(o))}" ${key(o) === key(leg) ? "selected" : ""}>${escapeHtml(ppPlainPick(o.selection))} · ${Math.round(o.probability * 100)}%</option>`).join("")}
+          </select></label>`;
+        slot.querySelector("select").addEventListener("change", e => {
+            const [market, selection] = e.target.value.split("||");
+            // One bet per game: replace any banker already set on this game.
+            pinnedLegs = pinnedLegs.filter(p => !(p.home_team === leg.home_team && p.away_team === leg.away_team));
+            pinnedLegs.push({home_team: leg.home_team, away_team: leg.away_team, market, selection});
+            generateSlip();
+        });
+    });
 }
 
 let LAST_SLIP = [];
