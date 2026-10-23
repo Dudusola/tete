@@ -1925,7 +1925,15 @@ unknown until the honest ledger matures (`db/edge_report.py`).
    read from /api/picks + /api/picks/sports so push and card agree. Needs
    db/supabase/004_push_price.sql (push_sent.kind 'price'); until it runs the
    Worker logs "price alerts off" and skips them - each is recorded BEFORE it
-   is sent, alone, so a rejected row can neither repeat nor sink the batch. Free-plan cap: 50 subrequests per cron run, so ~40
+   is sent, alone, so a rejected row can neither repeat nor sink the batch.
+   MORNING ALERT + SETTINGS (23 Oct 2026, db/supabase/005_push_prefs.sql): one push per
+   user per Lagos day, 07:00-12:00 Lagos, only once /api/picks' generated_at is today:
+   "N picks today, H high confidence. Strongest: X to win (P%)" + "Your leagues: ..."
+   from the leagues starred on Matches (synced to push_prefs.leagues when signed in).
+   push_prefs (own-row RLS; no row = all on) switches morning / leagues_on / kickoff /
+   price / results, read by the Worker (missing table = defaults). Same pre-record
+   rule as price (PRE_RECORD in push.js). Goal/live alerts deliberately NOT built: the
+   Worker cron is every 10 min on the free plan, so a "Goal!" would arrive late. Free-plan cap: 50 subrequests per cron run, so ~40
    pushes a tick; the rest go out next tick.
    Original design notes (Aug 2026, DESIGNED, DEFERRED ON PURPOSE):
    Not built because Telegram ALREADY delivers a real push notification to the

@@ -1,7 +1,8 @@
 // node worker/push.test.mjs - checks web push encryption against RFC 8291's
 // own test vector, the VAPID signature, and the settle rules.
 import assert from "node:assert/strict";
-import { b64u, encrypt, vapidJwt, pickStatus, slipStatus, priceAlerts } from "./push.js";
+import { b64u, encrypt, vapidJwt, pickStatus, slipStatus, priceAlerts,
+         PREF_DEFAULTS, wants, lagosDay, dayRef, morningMessage } from "./push.js";
 
 const body = await encrypt("When I grow up, I want to be a watermelon",
   "BCVxsr7N_eNgVRqvHtD0zTZsEc6-VV-JvLexhqUzORcxaOzi6-AYWXvTBHm4bjyPjs7Vd8pZGH6SRpkNtoIAiw4",
@@ -42,4 +43,27 @@ assert.equal(priceAlerts([tp(2, "m1", "Away Win", "2026-10-23 18:00")], served, 
 assert.equal(priceAlerts([tp(3, "m1", "Home Win", "2026-10-23 11:00")], served, now, yes).length, 0);  // kicked off
 assert.equal(priceAlerts([tp(4, "m2", "Away Win", "2026-10-23 18:00")], served, now, yes).length, 0);  // no warning
 assert.equal(priceAlerts([tp(5, "m1", "Home Win", "2026-10-23 18:00")], served, now, () => false).length, 0);  // already sent
+// Settings: switched-off kinds are dropped; the morning alert decides for itself.
+assert.equal(wants(PREF_DEFAULTS, "kickoff"), true);
+assert.equal(wants({ ...PREF_DEFAULTS, results: false }, "settled"), false);
+assert.equal(wants({ ...PREF_DEFAULTS, price: false }, "price"), false);
+assert.equal(wants({ ...PREF_DEFAULTS, kickoff: false }, "morning"), true);
+
+// Lagos day (UTC+1): 23:30 UTC is already tomorrow in Lagos. dayRef is a valid uuid.
+assert.equal(lagosDay(Date.parse("2026-10-23T23:30:00Z")), "2026-10-24");
+assert.match(dayRef("2026-10-24"), /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
+
+// Morning alert: picks line, strongest pick, leagues line, nothing -> null.
+const todayPicks = [{ confidence: "HIGH", best_bet: "Home Win", home_team: "Arsenal", away_team: "B", best_bet_prob: 0.78 },
+                    { confidence: "MEDIUM", best_bet: "Away Win", home_team: "C", away_team: "D", best_bet_prob: 0.6 }];
+const lg = new Map([["Premier League", { name: "Premier League", n: 3, picks: 1 }]]);
+let msg = morningMessage("u", { ...PREF_DEFAULTS, leagues: ["Premier League", "Serie A"] }, todayPicks, lg, "2026-10-24");
+assert.equal(msg.title, "Today's picks are out");
+assert.equal(msg.body, "2 picks today, 1 high confidence. Strongest: Arsenal to win (78%). Your leagues: Premier League 3 matches, 1 pick.");
+assert.equal(msg.url, "picks.html");
+msg = morningMessage("u", { ...PREF_DEFAULTS, morning: false, leagues: ["Premier League"] }, todayPicks, lg, "2026-10-24");
+assert.equal(msg.title, "Your leagues today");
+assert.equal(msg.body, "Your leagues: Premier League 3 matches, 1 pick.");
+assert.equal(morningMessage("u", PREF_DEFAULTS, [], new Map(), "2026-10-24"), null);
+assert.equal(morningMessage("u", { ...PREF_DEFAULTS, leagues_on: false, leagues: ["Premier League"] }, [], lg, "2026-10-24"), null);
 console.log("push tests OK");
