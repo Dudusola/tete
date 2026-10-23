@@ -1411,6 +1411,20 @@ def get_match(match_id: str):
     and the live or final score."""
     import json as _json
     conn = get_connection()
+    # NHL, NBA and NFL games get their own card (models/us_sports.game: the
+    # same one Picks shows), with ESPN's live score joined on the event id.
+    from models.us_sports import game
+    g = game(conn, match_id)
+    if g is not None:
+        conn.close()
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
+        if g["result_outcome"] is None and (g["live_state"] in ("in", "post") or (g["kickoff_utc"] or "9") <= now):
+            try:
+                attach_live_scores_us([g])
+            except Exception as e:      # decoration; the page still loads
+                print(f"[match] live score failed: {e}", flush=True)
+        g["live_state"] = effective_live_state(g)
+        return g
     row = conn.execute(f"""
         SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
                m.kickoff_time, m.kickoff_utc, m.live_state, m.espn_league,

@@ -244,7 +244,7 @@ function renderSportCard(p) {
   <div class="flex justify-between items-start gap-sm mb-sm">
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-xs min-w-0 text-label-sm text-surface-tint uppercase tracking-wider"><span class="truncate">${escapeHtml(p.league)}</span><span aria-hidden="true">·</span><span class="whitespace-nowrap normal-case tracking-normal font-semibold text-on-surface-variant">${escapeHtml(kickoffLabel(p.match_date, null, p.kickoff_utc))}</span></div>
-      <h2 class="text-title-md font-semibold text-primary mt-xs text-balance">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</h2>
+      <h2 class="text-title-md font-semibold text-primary mt-xs text-balance"><a href="match.html?id=${encodeURIComponent(p.match_id)}" class="hover:underline underline-offset-4">${escapeHtml(p.home_team)} vs ${escapeHtml(p.away_team)}</a></h2>
     </div>
     <div class="flex flex-col items-end gap-xs shrink-0">
       <div class="${badgeClasses(p.confidence)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${p.confidence}</div>

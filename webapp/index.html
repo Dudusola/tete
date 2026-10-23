@@ -210,8 +210,7 @@ function row(m) {
         <span class="truncate ${won ? "font-bold text-primary" : "text-on-surface"}">${esc(name)}</span>
         ${sc ? `<span class="tabular-nums font-bold ${live ? "text-error" : "text-primary"}">${esc(String(goals))}</span>` : ""}</div>`;
     const hw = sc && isFinal(m) && +sc[0] > +sc[1], aw = sc && isFinal(m) && +sc[1] > +sc[0];
-    // The match page is football's; other sports open their pick (analysis + markets) on Picks.
-    const href = m.sport === "football" ? `match.html?id=${encodeURIComponent(m.match_id)}` : `picks.html?sport=${m.sport}`;
+    const href = `match.html?id=${encodeURIComponent(m.match_id)}`;
     return `<a href="${href}"
         class="flex items-center gap-md px-md py-sm hover:bg-surface-container-high focus-visible:bg-surface-container-high">
         <div class="w-14 shrink-0 text-label-sm text-center">${live ? '<span class="pp-live-dot"></span> ' : ""}${left}</div>

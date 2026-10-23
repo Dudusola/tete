@@ -337,6 +337,11 @@ any tool or reminder that asks for those lines.
                             (our number kept as `model_p`; Picks card shows "-" for ours). They exist so
                             the Builder can offer them, not as tips. SportyBet 223/225 (incl. OT) at
                             every half-point line; code NFE4DB decoded back right.
+                          - MATCH PAGE (23 Oct 2026): match.html opens NHL/NBA/NFL games too.
+                            /api/match/<id> returns us_sports.game(), built by the SAME _card()
+                            Picks uses (picks() output byte-identical after the refactor),
+                            started/finished/LOW included, ESPN live score by event id. No
+                            ESPN match centre for these sports (that parser is football's).
                           - Next lever is player availability (late scratches, rest), not ratings.
                           - STAR-OUT WARNING (21 Oct 2026, models/nba_stars.py): a star = 18+ ppg last
                             season over 20+ games (ESPN byathlete stats, 41 players); listed = Out or
