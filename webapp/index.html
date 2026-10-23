@@ -66,6 +66,8 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
   <p class="text-body-md text-on-surface-variant mt-xs">Every match we cover, with live scores and results. Tap a match for the details.</p>
 </header>
 
+<div id="sport-strip" role="group" aria-label="Sport" class="flex gap-xs overflow-x-auto [scrollbar-width:none] -mx-gutter px-gutter md:mx-0 md:px-0 pb-1 mb-xs"></div>
+
 <div id="day-strip" role="group" aria-label="Day" class="flex gap-xs overflow-x-auto [scrollbar-width:none] -mx-gutter px-gutter md:mx-0 md:px-0 pb-1 mb-sm"></div>
 <div class="flex gap-xs mb-md">
   <input id="search" type="search" placeholder="Search team or league" aria-label="Search team or league"
@@ -93,6 +95,26 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 let MATCHES = [];
 let DAY = "";
 let ONLY_LIVE = false;
+// Football, NHL, NBA and NFL (23 Oct 2026). "all" by default; remembered per device.
+const SPORT_CHIPS = [["all", "All sports", "apps"], ["football", "Football", "sports_soccer"],
+    ["nhl", "NHL", "sports_hockey"], ["nba", "NBA", "sports_basketball"], ["nfl", "NFL", "sports_football"]];
+let SPORT = (() => { try { return localStorage.getItem("pp-matches-sport") || "all"; } catch (_) { return "all"; } })();
+const inSport = m => SPORT === "all" || m.sport === SPORT;
+function renderSports() {
+    const box = document.getElementById("sport-strip");
+    box.innerHTML = SPORT_CHIPS.filter(([k]) => k === "all" || MATCHES.some(m => m.sport === k)).map(([k, label, icon]) =>
+        `<button type="button" data-sport="${k}" aria-pressed="${k === SPORT}"
+           class="shrink-0 inline-flex items-center gap-xs min-h-[36px] px-md py-xs rounded-full border text-label-sm font-bold ${k === SPORT
+             ? "bg-primary text-on-primary border-primary"
+             : "border-outline-variant text-on-surface-variant hover:bg-surface-container-high"}">
+           <span class="material-symbols-outlined text-[16px]" aria-hidden="true">${icon}</span>${label}</button>`).join("");
+    box.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        SPORT = b.dataset.sport;
+        try { localStorage.setItem("pp-matches-sport", SPORT); } catch (_) {}
+        pickDay();
+        renderSports(); renderDays(); renderList();
+    }));
+}
 const FAVS = new Set((() => { try { return JSON.parse(localStorage.getItem("pp-fav-leagues") || "[]"); } catch (_) { return []; } })());
 
 // The kickoff's day in the viewer's own timezone, so the strip agrees with the times shown.
@@ -117,6 +139,8 @@ function score(m) {
 // Only a recorded result grades a pick (the record's rule); a feed score does not.
 function verdict(m) {
     if (m.result_outcome == null) return "";
+    // NHL/NBA/NFL picks are the full-game moneyline: a level NFL final is a push (void), as in the record.
+    if (m.sport !== "football" && m.result_outcome === "D") return ` · <span class="text-on-surface-variant">void</span>`;
     const won = {"Home Win": "H", "Draw": "D", "Away Win": "A"}[m.best_bet] === m.result_outcome;
     return ` · <span class="${won ? "text-secondary" : "text-error"}">${won ? "won" : "lost"}</span>`;
 }
@@ -129,7 +153,7 @@ function renderDays() {
     // day before in the viewer's time, which would add a stray older day.
     const y = new Date(Date.now() - 864e5);
     const yesterday = `${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, "0")}-${String(y.getDate()).padStart(2, "0")}`;
-    const days = [...new Set(MATCHES.map(dayOf))].filter(k => k >= yesterday).sort();
+    const days = [...new Set(MATCHES.filter(inSport).map(dayOf))].filter(k => k >= yesterday).sort();
     const strip = document.getElementById("day-strip");
     strip.innerHTML = days.map(k => `<button type="button" data-day="${k}" aria-pressed="${k === DAY}"
         class="shrink-0 min-h-[36px] px-md py-xs rounded-full border text-label-sm font-bold ${k === DAY
@@ -147,12 +171,14 @@ function row(m) {
         : isFinal(m) ? `<span class="text-on-surface-variant font-semibold">FT</span>`
         : `<span class="text-on-surface-variant tabular-nums">${esc(kickoffLabel(m.match_date, m.kickoff_time, m.kickoff_utc).replace(/^(Today|Tomorrow|Yesterday) /, ""))}</span>`;
     const pick = m.confidence === "HIGH" || m.confidence === "MEDIUM"
-        ? `<div class="text-label-sm text-secondary font-semibold mt-[2px] truncate">Our pick: ${esc(pickName(m))} · ${Math.round((m.best_bet_prob || 0) * 100)}%${verdict(m)}</div>` : "";
+        ? `<div class="text-label-sm text-secondary font-semibold mt-[2px]">Our pick: ${esc(pickName(m))} · ${Math.round((m.best_bet_prob || 0) * 100)}%${verdict(m)}</div>` : "";
     const team = (name, goals, won) => `<div class="flex items-center justify-between gap-sm">
         <span class="truncate ${won ? "font-bold text-primary" : "text-on-surface"}">${esc(name)}</span>
         ${sc ? `<span class="tabular-nums font-bold ${live ? "text-error" : "text-primary"}">${esc(String(goals))}</span>` : ""}</div>`;
     const hw = sc && isFinal(m) && +sc[0] > +sc[1], aw = sc && isFinal(m) && +sc[1] > +sc[0];
-    return `<a href="match.html?id=${encodeURIComponent(m.match_id)}"
+    // The match page is football's; other sports open their pick (analysis + markets) on Picks.
+    const href = m.sport === "football" ? `match.html?id=${encodeURIComponent(m.match_id)}` : `picks.html?sport=${m.sport}`;
+    return `<a href="${href}"
         class="flex items-center gap-md px-md py-sm hover:bg-surface-container-high focus-visible:bg-surface-container-high">
         <div class="w-14 shrink-0 text-label-sm text-center">${live ? '<span class="pp-live-dot"></span> ' : ""}${left}</div>
         <div class="flex-1 min-w-0 text-body-md">${team(m.home_team, sc && sc[0], hw)}${team(m.away_team, sc && sc[1], aw)}${pick}</div>
@@ -161,10 +187,10 @@ function row(m) {
 
 function renderList() {
     const q = document.getElementById("search").value.trim().toLowerCase();
-    const shown = MATCHES.filter(m => dayOf(m) === DAY &&
+    const shown = MATCHES.filter(m => inSport(m) && dayOf(m) === DAY &&
         (!ONLY_LIVE || inPlay(m)) &&
         (!q || `${m.home_team} ${m.away_team} ${m.league_display}`.toLowerCase().includes(q)));
-    const liveN = MATCHES.filter(inPlay).length;
+    const liveN = MATCHES.filter(m => inSport(m) && inPlay(m)).length;
     document.getElementById("live-count").textContent = liveN ? `(${liveN})` : "";
     const list = document.getElementById("list");
     if (!shown.length) {
@@ -195,17 +221,25 @@ function renderList() {
     }));
 }
 
+// Open on today if the chosen sport has anything today, else its next day with matches.
+function pickDay() {
+    const today = dayOf({match_date: "", kickoff_utc: new Date().toISOString().slice(0, 16).replace("T", " ")});
+    const days = [...new Set(MATCHES.filter(inSport).map(dayOf))].sort();
+    if (days.includes(DAY)) return;
+    DAY = days.includes(today) ? today : (days.find(d => d > today) || days[days.length - 1] || today);
+}
+
 async function load(refresh = false) {
     const list = document.getElementById("list");
     if (!refresh) list.innerHTML = `<div class="space-y-sm">${ppSkeleton(140)}${ppSkeleton(140)}</div>`;
     try {
         MATCHES = (await PotentialProAPI.matches()).matches || [];
         if (!refresh) {
-            // Open on today if there's anything today, else the next day with matches.
-            const today = dayOf({match_date: "", kickoff_utc: new Date().toISOString().slice(0, 16).replace("T", " ")});
-            const days = [...new Set(MATCHES.map(dayOf))].sort();
-            DAY = days.includes(today) ? today : (days.find(d => d > today) || days[days.length - 1] || today);
+            // A remembered sport with nothing on (NFL off-week) falls back to all sports.
+            if (!MATCHES.some(inSport)) SPORT = "all";
+            pickDay();
         }
+        renderSports();
         renderDays();
         renderList();
     } catch (err) {

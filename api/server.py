@@ -49,7 +49,7 @@ from models.leagues import pretty_league
 from models.gradeability import overall_coverage
 from db.calibration_health import tier_calibration
 from models.draws import rank_draws, DISCLOSURE as DRAW_DISCLOSURE
-from models.live_scores import attach as attach_live_scores
+from models.live_scores import attach as attach_live_scores, attach_us as attach_live_scores_us
 from models.consensus import (build_consensus, _same_match, _sim,
                               _dates_close, same_teams)
 from scrapers.booking_codes import (decode as decode_booking,
@@ -1296,11 +1296,44 @@ def get_roundups(days: int = Query(7, ge=1, le=30)):
     return {"days": result}
 
 
+def _us_matches(conn) -> list:
+    """NHL, NBA and NFL games for the Matches page (23 Oct 2026, Boss: "the
+    matches should also show hockey matches, basketball matches, nfl"). Our
+    pick is the SAME one the Picks page serves (models/us_sports: the moneyline
+    side, football's tiers), from the latest shadow row that has markets."""
+    from models.us_sports import SPORTS, _pick, tier
+    out = []
+    for code, cfg in SPORTS.items():
+        for r in conn.execute(f"""
+            SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
+                   m.kickoff_time, m.kickoff_utc, m.live_state, s.p_home, s.markets_json,
+                   r.home_goals AS result_home_goals, r.away_goals AS result_away_goals,
+                   r.outcome AS result_outcome
+            FROM matches m
+            LEFT JOIN shadow_predictions s ON s.id = (
+                SELECT MAX(s2.id) FROM shadow_predictions s2
+                WHERE s2.match_id = m.match_id AND s2.markets_json IS NOT NULL)
+            LEFT JOIN results r ON r.match_id = m.match_id
+            WHERE m.match_date BETWEEN date('now', '-1 day') AND date('now', '+6 day')
+              {sport_sql(cfg["sport"])}
+        """).fetchall():
+            d = {k: r[k] for k in r.keys() if k not in ("p_home", "markets_json")}
+            d["sport"] = code
+            d["confidence"] = d["best_bet"] = d["best_bet_prob"] = None
+            if r["markets_json"]:
+                pk = _pick(r)
+                d["confidence"] = tier(pk["p"])
+                d["best_bet"] = "Home Win" if pk["key"] == "ml_home" else "Away Win"
+                d["best_bet_prob"] = pk["p"]
+            out.append(d)
+    return out
+
+
 @app.get("/api/matches")
 @cached(ttl=60, max_age=60)
 def get_matches():
     """The Matches page (23 Oct 2026, Boss: "separate the match tracker from
-    the picks page"): every football match from yesterday to six days ahead,
+    the picks page"): every football, NHL, NBA and NFL match from yesterday to six days ahead,
     one light row each - teams, kickoff, our pick if we made one, and the
     recorded result or ESPN's live score once it has kicked off. /api/fixtures
     carries every market (~730 KB) and is for building slips, not for this."""
@@ -1318,15 +1351,19 @@ def get_matches():
         WHERE m.match_date BETWEEN date('now', '-1 day') AND date('now', '+6 day') {SPORT_SQL}
         ORDER BY COALESCE(m.kickoff_utc, m.match_date)
     """).fetchall()]
+    for r in rows:
+        r["sport"] = "football"
+    rows += _us_matches(conn)
     conn.close()
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     for r in rows:
         r["live_state"] = effective_live_state(r)
-        r["league_display"] = pretty_league(r["league"])
+        r["league_display"] = r["league"] if r["sport"] != "football" else pretty_league(r["league"])
     started = [r for r in rows if r["result_outcome"] is None and
                (r["live_state"] in ("in", "post") or (r["kickoff_utc"] or "9") <= now)]
     try:
-        attach_live_scores(started)
+        attach_live_scores([r for r in started if r["sport"] == "football"])
+        attach_live_scores_us([r for r in started if r["sport"] != "football"])
     except Exception as e:      # decoration; the list still loads
         print(f"[matches] live scores failed: {e}", flush=True)
     for r in rows:
