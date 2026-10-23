@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "dev.pages.potentialpro.twa",
+    "sha256_cert_fingerprints": ["44:3F:F5:00:57:CE:2F:5A:C0:7F:D4:EC:18:E4:B8:99:2B:59:D4:CB:D6:B0:8B:7A:9A:AD:6B:E0:73:81:CE:BF"]
+  }
+}]

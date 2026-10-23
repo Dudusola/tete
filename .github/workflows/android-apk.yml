@@ -1,0 +1,86 @@
+# Android app (23 Oct 2026): a Trusted Web Activity - the installed app opens
+# the live site full-screen, so it never needs rebuilding for site changes.
+# Rebuild only when the app's name, icon, colours or package change
+# (android/twa-manifest.json), or run it by hand.
+#
+# Built here because GitHub's Ubuntu runners already carry JDK 17 and the
+# Android SDK; Boss's laptop has neither. The APK is committed to
+# webapp/download/ and served from our own site (the repo is private, so a
+# GitHub Release link would not download for anyone else).
+#
+# SIGNING: the key lives in secrets ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD,
+# with the only readable copy in Boss's Documents folder. Every future build
+# MUST use the same key or installed apps refuse the update. Its SHA-256 is in
+# webapp/.well-known/assetlinks.json, which is what lets the app hide the
+# browser address bar - a mismatch shows a URL bar instead of failing.
+name: Android app
+
+on:
+  push:
+    branches: [main]
+    paths: ['android/**', '.github/workflows/android-apk.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write     # to start deploy-webapp: a push made with GITHUB_TOKEN triggers no workflow
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Build and sign the APK
+        working-directory: android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+          BUBBLEWRAP_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          BUBBLEWRAP_KEY_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: |
+          test -n "$KEYSTORE_B64" || { echo "::error::ANDROID_KEYSTORE_B64 secret is missing"; exit 1; }
+          echo "$KEYSTORE_B64" | base64 -d > android.keystore
+          npm install -g @bubblewrap/cli@1.27.0
+          # Bubblewrap asks where the JDK and SDK are on first run; answer in its config file.
+          mkdir -p ~/.bubblewrap
+          echo "{\"jdkPath\":\"$JAVA_HOME_17_X64\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
+          # Each build gets a higher versionCode, or Android refuses it as an update.
+          jq --argjson n "${{ github.run_number }}" '.appVersionCode = $n | .appVersion = ("1." + ($n|tostring))' \
+            twa-manifest.json > m.json && mv m.json twa-manifest.json
+          yes | bubblewrap update --skipVersionUpgrade
+          yes | bubblewrap build
+          test -s app-release-signed.apk
+          mkdir -p ../webapp/download
+          cp app-release-signed.apk ../webapp/download/potentialpro.apk
+          ls -l ../webapp/download/potentialpro.apk
+
+      - name: Check the APK is signed with the published key
+        run: |
+          APKSIGNER=$(ls -d "$ANDROID_HOME"/build-tools/*/ | sort -V | tail -1)apksigner
+          WANT=$(jq -r '.[0].target.sha256_cert_fingerprints[0]' webapp/.well-known/assetlinks.json | tr -d ':' | tr 'A-F' 'a-f')
+          GOT=$("$APKSIGNER" verify --print-certs webapp/download/potentialpro.apk | grep -m1 'SHA-256' | awk '{print $NF}')
+          echo "want $WANT"; echo "got  $GOT"
+          test "$WANT" = "$GOT" || { echo "::error::APK key does not match assetlinks.json"; exit 1; }
+
+      - name: Publish on the site
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name  "potentialpro-bot"
+          git config user.email "actions@github.com"
+          git add webapp/download/potentialpro.apk
+          git commit -m "Android app build ${{ github.run_number }}" || { echo "APK unchanged"; exit 0; }
+          git pull --rebase --autostash
+          git push
+          gh workflow run deploy-webapp.yml --ref main
