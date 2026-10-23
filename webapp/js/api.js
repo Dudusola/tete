@@ -1165,7 +1165,10 @@ const PotentialProAPI = {
       /* 3. Never scroll the page sideways. Long team names and league slugs
             ("world-cup-2026-last-16") force grid children wider than their
             track unless min-width is cleared — the classic CSS-grid overflow. */
-      html, body { overflow-x: hidden; max-width: 100%; }
+      /*    clip, not hidden: hidden makes body its own scroll box, and nothing
+            inside can stick to the top (Matches' filter bar). hidden stays as
+            the fallback for browsers without clip. */
+      html, body { overflow-x: hidden; overflow-x: clip; max-width: 100%; }
       main, main * { min-width: 0; }
 
       /* 4. Touch targets — on TOUCH devices. 44px is the accessibility floor
