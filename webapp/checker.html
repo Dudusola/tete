@@ -42,7 +42,7 @@
 <section>
 <header class="mb-md">
 <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">Check a Slip</h1>
-<p class="text-body-md text-on-surface-variant mt-1">Pick legs from upcoming fixtures and see our model's view of each one and of the whole slip, then book it. Already have a code, or need a calculator? It's all under Tools.</p>
+<p class="text-body-md text-on-surface-variant mt-1">Pick legs from upcoming matches to see our chance for each and for the whole slip, then book it. Got a booking code, or need a calculator? Open Tools.</p>
 </header>
 
 <!-- Two jobs, two tabs. The code tools used to wait in a collapsed "beta" box
@@ -167,18 +167,20 @@
 <div id="build-panel" role="tabpanel" aria-labelledby="tab-build">
 <!-- Day strip, built from the fixtures loaded: "All" plus one button per
      kickoff day in the viewer's own timezone. -->
-<div id="day-strip" role="group" aria-label="Kickoff day" class="flex gap-xs overflow-x-auto [scrollbar-width:none] mb-sm pb-1"></div>
+<div class="sticky top-0 md:top-16 z-30 bg-surface -mx-md px-md md:mx-0 md:px-0 pt-xs pb-sm mb-sm border-b border-outline-variant">
+<div id="day-strip" role="group" aria-label="Kickoff day" class="flex gap-xs overflow-x-auto [scrollbar-width:none] mb-xs pb-1"></div>
 <!-- Search + market filter. The fixture cards below cap at the 6 highest
      probabilities, which is nearly always Double Chance and the safe Over/Under
      lines — so without a filter the other ~15 markets derive_markets produces
      were unreachable, and "pick the market you want" was not actually possible.
      The dropdown is built from the fixtures actually loaded, so a new market in
      models/markets.py appears here with no edit. -->
-<div class="flex flex-col sm:flex-row gap-xs mb-md">
+<div class="flex gap-xs">
   <input id="search" aria-label="Search fixtures by team or league" type="text" placeholder="Search team or league…" class="flex-1 min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md"/>
-  <select id="market-filter" aria-label="Filter fixtures by market" class="rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
+  <select id="market-filter" aria-label="Filter fixtures by market" class="w-36 sm:w-auto shrink-0 rounded-lg border border-outline-variant py-sm text-body-md bg-surface">
     <option value="">All markets</option>
   </select>
+</div>
 </div>
 <div id="fixture-list" class="space-y-sm lg:max-h-[70vh] lg:overflow-y-auto lg:pr-1">
 <div class="text-on-surface-variant">Loading fixtures…</div>
@@ -190,11 +192,11 @@
 <section id="slip-panel" class="lg:sticky lg:top-24 self-start w-full scroll-mt-lg">
 <div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
 <div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
-<h2 class="text-body-lg text-primary font-semibold">Your Slip</h2>
+<h2 class="text-body-lg text-primary font-semibold">Your slip</h2>
 <span id="leg-count" class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">0 legs</span>
 </div>
-<div id="slip-legs" class="divide-y divide-surface-container-high max-h-[45vh] overflow-y-auto">
-<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Pick a market from a fixture on the left.</div>
+<div id="slip-legs" class="divide-y divide-outline-variant max-h-[45vh] overflow-y-auto">
+<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Tap a pick on any match to add it.</div>
 </div>
 <div class="bg-primary-container text-on-primary p-md flex justify-between items-center">
 <div>
@@ -210,21 +212,21 @@
      /api/booking/generate call the Builder makes; the legs here already carry
      the market + selection it needs. -->
 <div class="bg-surface-container-low px-md py-sm border-t border-outline-variant">
-  <div class="flex flex-wrap gap-sm">
-    <button data-provider="sportybet" class="ck-book-btn flex-1 min-w-[9rem] bg-secondary text-on-secondary px-md py-sm rounded-lg font-semibold text-body-md shadow-sm hover:brightness-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+  <div class="grid grid-cols-2 gap-sm">
+    <button data-provider="sportybet" class="ck-book-btn col-span-2 bg-secondary text-on-secondary px-md py-sm rounded-lg font-semibold text-body-md shadow-sm hover:brightness-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
       <span class="material-symbols-outlined">confirmation_number</span>
       SportyBet code
     </button>
-    <button data-provider="msport" class="ck-book-btn flex-1 min-w-[9rem] bg-primary-container text-inverse-primary px-md py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+    <button data-provider="msport" class="ck-book-btn bg-primary-container text-inverse-primary px-sm py-sm whitespace-nowrap rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
       <span class="material-symbols-outlined">confirmation_number</span>
       MSport code
     </button>
-    <button data-provider="bet9ja" class="ck-book-btn flex-1 min-w-[9rem] bg-primary-container text-inverse-primary px-md py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+    <button data-provider="bet9ja" class="ck-book-btn bg-primary-container text-inverse-primary px-sm py-sm whitespace-nowrap rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
       <span class="material-symbols-outlined">confirmation_number</span>
       Bet9ja code
     </button>
   </div>
-  <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes — paste those under Tools.</div>
+  <div class="text-label-sm text-on-surface-variant mt-xs">Bet9ja takes only win/draw, double chance and both-teams-score legs. football.com and Betano codes can be read under Tools, not made here.</div>
   <div id="ck-book-result" class="mt-sm text-body-md text-on-surface"></div>
   <div id="track-slip-slot"></div>
 </div>
@@ -366,31 +368,21 @@ function renderFixtures(filter="") {
     // so a leg never disappears from the list it was picked from.
     const paged = shown.filter((fx, i) => i < fixtureLimit || SLIP.some(l => l.match_id === fx.match_id));
     const remaining = shown.length - paged.length;
-    let lastLeague = null;
-    list.innerHTML = paged.map(fx => {
-        const fav = FAVS.has(fx.league);
-        const header = fx.league !== lastLeague
-            ? `<div class="flex items-center justify-between pt-sm">
-                 <h3 class="text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">${cleanLeague(fx.league)}</h3>
-                 <button type="button" class="fav-league w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high ${fav ? "text-secondary" : "text-on-surface-variant"}"
-                         data-league="${esc(fx.league)}" aria-pressed="${fav}" aria-label="${fav ? "Remove" : "Add"} ${esc(prettyLeague(fx.league))} ${fav ? "from" : "to"} favourite leagues">
-                   <span class="material-symbols-outlined text-[20px] ${fav ? "icon-fill" : ""}" aria-hidden="true">star</span></button>
-               </div>` : "";
-        lastLeague = fx.league;
+    const row = fx => {
         const mkts = MARKET_FILTER
             ? fx.markets.filter(m => m.market === MARKET_FILTER)
             : fx.markets;
-        // A filtered list is already short (2-4 selections), so show it whole —
+        // A filtered list is already short (2-4 selections), so show it whole -
         // collapsing it would hide the very thing that was filtered for.
         const open = MARKET_FILTER || EXPANDED.has(fx.match_id);
         const visible = open ? mkts : mkts.slice(0, CHIPS_COLLAPSED);
         const hidden = mkts.length - visible.length;
         const picked = SLIP.find(l => l.match_id === fx.match_id);
         const started = isStarted(fx);
-        return header + `
-<div class="bg-surface-container-lowest border ${picked ? "border-secondary" : "border-outline-variant"} rounded-lg p-sm">
+        return `
+<div class="p-sm ${picked ? "border-l-2 border-l-secondary bg-surface-container-low" : ""}">
   <div class="flex justify-between items-start mb-xs gap-sm">
-    <div>
+    <div class="min-w-0">
       <div class="text-label-sm text-on-surface-variant">${esc(kickoffLabel(fx.match_date, fx.kickoff_time, fx.kickoff_utc))}</div>
       <a href="match.html?id=${encodeURIComponent(fx.match_id)}" class="block text-body-md font-semibold text-primary hover:underline underline-offset-4">${esc(fx.home_team)} vs ${esc(fx.away_team)}</a>
     </div>
@@ -405,6 +397,24 @@ function renderFixtures(filter="") {
             : "")}
   </div>
 </div>`;
+    };
+    // Consecutive fixtures of one league share a block (paged is league-sorted).
+    const groups = [];
+    paged.forEach(fx => {
+        const g = groups[groups.length - 1];
+        if (g && g.league === fx.league) g.fxs.push(fx); else groups.push({league: fx.league, fxs: [fx]});
+    });
+    list.innerHTML = groups.map(({league, fxs}) => {
+        const fav = FAVS.has(league);
+        return `<section class="rounded-xl border border-outline-variant bg-surface-container-lowest overflow-hidden">
+  <div class="flex items-center justify-between pl-sm pr-xs py-xs bg-surface-container-low border-b border-outline-variant">
+    <h3 class="min-w-0 flex items-baseline gap-xs text-label-sm font-bold uppercase tracking-wider text-on-surface-variant">
+      <span class="truncate">${cleanLeague(league)}</span><span class="shrink-0 font-medium tabular-nums normal-case tracking-normal">${fxs.length}</span></h3>
+    <button type="button" class="fav-league w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high ${fav ? "text-secondary" : "text-on-surface-variant"}"
+            data-league="${esc(league)}" aria-pressed="${fav}" aria-label="${fav ? "Remove" : "Add"} ${esc(prettyLeague(league))} ${fav ? "from" : "to"} favourite leagues">
+      <span class="material-symbols-outlined text-[20px] ${fav ? "icon-fill" : ""}" aria-hidden="true">star</span></button>
+  </div>
+  <div class="divide-y divide-outline-variant">${fxs.map(row).join("")}</div></section>`;
     }).join("") + (remaining > 0 ? `
 <button type="button" id="more-fixtures" class="w-full py-sm rounded-lg border border-outline-variant text-body-md font-semibold text-secondary hover:bg-surface-container-high">
   Show ${Math.min(remaining, FIXTURE_PAGE)} more ${Math.min(remaining, FIXTURE_PAGE) === 1 ? "fixture" : "fixtures"} <span class="text-on-surface-variant font-normal tabular-nums">(${remaining} left)</span>
@@ -506,19 +516,19 @@ function renderSlip() {
         if (SLIP.length) ppWireTrackSlip(() => SLIP.map(l => ({ ...l })), "checker", { fetchOdds: true });
     }
     if (!SLIP.length) {
-        box.innerHTML = `<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Pick a market from a fixture on the left.</div>`;
+        box.innerHTML = `<div class="p-md text-on-surface-variant text-body-md text-center">No legs yet. Tap a pick on any match to add it.</div>`;
         document.getElementById("acc-pct").textContent = "—";
         document.getElementById("acc-note").textContent = "";
         document.getElementById("ck-book-result").innerHTML = "";
         return;
     }
     box.innerHTML = SLIP.map(l => `
-<div class="p-sm flex justify-between items-center gap-sm">
-  <div class="flex-1">
+<div class="px-md py-sm flex justify-between items-center gap-sm">
+  <div class="flex-1 min-w-0">
     <div class="text-body-md text-primary font-semibold">${esc(l.home_team)} vs ${esc(l.away_team)}</div>
-    <div class="text-label-sm text-on-surface-variant" title="Bookmaker calls it: ${esc(l.market)} · ${esc(l.selection)}">${esc(ppPlainPick(l.selection))}</div>
+    <div class="text-body-md text-secondary font-semibold" title="Bookmaker calls it: ${esc(l.market)} · ${esc(l.selection)}">${esc(ppPlainPick(l.selection))}</div>
   </div>
-  <span class="text-body-md font-semibold text-primary">${Math.round(l.probability*100)}%</span>
+  <span class="text-body-lg font-semibold text-primary tabular-nums">${Math.round(l.probability*100)}%</span>
   <button type="button" class="rm material-symbols-outlined inline-flex items-center justify-center w-9 h-9 rounded-full hover:bg-surface-container-high text-on-surface-variant hover:text-error text-[18px]" data-mid="${esc(l.match_id)}" aria-label="Remove this leg">close</button>
 </div>`).join("");
     box.querySelectorAll(".rm").forEach(b => b.addEventListener("click", () => removeLeg(b.dataset.mid)));
