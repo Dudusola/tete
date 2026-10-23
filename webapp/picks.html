@@ -222,6 +222,13 @@ function expectedGoalsLine(p) {
    because a 60-minute 1X2 is a different bet on SportyBet. Track stores the
    pick as "Home Win"/"Away Win" (p.track_selection), which My Record grades
    against the final score - overtime included, exactly like this moneyline. */
+// Each sport's own record, set when its picks load; the card badge reads it.
+let US_RECORDS = {};
+const recordBadge = code => {
+    const r = US_RECORDS[code] || {};
+    return r.graded ? `${r.won} of ${r.graded} won` : "new";
+};
+
 function renderSportCard(p) {
     const prob = Math.round((p.best_bet_prob || 0) * 100);
     const started = hasKickedOff(p);
@@ -241,8 +248,8 @@ function renderSportCard(p) {
     </div>
     <div class="flex flex-col items-end gap-xs shrink-0">
       <div class="${badgeClasses(p.confidence)} px-sm py-base rounded-full text-label-sm font-bold flex items-center gap-xs">${p.confidence}</div>
-      <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold"
-            title="Kept separate from our football record">experimental</span>
+      <span class="inline-flex items-center gap-xs bg-surface-container-high text-on-surface-variant px-sm py-base rounded-full text-label-sm font-bold tabular-nums"
+            title="${escapeHtml(p.league)} picks so far, tracked separately from our football record">${escapeHtml(p.league)} · ${recordBadge(p.sport)}</span>
       ${!started && p.track_selection
         ? `<button type="button" class="pp-track-btn inline-flex items-center gap-xs px-sm py-base rounded-full text-label-sm font-bold border border-outline-variant text-on-surface-variant hover:border-secondary"
                   data-track="${escapeHtml(p.match_id)}" data-sel="${escapeHtml(p.track_selection)}" aria-pressed="false"
@@ -677,10 +684,10 @@ function renderSportNotes(sp, us) {
             ? `<strong class="text-primary tabular-nums">${r.won}-${r.lost}</strong> on ${r.graded} graded picks (${r.hit_pct}%)`
             : "no graded picks yet";
         // One line each, so three sports don't push the first pick off a phone
-        // screen; "experimental" stays in the visible line, the rest is a tap away.
+        // screen; the record is the visible line, the caveat a tap away.
         return `<details class="text-label-sm text-on-surface-variant">
           <summary class="cursor-pointer block py-1"><span class="font-bold text-primary">${code.toUpperCase()}</span>
-            · ${rec} · experimental</summary>
+            · ${rec} · tracked separately from football</summary>
           <p class="pb-sm max-w-prose">${escapeHtml((sp.disclosures || {})[code] || "")}</p></details>`;
     }).join("");
 }
@@ -712,6 +719,7 @@ async function loadPicks() {
         // view without football, and NHL/NFL get their own line below it.
         if (wantFootball) renderStatStrip(football, stats);
         else document.getElementById("stat-strip").innerHTML = "";
+        US_RECORDS = (sp && sp.records) || {};
         renderSportNotes(sp, us);
         if (ALL_PICKS.length === 0 && !wantFootball) {
             feed.innerHTML = `<div class="col-span-full text-center text-on-surface-variant py-xl">
