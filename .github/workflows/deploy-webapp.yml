@@ -28,6 +28,7 @@ on:
       - 'webapp/**'
       - 'tools/tailwind/**'
       - 'tools/icon_subset.py'
+      - 'tools/csp.py'
       - 'tools/material_symbols_names.txt'
       - '.github/workflows/deploy-webapp.yml'
   workflow_dispatch:
@@ -102,6 +103,14 @@ jobs:
             exit 1
           fi
           grep -hoE '(js|css)/[a-z]*\.(js|css)\?v=[A-Za-z0-9]*' webapp/index.html
+
+      # Last, after every step that rewrites the HTML: the CSP allows each
+      # inline page script by its hash (tools/csp.py), so it must see the
+      # final bytes. It also refuses to deploy any inline onclick="".
+      - name: Content-Security-Policy hashes
+        run: |
+          python3 tools/csp.py --check ||             echo "::warning::committed webapp/_headers CSP is stale - run 'python tools/csp.py' and commit"
+          python3 tools/csp.py
 
       - name: Check deploy credentials
         id: creds

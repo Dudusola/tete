@@ -8,6 +8,9 @@
  *
  * Two notifications, each sent at most once per pick/slip (push_sent table):
  *   kickoff  - a tracked single pick kicks off within the next hour
+ *   price    - the bookmaker's price on a tracked pick has moved against it
+ *              before kickoff (the same "price moved" warning the Picks card
+ *              shows; past warned picks won less often than claimed)
  *   settled  - a tracked pick has a final score, or a tracked slip is decided
  *              (any leg lost, or every leg won/void)
  *
@@ -123,10 +126,10 @@ async function sb(env, path, init = {}) {
 }
 
 async function api(env, path, body) {
-  const res = await fetch(`${env.API_BASE}${path}`, {
-    method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body), signal: AbortSignal.timeout(30000),
-  });
+  const res = await fetch(`${env.API_BASE}${path}`, body === undefined
+    ? { signal: AbortSignal.timeout(30000) }
+    : { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body), signal: AbortSignal.timeout(30000) });
   if (!res.ok) throw new Error(`${path}: HTTP ${res.status}`);
   return res.json();
 }
@@ -151,16 +154,33 @@ export function slipStatus(legStatuses) {
   return "pending";
 }
 
+/* Price alerts for tracked picks that haven't kicked off. `served` maps
+   match_id -> {selection, warnings} from the Picks feeds; a warning is about
+   OUR pick, so it only applies when the user tracked that same side. */
+export function priceAlerts(picks, served, now, fresh) {
+  const out = [];
+  for (const p of picks) {
+    const s = served.get(p.match_id);
+    const w = s && s.selection === p.selection && (s.warnings || []).find((x) => x.type === "price");
+    if (w && kickoffMs(p.kickoff_utc) > now && fresh(p.user_id, "price", p.id)) {
+      out.push({ user_id: p.user_id, kind: "price", ref: p.id,
+                 title: "Price moved against your pick",
+                 body: `${p.home_team} v ${p.away_team} - ${p.selection}. ${w.text}.` });
+    }
+  }
+  return out;
+}
+
 const VERDICT = { won: "Won ✅", lost: "Lost ❌", void: "Void (stake back)" };
 
 /* Build {user_id, kind, ref, title, body} for everything due now. */
 async function dueMessages(env, users, now) {
   const inUsers = `user_id=in.(${users.join(",")})`;
   const [picks, slips, sent] = await Promise.all([
-    // kickoff window (next hour) + settle window (kicked off in the last 3 days)
+    // settle window (kicked off in the last 3 days) up to the price-alert window (next 24 h)
     sb(env, `tracked_picks?select=id,user_id,match_id,home_team,away_team,league,kickoff_utc,selection` +
             `&${inUsers}&kickoff_utc=gte.${encodeURIComponent(fmt(now - 3 * 864e5))}` +
-            `&kickoff_utc=lte.${encodeURIComponent(fmt(now + 3600e3))}`),
+            `&kickoff_utc=lte.${encodeURIComponent(fmt(now + 24 * 3600e3))}`),
     sb(env, `tracked_slips?select=id,user_id,legs&${inUsers}` +
             `&created_at=gte.${new Date(now - 10 * 864e5).toISOString()}`),
     sb(env, `push_sent?select=user_id,kind,ref&${inUsers}` +
@@ -177,6 +197,17 @@ async function dueMessages(env, users, now) {
                  title: `Kicks off in ${mins} min`,
                  body: `${p.home_team} v ${p.away_team} - your pick: ${p.selection}` });
     }
+  }
+
+  const upcoming = picks.filter((p) => kickoffMs(p.kickoff_utc) > now && fresh(p.user_id, "price", p.id));
+  if (upcoming.length) {
+    // Two cached GETs (the Picks feeds), only when someone has an upcoming tracked pick.
+    const [fb, us] = await Promise.all([api(env, "/api/picks"), api(env, "/api/picks/sports?sports=nhl,nfl,nba")]);
+    const served = new Map([
+      ...fb.picks.map((x) => [x.match_id, { selection: x.best_bet, warnings: x.warnings }]),
+      ...us.picks.map((x) => [x.match_id, { selection: x.track_selection, warnings: x.warnings }]),
+    ]);
+    out.push(...priceAlerts(upcoming, served, now, fresh));
   }
 
   // Settle only what has kicked off (90 min ago at least) and isn't announced yet.
@@ -226,13 +257,29 @@ export async function runPush(env) {
   const now = Date.now();
   const messages = await dueMessages(env, [...new Set(subs.map((s) => s.user_id))], now);
 
-  // Free Workers allow 50 subrequests per invocation; ~6 are used above.
+  // Free Workers allow 50 subrequests per invocation; ~8 are used above.
   // Anything over budget simply stays unsent and goes out on the next run.
   let budget = 40, delivered = 0, failed = 0, expired = 0;
   const sentRows = [];
+  let priceBlocked = false;
   for (const m of messages) {
     const mine = subs.filter((s) => s.user_id === m.user_id);
-    if (mine.length > budget) break;
+    if (mine.length + 1 > budget) break;
+    if (m.kind === "price") {
+      // Recorded BEFORE sending, on its own: until db/supabase/004_push_price.sql
+      // has run, push_sent rejects kind 'price', and that must neither spam the
+      // alert every 10 minutes nor sink the batch insert of the other kinds.
+      if (priceBlocked) continue;
+      budget--;
+      try {
+        await sb(env, "push_sent", { method: "POST", body: JSON.stringify([{ user_id: m.user_id, kind: m.kind, ref: m.ref }]),
+                                     headers: { Prefer: "resolution=ignore-duplicates,return=minimal" } });
+      } catch (err) {
+        priceBlocked = true;
+        console.log(`push: price alerts off - ${err.message.slice(0, 160)}`);
+        continue;
+      }
+    }
     for (const s of mine) {
       budget--;
       try {
@@ -247,7 +294,7 @@ export async function runPush(env) {
     }
     // Marked sent even if a device failed: retrying a broken endpoint every
     // 10 minutes would spam the working ones the user also has.
-    sentRows.push({ user_id: m.user_id, kind: m.kind, ref: m.ref });
+    if (m.kind !== "price") sentRows.push({ user_id: m.user_id, kind: m.kind, ref: m.ref });
   }
   if (sentRows.length) {
     await sb(env, "push_sent", { method: "POST", body: JSON.stringify(sentRows),

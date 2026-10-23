@@ -279,7 +279,7 @@ function renderSportCard(p) {
   ${(p.first_game_teams || []).length ? `<p class="text-label-sm text-on-surface-variant mb-sm">${escapeHtml(p.first_game_teams.join(" and "))}: first game of the season, so the rating has not seen ${p.first_game_teams.length > 1 ? "either" : "this"} new roster yet.</p>` : ""}
   <div class="border-t border-outline-variant pt-sm">
     <button type="button" aria-expanded="false" class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary rounded"
-            onclick="const o = this.nextElementSibling.classList.toggle('hidden'); this.setAttribute('aria-expanded', o ? 'false' : 'true'); this.lastElementChild.style.transform = o ? '' : 'rotate(180deg)';">
+            data-toggle-next>
       <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> Details${p.analysis ? " &amp; AI analysis" : ""}</span>
       <span class="material-symbols-outlined text-[18px] transition-transform">expand_more</span>
     </button>
@@ -405,7 +405,7 @@ function renderCard(p) {
   ${warningsHtml(p)}
   <div class="border-t border-outline-variant pt-sm">
     <button type="button" aria-expanded="false" class="flex items-center justify-between w-full text-left text-body-md text-on-surface-variant hover:text-secondary rounded"
-            onclick="const o = this.nextElementSibling.classList.toggle('hidden'); this.setAttribute('aria-expanded', o ? 'false' : 'true'); this.lastElementChild.style.transform = o ? '' : 'rotate(180deg)';">
+            data-toggle-next>
       <span class="flex items-center gap-xs"><span class="material-symbols-outlined text-[18px]">smart_toy</span> Details &amp; AI analysis</span>
       <span class="material-symbols-outlined text-[18px] transition-transform">expand_more</span>
     </button>

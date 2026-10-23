@@ -561,7 +561,7 @@ async function ppShareSlip(legs, statusEl) {
     } catch (err) {
         if (err && err.name === "AbortError") return;     // closed the share sheet
         if (statusEl) statusEl.classList.remove("hidden");
-        if (statusEl) statusEl.innerHTML = `Copy this link: <input readonly class="w-full text-label-sm border border-outline-variant rounded px-xs" value="${escapeHtml(url)}" onclick="this.select()">`;
+        if (statusEl) statusEl.innerHTML = `Copy this link: <input readonly class="w-full text-label-sm border border-outline-variant rounded px-xs" value="${escapeHtml(url)}" data-select-all>`;
     }
 }
 
@@ -804,6 +804,18 @@ function ppCodeResult(code, providerName, carried, missing) {
       <div class="mt-sm pt-sm border-t border-outline-variant">${codeRow}</div>
     </div>`;
 }
+
+// Delegated handlers instead of inline onclick="" attributes: the site's
+// Content-Security-Policy (webapp/_headers, tools/csp.py) blocks inline handlers.
+document.addEventListener("click", e => {
+    const t = e.target.closest && e.target.closest("[data-toggle-next], [data-select-all]");
+    if (!t) return;
+    if (t.hasAttribute("data-select-all")) { t.select(); return; }
+    // A "Details" button: show/hide the panel right after it, turn its chevron.
+    const open = !t.nextElementSibling.classList.toggle("hidden");
+    t.setAttribute("aria-expanded", open ? "true" : "false");
+    t.lastElementChild.style.transform = open ? "rotate(180deg)" : "";
+});
 
 // One delegated handler for every Copy button ppBookingResult renders, so the
 // code never has to be spliced into an inline onclick string.
