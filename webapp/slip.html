@@ -242,36 +242,29 @@ function paintCount() {
 function renderLeg(leg, idx) {
     const prob = Math.round((leg.probability||0)*100);
     const pinned = isPinned(leg);
+    // One compact row per leg, like Picks and Matches (UI pass, 23 Oct 2026):
+    // league and time, the game, our pick; chance and price on the right.
+    const btn = "w-8 h-8 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high";
     return `
-<div class="p-md flex flex-col md:flex-row md:items-center justify-between gap-md hover:bg-surface transition relative ${pinned ? "border-l-2 border-l-secondary" : ""}">
-  <!-- On phones these float top-right, so the text column below reserves
-       their width (pr-[76px]); without it the kickoff time and long team names
-       ran underneath the pin. 36px targets (p-2) instead of 28px. -->
-  <div class="absolute top-2 right-2 md:static md:order-last flex items-center gap-1">
-    <button data-idx="${idx}" title="${pinned ? "Unpin this Banker" : "Pin as Banker — survives re-rolls and filter changes"}"
-      class="pin-leg-btn transition p-2 rounded-full hover:bg-surface-container-high ${pinned ? "text-secondary" : "text-on-surface-variant hover:text-secondary"}">
-      <span class="material-symbols-outlined" style="font-size:20px;${pinned ? "font-variation-settings:'FILL' 1;" : ""}">push_pin</span>
-    </button>
-    <button data-idx="${idx}" title="Remove this game and pull in the next best"
-      class="swap-leg-btn text-on-surface-variant hover:text-error transition p-2 rounded-full hover:bg-surface-container-high">
-      <span class="material-symbols-outlined" style="font-size:20px">close</span>
-    </button>
+<div class="px-md pt-xs pb-sm ${pinned ? "border-l-2 border-l-secondary bg-surface-container-low" : ""}">
+  <div class="flex items-center gap-xs">
+    <div class="flex-1 min-w-0 text-label-sm text-on-surface-variant truncate">${escapeHtml(prettyLeague(leg.league))} · ${escapeHtml(kickoffLabel(leg.match_date, leg.kickoff_time, leg.kickoff_utc))}</div>
+    <button data-idx="${idx}" title="${pinned ? "Unpin this Banker" : "Pin as Banker — survives re-rolls and filter changes"}" aria-label="${pinned ? "Unpin" : "Pin"} ${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}"
+      class="pin-leg-btn ${btn} ${pinned ? "text-secondary" : "text-on-surface-variant hover:text-secondary"}">
+      <span class="material-symbols-outlined" style="font-size:18px;${pinned ? "font-variation-settings:'FILL' 1;" : ""}">push_pin</span></button>
+    <button data-idx="${idx}" title="Remove this game and pull in the next best" aria-label="Remove ${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}"
+      class="swap-leg-btn ${btn} -mr-2 text-on-surface-variant hover:text-error">
+      <span class="material-symbols-outlined" style="font-size:18px">close</span></button>
   </div>
-  <div class="flex-1 min-w-0 pr-[76px] md:pr-0">
-    <div class="flex items-center gap-2 mb-1">
-      <span class="w-2 h-2 rounded-full bg-secondary shrink-0"></span>
-      <span class="text-data-tabular font-data-tabular text-on-surface-variant">${escapeHtml(prettyLeague(leg.league))} • ${escapeHtml(kickoffLabel(leg.match_date, leg.kickoff_time, leg.kickoff_utc))}</span>
+  <div class="flex items-end gap-sm">
+    <div class="flex-1 min-w-0">
+      <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
+      <div class="text-body-md text-secondary font-semibold" title="Bookmaker calls it: ${escapeHtml(leg.market)} · ${escapeHtml(leg.selection)}">${escapeHtml(ppPlainPick(leg.selection))}</div>
+      ${leg.sport === "nba" ? `<div class="nba-bet-slot" data-idx="${idx}"></div>` : ""}
     </div>
-    <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
-    <div class="text-label-sm text-on-surface-variant mt-1">${escapeHtml(ppPlainMarket(leg.market))}</div>
-    ${leg.sport === "nba" ? `<div class="nba-bet-slot" data-idx="${idx}"></div>` : ""}
-  </div>
-  <div class="flex items-center justify-between md:justify-end gap-lg flex-1">
-    <div class="bg-primary-container text-on-primary rounded-md px-3 py-1 text-data-tabular font-data-tabular text-center min-w-[110px]" title="Bookmaker calls it: ${escapeHtml(leg.market)} · ${escapeHtml(leg.selection)}">${escapeHtml(ppPlainPick(leg.selection))}</div>
-    <div class="text-right">
-      <div class="text-body-md text-primary font-semibold">${prob}%</div>
-      <div class="text-label-sm text-secondary">probability</div>
-      ${leg.sporty_odds ? `<div class="text-label-sm text-on-surface-variant mt-1">@${leg.sporty_odds.toFixed(2)} on Sporty</div>` : ""}
+    <div class="shrink-0 text-right tabular-nums">
+      <div class="text-body-lg text-primary font-semibold">${prob}%</div>
+      <div class="text-label-sm text-on-surface-variant whitespace-nowrap">${leg.sporty_odds ? `SportyBet ${leg.sporty_odds.toFixed(2)}` : "no price"}</div>
     </div>
   </div>
 </div>`;
@@ -289,7 +282,7 @@ function renderSlip(data) {
     out.innerHTML = `
 <section class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
   <div class="bg-surface-container-low px-md py-sm border-b border-outline-variant flex justify-between items-center">
-    <h3 class="text-body-lg text-primary font-semibold">Generated Acca</h3>
+    <h3 class="text-body-lg text-primary font-semibold">Your slip</h3>
     <span class="text-label-sm text-on-surface-variant bg-surface-variant px-2 py-1 rounded-md">${escapeHtml(ppRiskLabel(data.risk))} • ${data.actual_games} ${data.actual_games === 1 ? "game" : "games"}</span>
   </div>
   ${data.actual_games < data.requested_games ? `
@@ -300,7 +293,7 @@ function renderSlip(data) {
       padding it with weaker picks would be worse than a shorter slip.
     </span>
   </div>` : ""}
-  <div class="divide-y divide-surface-container-high">
+  <div class="divide-y divide-outline-variant">
     ${data.legs.map((l, i) => renderLeg(l, i)).join("")}
   </div>
   ${excludedPairs.length ? `
@@ -308,26 +301,18 @@ function renderSlip(data) {
     <span class="text-label-sm text-on-surface-variant">${excludedPairs.length} game(s) removed: ${excludedPairs.map(p => escapeHtml(p.home + " vs " + p.away)).join(", ")}</span>
     <button id="reset-excluded" class="text-label-sm font-bold text-secondary hover:underline">Restore all</button>
   </div>` : ""}
-  <div class="bg-primary-container text-on-primary p-md flex flex-col md:flex-row justify-between items-center">
-    <div>
-      <span class="text-body-md text-inverse-primary block">Legs</span>
-      <span class="text-headline-md font-headline-md font-bold block">${data.actual_games}</span>
-    </div>
-    ${data.sporty_total_odds ? `<div class="text-center md:text-right mt-4 md:mt-0 md:mr-lg">
-      <span class="text-body-md text-inverse-primary block">SportyBet Total Odds</span>
-      <span class="text-headline-md font-headline-md font-bold text-on-primary block">~${data.sporty_total_odds.toFixed(2)}x</span>
-      ${data.legs.some(l => !l.sporty_odds) ? `<span class="text-label-sm text-inverse-primary">(${data.legs.filter(l => l.sporty_odds).length}/${data.legs.length} legs priced)</span>`
-        : `<span class="text-label-sm text-inverse-primary">₦1,000 pays about ₦${Math.round(data.sporty_total_odds * 1000).toLocaleString()}</span>`}
-    </div>` : ""}
-    <!-- Same size and colour as the two figures beside it. This used to be the
-         loudest thing on the page (48px lime + a trending_up arrow), and it is
-         the LEAST validated number here: a product of per-leg model estimates,
-         most of them for markets the ledger has never graded. -->
-    <div class="text-center md:text-right mt-4 md:mt-0">
-      <span class="text-body-md text-inverse-primary block">Our chance all ${data.actual_games} win</span>
-      <span class="text-headline-md font-headline-md font-bold text-on-primary block">${accPct}%</span>
-    </div>
-  </div>
+  <!-- Our chance is the same size as the other two figures on purpose: it is
+       the LEAST validated number here, a product of per-leg model estimates. -->
+  <dl class="bg-primary-container text-on-primary px-md py-sm grid grid-cols-3 gap-sm text-center">
+    <div><dt class="text-label-sm text-inverse-primary">Games</dt>
+      <dd class="text-headline-md font-headline-md font-bold tabular-nums">${data.actual_games}</dd></div>
+    <div><dt class="text-label-sm text-inverse-primary">SportyBet odds</dt>
+      <dd class="text-headline-md font-headline-md font-bold tabular-nums">${data.sporty_total_odds ? data.sporty_total_odds.toFixed(2) : "—"}</dd>
+      ${data.sporty_total_odds && data.legs.some(l => !l.sporty_odds) ? `<dd class="text-label-sm text-inverse-primary">${data.legs.filter(l => l.sporty_odds).length} of ${data.legs.length} priced</dd>` : ""}</div>
+    <div><dt class="text-label-sm text-inverse-primary">Chance all win</dt>
+      <dd class="text-headline-md font-headline-md font-bold tabular-nums">${accPct}%</dd></div>
+  </dl>
+  ${data.sporty_total_odds && data.legs.every(l => l.sporty_odds) ? `<p class="bg-primary-container text-inverse-primary text-label-sm text-center pb-sm -mt-px">₦1,000 pays about ₦${Math.round(data.sporty_total_odds * 1000).toLocaleString()}</p>` : ""}
   ${data.legs.some(l => l.market !== "Match Result") ? `
   <div class="bg-surface-container-low px-md py-xs border-t border-outline-variant">
     <span class="text-label-sm text-on-surface-variant">
@@ -341,21 +326,21 @@ function renderSlip(data) {
     </span>
   </div>` : ""}
   <div class="bg-surface-container-low px-md py-sm border-t border-outline-variant">
-    <div class="flex flex-wrap gap-sm">
-      <button id="book-btn" data-provider="sportybet" class="book-provider-btn flex-1 min-w-[10rem] bg-secondary text-on-secondary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:brightness-90 transition active:scale-95 flex items-center justify-center gap-2">
+    <div class="grid grid-cols-2 gap-sm">
+      <button id="book-btn" data-provider="sportybet" class="book-provider-btn col-span-2 bg-secondary text-on-secondary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:brightness-90 transition active:scale-95 flex items-center justify-center gap-2">
         <span class="material-symbols-outlined">confirmation_number</span>
         SportyBet code
       </button>
-      <button id="book-btn-bet9ja" data-provider="bet9ja" class="book-provider-btn flex-1 min-w-[10rem] bg-primary-container text-inverse-primary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2">
+      <button id="book-btn-bet9ja" data-provider="bet9ja" class="book-provider-btn bg-primary-container text-inverse-primary px-sm py-sm whitespace-nowrap rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2">
         <span class="material-symbols-outlined">confirmation_number</span>
         Bet9ja code
       </button>
-      <button id="book-btn-msport" data-provider="msport" class="book-provider-btn flex-1 min-w-[10rem] bg-primary-container text-inverse-primary px-lg py-sm rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2">
+      <button id="book-btn-msport" data-provider="msport" class="book-provider-btn bg-primary-container text-inverse-primary px-sm py-sm whitespace-nowrap rounded-lg font-semibold text-body-md shadow-sm hover:opacity-90 transition active:scale-95 flex items-center justify-center gap-2">
         <span class="material-symbols-outlined">confirmation_number</span>
         MSport code
       </button>
     </div>
-    <div class="text-label-sm text-on-surface-variant mt-1">Bet9ja uses its own event IDs, so only 1X2, Double Chance and BTTS legs carry over. football.com and Betano can only <em>read</em> codes (Slip Checker).</div>
+    <div class="text-label-sm text-on-surface-variant mt-xs">Bet9ja takes only win/draw, double chance and both-teams-score legs. football.com and Betano codes can be read in the Checker, not made here.</div>
     <div id="book-result" class="mt-sm text-body-md text-on-surface"></div>
     ${ppTrackSlipBlock()}
   </div>

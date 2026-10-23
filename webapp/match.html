@@ -225,6 +225,10 @@ function eventsBlock(c, d) {
 }
 function statsBlock(c, d) {
     if (!c || !c.stats || !c.stats.length) return "";
+    // ESPN sends all-zero stats (0% possession each) for games it isn't tracking live yet; zeros would read as real.
+    const poss = c.stats.find(s => s.label.startsWith("Possession"));
+    if (poss && !(parseFloat(poss.home) + parseFloat(poss.away)))
+        return card("Match stats", `<p class="text-body-md text-on-surface-variant">ESPN hasn't published stats for this match yet. They usually appear during or soon after the game.</p>`);
     const row = s => {
         const h = parseFloat(s.home) || 0, a = parseFloat(s.away) || 0, share = h + a ? Math.round(h / (h + a) * 100) : 50;
         return `<div class="py-xs"><div class="flex justify-between text-body-md"><b class="text-primary tabular-nums">${esc(s.home)}</b>
