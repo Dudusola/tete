@@ -101,7 +101,22 @@
           .pp-account-btn:hover { color:#416900; border-color:#416900; }
           html.dark .pp-account-btn { color:#c1c7ce; border-color:#42474a; }
           html.dark .pp-account-btn:hover { color:#91db2a; border-color:#91db2a; }
-          .pp-track-btn[aria-pressed="true"] { background:#acf847; color:#457000; border-color:#acf847; }`;
+          .pp-track-btn[aria-pressed="true"] { background:#acf847; color:#457000; border-color:#acf847; }
+          /* Notification switches (account.html). A real checkbox underneath, so
+             keyboard, labels and screen readers work; only the paint changes. */
+          input.pp-switch { appearance:none; -webkit-appearance:none; width:44px; height:26px; border-radius:9999px;
+            background:#c6c6cd !important; background-image:none !important; border:0; position:relative; cursor:pointer; transition:background-color .2s cubic-bezier(.16,1,.3,1); }
+          input.pp-switch::after { content:""; position:absolute; top:3px; left:3px; width:20px; height:20px;
+            border-radius:9999px; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.25); transition:transform .2s cubic-bezier(.16,1,.3,1); }
+          input.pp-switch:checked { background:#416900 !important; }
+          input.pp-switch:checked::after { transform:translateX(18px); }
+          input.pp-switch:disabled { opacity:.5; cursor:default; }
+          input.pp-switch:focus-visible { outline:2px solid #416900; outline-offset:2px; }
+          /* !important: api.js paints every dark-mode input as a text box (!important). */
+          html.dark input.pp-switch { background:#42474a !important; }
+          html.dark input.pp-switch:checked { background:#91db2a !important; }
+          html.dark input.pp-switch:checked::after { background:#0c0f10; }
+          @media (prefers-reduced-motion: reduce) { input.pp-switch, input.pp-switch::after { transition:none; } }`;
         document.head.appendChild(style);
         const topNav = document.querySelector("nav[class*='md:flex']");
         const linkRow = topNav && topNav.lastElementChild;
@@ -242,6 +257,26 @@
                 if (error) { await sub.unsubscribe(); throw error; }
             },
             disable: async () => { await ready; await pushOff(); },
+        },
+        // Notification settings + starred leagues (db/supabase/005_push_prefs.sql).
+        // No row yet = every alert on, no leagues (the Worker assumes the same).
+        prefs: {
+            get: async () => {
+                await ready;
+                if (!user) return null;
+                const { data, error } = await client.from("push_prefs").select("*").maybeSingle();
+                if (error) throw error;
+                return data || { morning: true, leagues_on: true, kickoff: true, price: true, results: true, leagues: [] };
+            },
+            save: async (patch) => {
+                await ready;
+                if (!user) return null;
+                const { data, error } = await client.from("push_prefs")
+                    .upsert({ user_id: user.id, ...patch, updated_at: new Date().toISOString() }, { onConflict: "user_id" })
+                    .select().single();
+                if (error) throw error;
+                return data;
+            },
         },
         deleteAccount: async () => {
             await ready;

@@ -8,6 +8,8 @@
  *
  * Two notifications, each sent at most once per pick/slip (push_sent table):
  *   kickoff  - a tracked single pick kicks off within the next hour
+ *   morning  - once a day, ~07:00 Lagos, when today's picks are out: how many,
+ *              the strongest one, and the user's starred leagues on Matches
  *   price    - the bookmaker's price on a tracked pick has moved against it
  *              before kickoff (the same "price moved" warning the Picks card
  *              shows; past warned picks won less often than claimed)
@@ -171,12 +173,52 @@ export function priceAlerts(picks, served, now, fresh) {
   return out;
 }
 
+/* Settings (db/supabase/005_push_prefs.sql). No row = everything on, no leagues. */
+export const PREF_DEFAULTS = { morning: true, leagues_on: true, kickoff: true, price: true, results: true, leagues: [] };
+const PREF_OF_KIND = { kickoff: "kickoff", price: "price", settled: "results" };
+export const wants = (prefs, kind) => !PREF_OF_KIND[kind] || prefs[PREF_OF_KIND[kind]] !== false;
+
+// Lagos is UTC+1 all year (no daylight saving).
+const LAGOS_MS = 3600e3;
+export const lagosDay = (ms) => new Date(ms + LAGOS_MS).toISOString().slice(0, 10);
+// push_sent.ref is a uuid: one per user per Lagos day for the morning alert.
+export const dayRef = (day) => `00000000-0000-0000-0000-0000${day.replace(/-/g, "")}`;
+
+/* The morning alert for one user. `today` = served football picks kicking off
+   later today (Lagos); `leagueToday` = league -> {name, n, picks} for today's
+   matches. Returns null when there is nothing worth a buzz. */
+export function morningMessage(user_id, prefs, today, leagueToday, day) {
+  const parts = [];
+  let title = null;
+  if (prefs.morning && today.length) {
+    const high = today.filter((p) => p.confidence === "HIGH").length;
+    const top = today.reduce((a, b) => ((b.best_bet_prob || 0) > (a.best_bet_prob || 0) ? b : a));
+    const team = top.best_bet === "Home Win" ? top.home_team : top.best_bet === "Away Win" ? top.away_team : null;
+    title = "Today's picks are out";
+    parts.push(`${today.length} ${today.length === 1 ? "pick" : "picks"} today` +
+      (high ? `, ${high} high confidence` : "") + "." +
+      (team ? ` Strongest: ${team} to win (${Math.round(top.best_bet_prob * 100)}%).` : ""));
+  }
+  if (prefs.leagues_on && prefs.leagues.length) {
+    const mine = prefs.leagues.map((lg) => leagueToday.get(lg)).filter(Boolean);
+    if (mine.length) {
+      const bits = mine.slice(0, 3).map((x) => `${x.name} ${x.n} ${x.n === 1 ? "match" : "matches"}` +
+        (x.picks ? `, ${x.picks} ${x.picks === 1 ? "pick" : "picks"}` : ""));
+      parts.push(`Your leagues: ${bits.join("; ")}${mine.length > 3 ? ` +${mine.length - 3} more` : ""}.`);
+      title = title || "Your leagues today";
+    }
+  }
+  if (!title) return null;
+  return { user_id, kind: "morning", ref: dayRef(day), title, body: parts.join(" "),
+           url: title === "Your leagues today" ? "index.html" : "picks.html" };
+}
+
 const VERDICT = { won: "Won ✅", lost: "Lost ❌", void: "Void (stake back)" };
 
 /* Build {user_id, kind, ref, title, body} for everything due now. */
 async function dueMessages(env, users, now) {
   const inUsers = `user_id=in.(${users.join(",")})`;
-  const [picks, slips, sent] = await Promise.all([
+  const [picks, slips, sent, prefRows] = await Promise.all([
     // settle window (kicked off in the last 3 days) up to the price-alert window (next 24 h)
     sb(env, `tracked_picks?select=id,user_id,match_id,home_team,away_team,league,kickoff_utc,selection` +
             `&${inUsers}&kickoff_utc=gte.${encodeURIComponent(fmt(now - 3 * 864e5))}` +
@@ -185,7 +227,11 @@ async function dueMessages(env, users, now) {
             `&created_at=gte.${new Date(now - 10 * 864e5).toISOString()}`),
     sb(env, `push_sent?select=user_id,kind,ref&${inUsers}` +
             `&sent_at=gte.${new Date(now - 14 * 864e5).toISOString()}`),
+    // Missing table (005 not run yet) = everyone on defaults, never a failed run.
+    sb(env, `push_prefs?select=*&${inUsers}`).catch(() => []),
   ]);
+  const prefs = new Map(users.map((u) => [u, { ...PREF_DEFAULTS }]));
+  for (const r of prefRows) prefs.set(r.user_id, { ...PREF_DEFAULTS, ...r, leagues: r.leagues || [] });
   const done = new Set(sent.map((s) => `${s.user_id}|${s.kind}|${s.ref}`));
   const fresh = (user_id, kind, ref) => !done.has(`${user_id}|${kind}|${ref}`);
   const out = [];
@@ -199,10 +245,42 @@ async function dueMessages(env, users, now) {
     }
   }
 
+  // The Picks feed is fetched at most once a run, and only when something needs it.
+  let fbPicks = null;
+  const footballPicks = async () => (fbPicks = fbPicks || await api(env, "/api/picks"));
+
+  // Morning: 07:00-12:00 Lagos, once the pipeline has published today's picks.
+  const day = lagosDay(now), hour = new Date(now + LAGOS_MS).getUTCHours();
+  const morningUsers = users.filter((u) => fresh(u, "morning", dayRef(day)) &&
+    (prefs.get(u).morning || (prefs.get(u).leagues_on && prefs.get(u).leagues.length)));
+  if (hour >= 7 && hour < 12 && morningUsers.length) {
+    const fb = await footballPicks();
+    // generated_at is when the pipeline last wrote predictions (UTC). Before
+    // today's run it is yesterday's, and "today's picks are out" would be false.
+    if ((fb.generated_at || "").slice(0, 10) >= new Date(now).toISOString().slice(0, 10)) {
+      const today = fb.picks.filter((p) => p.kickoff_utc && lagosDay(kickoffMs(p.kickoff_utc)) === day
+        && kickoffMs(p.kickoff_utc) > now && ["HIGH", "MEDIUM"].includes(p.confidence));
+      const leagueToday = new Map();
+      if (morningUsers.some((u) => prefs.get(u).leagues_on && prefs.get(u).leagues.length)) {
+        for (const m of (await api(env, "/api/matches")).matches) {
+          if (!m.kickoff_utc || lagosDay(kickoffMs(m.kickoff_utc)) !== day) continue;
+          const x = leagueToday.get(m.league) || { name: m.league_display || m.league, n: 0, picks: 0 };
+          x.n++;
+          if (["HIGH", "MEDIUM"].includes(m.confidence)) x.picks++;
+          leagueToday.set(m.league, x);
+        }
+      }
+      for (const u of morningUsers) {
+        const msg = morningMessage(u, prefs.get(u), today, leagueToday, day);
+        if (msg) out.push(msg);
+      }
+    }
+  }
+
   const upcoming = picks.filter((p) => kickoffMs(p.kickoff_utc) > now && fresh(p.user_id, "price", p.id));
   if (upcoming.length) {
     // Two cached GETs (the Picks feeds), only when someone has an upcoming tracked pick.
-    const [fb, us] = await Promise.all([api(env, "/api/picks"), api(env, "/api/picks/sports?sports=nhl,nfl,nba")]);
+    const [fb, us] = await Promise.all([footballPicks(), api(env, "/api/picks/sports?sports=nhl,nfl,nba")]);
     const served = new Map([
       ...fb.picks.map((x) => [x.match_id, { selection: x.best_bet, warnings: x.warnings }]),
       ...us.picks.map((x) => [x.match_id, { selection: x.track_selection, warnings: x.warnings }]),
@@ -244,7 +322,8 @@ async function dueMessages(env, users, now) {
                        (verdict === "lost" ? " - settled as soon as one leg lost." : ".") });
     }
   }
-  return out;
+  // Settings: drop the kinds this user switched off (morning was decided above).
+  return out.filter((m) => wants(prefs.get(m.user_id) || PREF_DEFAULTS, m.kind));
 }
 
 export async function runPush(env) {
@@ -257,33 +336,35 @@ export async function runPush(env) {
   const now = Date.now();
   const messages = await dueMessages(env, [...new Set(subs.map((s) => s.user_id))], now);
 
-  // Free Workers allow 50 subrequests per invocation; ~8 are used above.
+  // Free Workers allow 50 subrequests per invocation; ~10 are used above.
   // Anything over budget simply stays unsent and goes out on the next run.
   let budget = 40, delivered = 0, failed = 0, expired = 0;
   const sentRows = [];
-  let priceBlocked = false;
+  // Kinds added after 003 are recorded BEFORE sending, one row each: a database
+  // that has not had their migration run (004 price, 005 morning) rejects the
+  // row, and the alert is skipped - never re-sent every 10 minutes, and never
+  // able to sink the batch insert of kickoff/settled rows below.
+  const PRE_RECORD = new Set(["price", "morning"]);
+  const blocked = new Set();
   for (const m of messages) {
     const mine = subs.filter((s) => s.user_id === m.user_id);
     if (mine.length + 1 > budget) break;
-    if (m.kind === "price") {
-      // Recorded BEFORE sending, on its own: until db/supabase/004_push_price.sql
-      // has run, push_sent rejects kind 'price', and that must neither spam the
-      // alert every 10 minutes nor sink the batch insert of the other kinds.
-      if (priceBlocked) continue;
+    if (PRE_RECORD.has(m.kind)) {
+      if (blocked.has(m.kind)) continue;
       budget--;
       try {
         await sb(env, "push_sent", { method: "POST", body: JSON.stringify([{ user_id: m.user_id, kind: m.kind, ref: m.ref }]),
                                      headers: { Prefer: "resolution=ignore-duplicates,return=minimal" } });
       } catch (err) {
-        priceBlocked = true;
-        console.log(`push: price alerts off - ${err.message.slice(0, 160)}`);
+        blocked.add(m.kind);
+        console.log(`push: ${m.kind} alerts off - ${err.message.slice(0, 160)}`);
         continue;
       }
     }
     for (const s of mine) {
       budget--;
       try {
-        const status = await sendPush(env, s, { title: m.title, body: m.body, tag: `${m.kind}-${m.ref}`, url: "account.html" });
+        const status = await sendPush(env, s, { title: m.title, body: m.body, tag: `${m.kind}-${m.ref}`, url: m.url || "account.html" });
         if (status === 404 || status === 410) {
           expired++;
           await sb(env, `push_subscriptions?id=eq.${s.id}`, { method: "DELETE" });
@@ -294,7 +375,7 @@ export async function runPush(env) {
     }
     // Marked sent even if a device failed: retrying a broken endpoint every
     // 10 minutes would spam the working ones the user also has.
-    if (m.kind !== "price") sentRows.push({ user_id: m.user_id, kind: m.kind, ref: m.ref });
+    if (!PRE_RECORD.has(m.kind)) sentRows.push({ user_id: m.user_id, kind: m.kind, ref: m.ref });
   }
   if (sentRows.length) {
     await sb(env, "push_sent", { method: "POST", body: JSON.stringify(sentRows),
