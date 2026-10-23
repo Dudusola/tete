@@ -52,6 +52,14 @@ jobs:
           test -n "$KEYSTORE_B64" || { echo "::error::ANDROID_KEYSTORE_B64 secret is missing"; exit 1; }
           echo "$KEYSTORE_B64" | base64 -d > android.keystore
           npm install -g @bubblewrap/cli@1.27.0
+          # Bubblewrap looks for sdkmanager at <sdk>/bin or <sdk>/tools/bin; the
+          # runner's SDK keeps it under cmdline-tools/latest/bin. It also wants
+          # build-tools 36.1.0 (its BUILD_TOOLS_VERSION) - install it up front
+          # with the licences accepted, rather than through its interactive prompt.
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          test -d "$ANDROID_HOME/bin" || sudo ln -s "$ANDROID_HOME/cmdline-tools/latest/bin" "$ANDROID_HOME/bin"
+          yes | "$SDKM" --licenses > /dev/null || true
+          "$SDKM" --install "build-tools;36.1.0" > /dev/null
           # Bubblewrap asks where the JDK and SDK are on first run; answer in its config file.
           mkdir -p ~/.bubblewrap
           echo "{\"jdkPath\":\"$JAVA_HOME_17_X64\",\"androidSdkPath\":\"$ANDROID_HOME\"}" > ~/.bubblewrap/config.json
