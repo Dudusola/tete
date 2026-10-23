@@ -677,6 +677,26 @@ function timeAgo(utcStr) {
     return `${Math.round(hrs / 24)}d ago`;
 }
 
+/* "Get the Android app" bar (23 Oct 2026). Android browsers only - never
+   inside the app itself (a TWA opens with an android-app:// referrer and runs
+   standalone), never on the download page, and gone for good once closed. */
+document.addEventListener("DOMContentLoaded", () => {
+    let closed = null;
+    try { closed = localStorage.getItem("pp-app-bar"); } catch (_) {}
+    const inApp = matchMedia("(display-mode: standalone)").matches || document.referrer.startsWith("android-app://");
+    const main = document.querySelector("main");
+    if (closed || inApp || !/Android/i.test(navigator.userAgent) || /\/app(\.html)?$/.test(location.pathname) || !main) return;
+    const bar = document.createElement("div");
+    bar.className = "flex items-center justify-between gap-sm mb-md px-md py-sm rounded-xl bg-secondary-container text-on-secondary-container text-body-md";
+    bar.innerHTML = `<a href="app.html" class="flex items-center gap-xs font-semibold"><span class="material-symbols-outlined" aria-hidden="true">install_mobile</span>Get the Android app</a>
+        <button type="button" class="p-xs rounded-full" aria-label="Close"><span class="material-symbols-outlined" aria-hidden="true">close</span></button>`;
+    bar.querySelector("button").addEventListener("click", () => {
+        bar.remove();
+        try { localStorage.setItem("pp-app-bar", "closed"); } catch (_) {}
+    });
+    main.prepend(bar);
+});
+
 function showToast(msg) {
     let t = document.getElementById("pp-toast");
     if (!t) {

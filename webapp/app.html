@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<meta name="theme-color" content="#f7f9fb" id="meta-theme-color"/>
+<link rel="manifest" href="manifest.json"/>
+<link rel="icon" type="image/png" href="icons/icon-192.png"/>
+<link rel="apple-touch-icon" href="icons/icon-180.png"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-title" content="PotentialPro"/>
+<title>PotentialPro - Get the app</title>
+<!-- Open the API and font connections while the page parses, not after its
+     scripts run (DNS + TLS to Render is ~300 ms of the first API call). -->
+<link rel="preconnect" href="https://potentialpro-api.onrender.com" crossorigin/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;icon_names=accessibility,account_circle,add,adjust,alarm,alt_route,analytics,anchor,android,animation,api,apps,arrow_back,arrow_downward,arrow_forward,arrow_upward,article,badge,balance,block,bolt,book,bookmark_add,bookmarks,box,build,cached,calculate,call,call_split,cancel,cards,check,check_circle,chevron_right,chips,class,clear,close,code,colors,comment,compare,compare_arrows,confirmation_number,construction,contacts,content_copy,create,css,dark_mode,database,dataset,delete,details,devices,done,download,draw,dropdown,edit,email,enable,equal,error,event,expand_less,expand_more,experiment,explicit,extension,fact_check,feed,feedback,files,filter,floor,function,functions,games,gesture,grade,grading,group,groups,handshake,height,help,hide,highlight,history,home,host,html,http,https,hub,image,info,input,install_mobile,iso,join,keep,key,keyboard,label,landscape,language,laptop,light,light_mode,link,lips,list,lists,lock,looks,mail,map,margin,menu,merge,message,mobile,mode,money,more,mouse,move,navigation,news,note,notes,notifications,numbers,opacity,output,padding,pages,paid,palette,password,pattern,payments,pending,people,person,personal_injury,phone,phone_iphone,pill,pin,place,policy,post,print,priority,privacy,problem,public,publish,push_pin,query_stats,radio,receipt_long,recommend,refresh,remove,replay,report,room,route,rule,save,scale,scan,score,scoreboard,script,search,security,select,sell,send,serif,settings,shadow,shapes,share,shield,shift,signal_cellular_alt,signal_cellular_alt_1_bar,signal_cellular_alt_2_bar,skeleton,smart_toy,sort,source,spellcheck,sports,sports_basketball,sports_football,sports_hockey,sports_soccer,sql,star,start,step,steps,stop,storage,store,straight,style,support,swap_horiz,switch,sync,tab,table,tablet,tabs,tag,target,timer,title,toast,today,token,tooltip,transform,translate,trending_down,trending_up,trip,try,undo,unsubscribe,upcoming,update,uppercase,verified,visibility,warning,web,weight,width,window,work&amp;display=swap" rel="stylesheet"/>
+<style>.material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;} .icon-fill{font-variation-settings:'FILL' 1;} .pb-safe{padding-bottom:env(safe-area-inset-bottom);}
+.tooltip-wrap{position:relative;display:inline-flex;}
+.tooltip-box{visibility:hidden;opacity:0;transition:opacity .15s;position:absolute;right:0;top:130%;width:260px;z-index:60;background:#131b2e;color:#fff;padding:12px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:13px;line-height:1.4;}
+.tooltip-wrap:hover .tooltip-box, .tooltip-box.show{visibility:visible;opacity:1;}
+/* Keyboard focus. The critique found the default ring too faint to see; this
+   one is the brand green on light and the lime on dark, offset so it never
+   blends into a card border. :focus-visible = keyboard only, no ring on tap. */
+.pp-focus:focus-visible{outline:2px solid #416900;outline-offset:3px;}
+html.dark .pp-focus:focus-visible{outline-color:#91db2a;}
+/* Calibration scale: 40%..90% mapped to 0..100% of the track. */
+.cal-track{position:relative;height:28px;}
+.cal-axis{position:absolute;left:0;right:0;top:13px;height:2px;}
+.cal-band{position:absolute;top:8px;height:12px;border-radius:4px;}
+.cal-tick{position:absolute;top:2px;width:2px;height:24px;margin-left:-1px;}
+.cal-dot{position:absolute;top:8px;width:12px;height:12px;margin-left:-6px;border-radius:9999px;border:2px solid #fff;}
+html.dark .cal-dot{border-color:#1d2022;}
+/* bg-primary is black and api.js's dark overrides only remap TEXT-primary,
+   so the stated-probability tick vanished on the dark card. */
+html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important;}
+</style>
+<link rel="stylesheet" href="css/app.css?v=1"/>
+</head>
+<body class="bg-surface text-on-surface min-h-screen pb-24 md:pt-16" style="font-family:'Inter',sans-serif;">
+<!-- Desktop Nav -->
+<nav class="hidden md:flex fixed top-0 left-0 w-full z-50 justify-between items-center px-gutter h-16 bg-surface-container-lowest border-b border-outline-variant shadow-sm">
+<!-- Identical on all five pages except the active link. See index.html for why.
+     backdrop-blur-md + /90 removed from here: this was the only translucent
+     header in the app. -->
+<div class="flex items-center gap-2">
+  <img src="logo-mark.png" alt="PotentialPro" class="h-10 w-10 object-contain"/>
+  <span class="text-headline-md font-headline-md font-bold text-primary">PotentialPro</span>
+</div>
+<div class="flex gap-lg items-center">
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="index.html">Picks</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="slip.html">Builder</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="matches.html">Matches</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="checker.html">Checker</a>
+<a class="text-on-surface-variant font-medium text-label-sm hover:text-secondary transition-colors border-b-2 border-transparent pb-1" href="record.html">Record</a>
+</div>
+</nav>
+
+<!-- Android app download (23 Oct 2026). The APK is a Trusted Web Activity built
+     by .github/workflows/android-apk.yml: it opens this same site in its own
+     window, so it shows exactly what the website shows. Served from our own
+     site because the Play Store listing costs $25 we are not spending yet. -->
+<main class="max-w-3xl mx-auto px-gutter md:px-lg pt-md md:pt-xl">
+<header class="mb-lg">
+  <h1 class="text-headline-lg-mobile md:text-headline-lg font-headline-lg text-primary">PotentialPro on your phone</h1>
+  <p class="text-body-md text-on-surface-variant mt-xs">The same picks, record and slip tools, in their own app window with its own icon.</p>
+</header>
+
+<section class="rounded-xl border border-outline-variant bg-surface-container-lowest p-md md:p-lg">
+  <h2 class="text-body-lg font-semibold text-primary flex items-center gap-xs"><span class="material-symbols-outlined" aria-hidden="true">android</span>Android</h2>
+  <a href="download/potentialpro.apk" download
+     class="mt-md inline-flex items-center gap-xs px-lg py-sm rounded-lg bg-secondary text-on-secondary font-semibold text-body-md">
+    <span class="material-symbols-outlined" aria-hidden="true">download</span>Download the app</a>
+  <ol class="mt-md space-y-xs text-body-md text-on-surface list-decimal pl-lg">
+    <li>Tap <b>Download the app</b>, then open the file when it finishes.</li>
+    <li>If your phone asks, allow your browser to install apps ("Install unknown apps"), then go back and tap <b>Install</b>.</li>
+    <li>Open <b>PotentialPro</b> from your home screen.</li>
+  </ol>
+  <p class="mt-md text-body-md text-on-surface-variant">Android will say the app isn't from the Play Store. That's expected: we're not on the Play Store yet. The app is our website in its own window and asks for no permissions except notifications, and only if you turn them on.</p>
+</section>
+
+<section class="mt-md rounded-xl border border-outline-variant bg-surface-container-lowest p-md md:p-lg">
+  <h2 class="text-body-lg font-semibold text-primary flex items-center gap-xs"><span class="material-symbols-outlined" aria-hidden="true">phone_iphone</span>iPhone</h2>
+  <p class="mt-xs text-body-md text-on-surface">Open this site in <b>Safari</b>, tap <b>Share</b>, then <b>Add to Home Screen</b>. It opens like an app, and notifications work from there.</p>
+</section>
+
+<p class="mt-lg text-label-sm text-on-surface-variant">Predictions are not guarantees. 18+ only; never stake what you can't afford to lose.</p>
+</main>
+
+<!-- Mobile Nav -->
+<nav class="md:hidden fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-1 py-2 bg-surface-container-lowest border-t border-outline-variant shadow-lg pb-safe">
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="index.html"><span class="material-symbols-outlined mb-1">analytics</span><span class="text-label-sm">Picks</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="slip.html"><span class="material-symbols-outlined mb-1">receipt_long</span><span class="text-label-sm">Builder</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="record.html"><span class="material-symbols-outlined mb-1">query_stats</span><span class="text-label-sm">Record</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="matches.html"><span class="material-symbols-outlined mb-1">scoreboard</span><span class="text-label-sm">Matches</span></a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant py-2 px-0 flex-1 min-w-0" href="checker.html"><span class="material-symbols-outlined mb-1">fact_check</span><span class="text-label-sm">Checker</span></a>
+</nav>
+
+<script src="config.js?v=2"></script>
+<script src="js/api.js?v=37"></script>
+<script src="js/auth.js?v=1"></script>
+</body>
+</html>

@@ -52,6 +52,7 @@ self.addEventListener("fetch", e => {
         return;
     }
     if (e.request.method !== "GET" || url.origin !== location.origin) return;
+    if (url.pathname.startsWith("/download/")) return;   // the APK: a download, never a cached copy
     e.respondWith(
         fetch(e.request).then(res => {
             const copy = res.clone();
