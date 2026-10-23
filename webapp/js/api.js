@@ -873,9 +873,10 @@ function ppWakeStart() {
 }
 function ppWakeEnd() {
     ppInflight = Math.max(0, ppInflight - 1);
-    if (ppInflight === 0) { clearTimeout(ppWakeTimer); ppWakingNotice(false); }
+    if (ppInflight === 0) { clearTimeout(ppWakeTimer); ppWakingNotice(false); ppLaunchDone(); }
 }
 function ppWakingNotice(show) {
+    if (show && ppLaunchEl) return;      // the launch screen is already saying it
     let n = document.getElementById("pp-waking");
     if (!show) { if (n) n.classList.remove("show"); return; }
     if (!n) {
@@ -886,6 +887,53 @@ function ppWakingNotice(show) {
         document.body.appendChild(n);
     }
     n.classList.add("show");
+}
+
+/* Launch screen (23 Oct 2026, Boss: "work on the load up screen"). The
+   installed app (Android TWA or a home-screen PWA) opened from its splash onto
+   grey placeholders, then sat on them while the free server woke - up to a
+   minute with nothing saying why. Now, once per session and only inside the
+   app, the splash hands over to the same mark on the same background, with an
+   honest status line, until the page's first data arrives (ppWakeEnd). The
+   browser site keeps its skeletons: there the page itself is the context. */
+let ppLaunchEl = null;
+const PP_LAUNCH_MSGS = [[0, "Getting the latest matches and picks…"],
+    [5000, "Waking the prediction server. After a quiet spell the first load can take up to a minute."],
+    [30000, "Still waking the server - nearly there."]];
+(function ppLaunch() {
+    let show = false;
+    try {
+        const inApp = matchMedia("(display-mode: standalone)").matches || document.referrer.startsWith("android-app://");
+        show = inApp && sessionStorage.getItem("pp-launched") !== "1";
+    } catch (_) { /* storage blocked: skip the launch screen rather than risk showing it forever */ }
+    if (!show) return;
+    const dark = document.documentElement.classList.contains("dark");
+    ppLaunchEl = document.createElement("div");
+    ppLaunchEl.id = "pp-launch";
+    ppLaunchEl.setAttribute("role", "status");
+    ppLaunchEl.className = "fixed inset-0 z-[70] flex flex-col items-center justify-center bg-surface px-lg text-center";
+    ppLaunchEl.innerHTML = `
+      <img src="${dark ? "logo-mark-dark.png" : "logo-mark.png"}" alt="" width="112" height="112" class="pp-launch-mark w-28 h-28 object-contain">
+      <div class="mt-md text-headline-md font-headline-md font-bold text-primary">PotentialPro</div>
+      <div class="mt-base text-body-md text-on-surface-variant">Football picks with an honest record</div>
+      <div class="pp-launch-bar mt-xl w-40 h-1 rounded-full bg-surface-container-high overflow-hidden" aria-hidden="true"><span></span></div>
+      <p class="pp-launch-msg mt-md max-w-xs min-h-[40px] text-label-sm text-on-surface-variant" aria-live="polite"></p>`;
+    document.documentElement.appendChild(ppLaunchEl);
+    const msg = ppLaunchEl.querySelector(".pp-launch-msg");
+    const timers = PP_LAUNCH_MSGS.map(([at, text]) => setTimeout(() => { msg.textContent = text; }, at));
+    ppLaunchEl._timers = timers;
+    // A page that fetches nothing (or whose data was cached) must not wait on ppWakeEnd.
+    window.addEventListener("load", () => setTimeout(() => { if (ppInflight === 0) ppLaunchDone(); }, 600));
+    setTimeout(ppLaunchDone, 75000);      // never trap anyone behind it
+})();
+function ppLaunchDone() {
+    const el = ppLaunchEl;
+    if (!el) return;
+    ppLaunchEl = null;
+    el._timers.forEach(clearTimeout);
+    try { sessionStorage.setItem("pp-launched", "1"); } catch (_) {}
+    el.classList.add("out");
+    setTimeout(() => el.remove(), 350);
 }
 
 async function apiGet(path) {
@@ -1167,6 +1215,21 @@ const PotentialProAPI = {
         input, select, textarea { font-size: 16px !important; }
       }
 
+      /* 4c. Launch screen (ppLaunch). One authored moment: the mark settles in,
+             a thin bar travels, the whole screen fades out when data lands. */
+      #pp-launch { transition: opacity .32s cubic-bezier(.16,1,.3,1); }
+      #pp-launch.out { opacity: 0; pointer-events: none; }
+      #pp-launch .pp-launch-mark { animation: pp-launch-in .6s cubic-bezier(.16,1,.3,1) both; }
+      #pp-launch .pp-launch-bar span { display: block; width: 40%; height: 100%; border-radius: 9999px;
+        background: #416900; animation: pp-launch-bar 1.4s cubic-bezier(.65,0,.35,1) infinite; }
+      html.dark #pp-launch .pp-launch-bar span { background: #91db2a; }
+      @keyframes pp-launch-in { from { opacity: 0; transform: scale(.92); } to { opacity: 1; transform: none; } }
+      @keyframes pp-launch-bar { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+      @media (prefers-reduced-motion: reduce) {
+        #pp-launch .pp-launch-mark { animation: none; }
+        #pp-launch .pp-launch-bar span { animation: none; width: 100%; opacity: .5; }
+      }
+
       /* 4d. "Waking the prediction server" notice (see apiGet). Sits above the
              mobile bottom nav, centred; never covers content on desktop. */
       #pp-waking { position: fixed; left: 50%; transform: translateX(-50%);
@@ -1317,7 +1380,7 @@ function ppSportChips(box, selected, onChange) {
     if (!box) return;
     const paint = () => box.querySelectorAll(".pp-sport-chip").forEach(b => {
         const on = selected.includes(b.dataset.sport);
-        b.className = "pp-sport-chip inline-flex items-center gap-xs px-md py-base rounded-full text-label-sm font-bold border transition " +
+        b.className = "pp-sport-chip inline-flex items-center gap-xs min-h-[36px] px-md py-xs rounded-full text-label-sm font-bold border transition " +
             (on ? "bg-primary text-on-primary border-primary" : "border-outline-variant text-on-surface-variant hover:bg-surface-container-high");
         b.setAttribute("aria-pressed", on ? "true" : "false");
     });

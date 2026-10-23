@@ -16,7 +16,10 @@
   "startUrl": "/",
   "iconUrl": "https://potentialpro.pages.dev/icons/icon-512.png",
   "splashScreenFadeOutDuration": 300,
-  "signingKey": { "path": "./android.keystore", "alias": "potentialpro" },
+  "signingKey": {
+    "path": "./android.keystore",
+    "alias": "potentialpro"
+  },
   "appVersion": "1",
   "appVersionCode": 1,
   "shortcuts": [],
@@ -24,7 +27,9 @@
   "webManifestUrl": "https://potentialpro.pages.dev/manifest.json",
   "fallbackType": "customtabs",
   "features": {},
-  "alphaDependencies": { "enabled": false },
+  "alphaDependencies": {
+    "enabled": false
+  },
   "enableSiteSettingsShortcut": true,
   "isChromeOSOnly": false,
   "isMetaQuest": false,
@@ -32,5 +37,6 @@
   "minSdkVersion": 24,
   "fingerprints": [],
   "additionalTrustedOrigins": [],
-  "retainedBundles": []
+  "retainedBundles": [],
+  "maskableIconUrl": "https://potentialpro.pages.dev/icons/icon-maskable-512.png"
 }

@@ -440,10 +440,12 @@ generate predictions on demand.
                           fixture and back-fills next best — build_slip is deterministic so other legs
                           stay put), and Bankers (📌 pin locks a leg's exact market+selection through
                           risk/count/league changes and re-rolls; served via /api/slip pin= param).
-                          index.html (Picks), slip.html (Builder), record.html (Track Record),
-                          matches.html (Matches: every match by day/league, live + FT scores, our pick,
-                          favourite leagues; GET /api/matches - added 23 Oct 2026 when Boss split the
-                          live tracker off Picks), match.html (one fixture + ESPN/SportyBet match centre),
+                          index.html = MATCHES, the home page (23 Oct 2026, Boss: "let the matches page
+                          come before the picks page"); picks.html = Picks (was index.html - matches.html
+                          and hockey.html now redirect). Nav order everywhere: Matches, Picks, Builder,
+                          Checker, Record. slip.html (Builder), record.html (Track Record),
+                          Matches: every match by day/league, live + FT scores, our pick,
+                          favourite leagues; GET /api/matches. match.html (one fixture + ESPN/SportyBet match centre),
                           checker.html (Slip Checker + Tools). consensus.html is now only a redirect to
                           matches.html (page retired 23 Oct 2026; pick-card consensus badges and
                           /api/consensus remain). js/api.js = fetch glue. logo.png in header.
@@ -494,6 +496,14 @@ generate predictions on demand.
                           apps can never update. webapp/.well-known/assetlinks.json holds its SHA-256
                           (Google's checker confirms it); the workflow refuses an APK signed with any
                           other key. A wrong/missing assetlinks shows a URL bar, it does not fail.
+                          UI PASS (23 Oct 2026): one chip style (36px, selected = black; lime only means
+                          "added to your slip"), card titles use the title-md token (19px), the Picks record
+                          summary is labelled rows (Upcoming / Record / Money / Last 7 days). LAUNCH SCREEN
+                          (api.js ppLaunch): inside the installed app only, once per session, the splash
+                          hands over to the same ball mark + an honest status until the first data lands
+                          (ppWakeEnd); 5 s -> "Waking the prediction server", 75 s hard cap. App icons are
+                          the ball only (icons/, + icon-maskable-512.png); the old ones were the full
+                          lockup, whose wordmark was unreadable at launcher size.
                           prettyLeague() in api.js is the shared league-slug prettifier (all 5 pages).
                           Project is a git repo now (initial commit July 2026; .gitignore excludes
                           .env, venv, db/*.db, data/, models/*.joblib). NEVER edit these html files with
