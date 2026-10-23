@@ -68,13 +68,11 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 
 <div id="sport-strip" role="group" aria-label="Sport" class="flex gap-xs overflow-x-auto [scrollbar-width:none] -mx-gutter px-gutter md:mx-0 md:px-0 pb-1 mb-xs"></div>
 
-<div id="day-strip" role="group" aria-label="Day" class="flex gap-xs overflow-x-auto [scrollbar-width:none] -mx-gutter px-gutter md:mx-0 md:px-0 pb-1 mb-sm"></div>
-<div class="flex gap-xs mb-md">
-  <input id="search" type="search" placeholder="Search team or league" aria-label="Search team or league"
-         class="flex-1 min-w-0 rounded-lg border border-outline-variant px-md py-sm text-body-md bg-surface"/>
-  <button id="only-live" type="button" aria-pressed="false"
-          class="shrink-0 inline-flex items-center gap-xs px-md rounded-lg border border-outline-variant text-label-sm font-bold text-on-surface-variant">
-    <span class="pp-live-dot"></span>Live <span id="live-count" class="tabular-nums"></span></button>
+<input id="search" type="search" placeholder="Search team or league" aria-label="Search team or league"
+       class="w-full rounded-lg border border-outline-variant px-md py-sm text-body-md bg-surface mb-xs"/>
+<div class="sticky top-0 md:top-16 z-30 bg-surface -mx-gutter px-gutter md:mx-0 md:px-0 py-xs mb-sm border-b border-outline-variant">
+  <div id="day-strip" role="group" aria-label="Day" class="flex gap-xs overflow-x-auto [scrollbar-width:none] pb-1"></div>
+  <div id="status-strip" role="group" aria-label="Show" class="flex gap-xs overflow-x-auto [scrollbar-width:none] pt-xs"></div>
 </div>
 <div id="list" aria-live="polite"></div>
 </main>
@@ -94,7 +92,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 <script>
 let MATCHES = [];
 let DAY = "";
-let ONLY_LIVE = false;
+let STATUS = "all";        // all | live | finished | upcoming
 // Football, NHL, NBA and NFL (23 Oct 2026). "all" by default; remembered per device.
 const SPORT_CHIPS = [["all", "All sports", "apps"], ["football", "Football", "sports_soccer"],
     ["nhl", "NHL", "sports_hockey"], ["nba", "NBA", "sports_basketball"], ["nfl", "NFL", "sports_football"]];
@@ -112,7 +110,7 @@ function renderSports() {
         SPORT = b.dataset.sport;
         try { localStorage.setItem("pp-matches-sport", SPORT); } catch (_) {}
         pickDay();
-        renderSports(); renderDays(); renderList();
+        renderSports(); renderDays(); renderStatus(); renderList();
     }));
 }
 const FAVS = new Set((() => { try { return JSON.parse(localStorage.getItem("pp-fav-leagues") || "[]"); } catch (_) { return []; } })());
@@ -168,6 +166,22 @@ function pickName(m) {
     return ppPlainPick(m.best_bet === "Home Win" ? `${m.home_team} Win` : m.best_bet === "Away Win" ? `${m.away_team} Win` : m.best_bet);
 }
 
+const STATUSES = [["all", "All"], ["live", "Live"], ["finished", "Finished"], ["upcoming", "Upcoming"]];
+const statusOf = m => inPlay(m) ? "live" : isFinal(m) ? "finished" : "upcoming";
+function renderStatus() {
+    const day = MATCHES.filter(m => inSport(m) && dayOf(m) === DAY);
+    const n = k => k === "all" ? day.length : day.filter(m => statusOf(m) === k).length;
+    const box = document.getElementById("status-strip");
+    box.innerHTML = STATUSES.map(([k, label]) => `<button type="button" data-status="${k}" aria-pressed="${k === STATUS}"
+        class="shrink-0 inline-flex items-center gap-xs min-h-[36px] px-md py-xs rounded-full border text-label-sm font-bold ${k === STATUS
+            ? "bg-primary text-on-primary border-primary"
+            : "border-outline-variant text-on-surface-variant hover:bg-surface-container-high"}">
+        ${k === "live" ? '<span class="pp-live-dot"></span>' : ""}${label} <span class="tabular-nums font-medium opacity-80">${n(k)}</span></button>`).join("");
+    box.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
+        STATUS = b.dataset.status; renderStatus(); renderList();
+    }));
+}
+
 function renderDays() {
     // From yesterday on: a late kickoff dated yesterday in UTC can fall on the
     // day before in the viewer's time, which would add a stray older day.
@@ -180,7 +194,7 @@ function renderDays() {
             ? "bg-primary text-on-primary border-primary"
             : "border-outline-variant text-on-surface-variant hover:bg-surface-container-high"}">${dayName(k)}</button>`).join("");
     strip.querySelectorAll("button").forEach(b => b.addEventListener("click", () => {
-        DAY = b.dataset.day; renderDays(); renderList();
+        DAY = b.dataset.day; renderDays(); renderStatus(); renderList();
     }));
 }
 
@@ -208,13 +222,11 @@ function row(m) {
 function renderList() {
     const q = document.getElementById("search").value.trim().toLowerCase();
     const shown = MATCHES.filter(m => inSport(m) && dayOf(m) === DAY &&
-        (!ONLY_LIVE || inPlay(m)) &&
+        (STATUS === "all" || statusOf(m) === STATUS) &&
         (!q || `${m.home_team} ${m.away_team} ${m.league_display}`.toLowerCase().includes(q)));
-    const liveN = MATCHES.filter(m => inSport(m) && inPlay(m)).length;
-    document.getElementById("live-count").textContent = liveN ? `(${liveN})` : "";
     const list = document.getElementById("list");
     if (!shown.length) {
-        list.innerHTML = `<p class="text-body-md text-on-surface-variant py-lg text-center">${ONLY_LIVE ? "Nothing is being played right now." : "No matches found for that day."}</p>`;
+        list.innerHTML = `<p class="text-body-md text-on-surface-variant py-lg text-center">${{live: "Nothing is being played right now.", finished: "No finished matches yet that day.", upcoming: "Nothing left to start that day."}[STATUS] || "No matches found for that day."}</p>`;
         return;
     }
     // Leagues in kickoff order, favourites first; live games float to the top of their league.
@@ -226,7 +238,9 @@ function renderList() {
         const fav = FAVS.has(lg);
         return `<section class="mb-md rounded-xl border border-outline-variant bg-surface-container-lowest overflow-hidden">
           <div class="flex items-center justify-between pl-md pr-xs py-xs bg-surface-container-low border-b border-outline-variant">
-            <h2 class="text-label-sm font-bold text-on-surface-variant uppercase tracking-wider truncate">${esc(ms[0].league_display || prettyLeague(lg))}</h2>
+            <h2 class="min-w-0 flex items-baseline gap-xs text-label-sm font-bold text-on-surface-variant uppercase tracking-wider">
+              <span class="truncate">${esc(ms[0].league_display || prettyLeague(lg))}</span>
+              <span class="shrink-0 font-medium tabular-nums normal-case tracking-normal">${ms.length}</span></h2>
             <button type="button" class="fav w-9 h-9 inline-flex items-center justify-center rounded-full hover:bg-surface-container-high ${fav ? "text-secondary" : "text-on-surface-variant"}"
                     data-league="${esc(lg)}" aria-pressed="${fav}" aria-label="${fav ? "Remove from" : "Add to"} favourite leagues">
               <span class="material-symbols-outlined text-[20px] ${fav ? "icon-fill" : ""}" aria-hidden="true">star</span></button>
@@ -253,7 +267,7 @@ async function load(refresh = false) {
     const list = document.getElementById("list");
     if (!refresh) list.innerHTML = `<div class="space-y-sm">${ppSkeleton(140)}${ppSkeleton(140)}</div>`;
     try {
-        MATCHES = (await PotentialProAPI.matches(refresh)).matches || [];
+        MATCHES = (await PotentialProAPI.matches(true)).matches || [];
         if (!refresh) {
             // A remembered sport with nothing on (NFL off-week) falls back to all sports.
             if (!MATCHES.some(inSport)) SPORT = "all";
@@ -261,6 +275,7 @@ async function load(refresh = false) {
         }
         renderSports();
         renderDays();
+        renderStatus();
         renderList();
     } catch (err) {
         if (!refresh) list.innerHTML = ppErrorBox(err, "load the matches", "load");
@@ -276,13 +291,6 @@ setInterval(() => {
 document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("search").addEventListener("input", renderList);
     syncFavs();
-    document.getElementById("only-live").addEventListener("click", e => {
-        ONLY_LIVE = !ONLY_LIVE;
-        e.currentTarget.setAttribute("aria-pressed", ONLY_LIVE);
-        e.currentTarget.classList.toggle("bg-error-container", ONLY_LIVE);
-        e.currentTarget.classList.toggle("text-on-error-container", ONLY_LIVE);
-        renderList();
-    });
     load();
 });
 </script>
