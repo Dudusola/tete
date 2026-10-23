@@ -936,13 +936,14 @@ function ppLaunchDone() {
     setTimeout(() => el.remove(), 350);
 }
 
-async function apiGet(path) {
+// fresh: skip the browser's stale-while-revalidate copy (live scores would lag a poll behind).
+async function apiGet(path, fresh = false) {
     ppWakeStart();
     try {
         for (let attempt = 0; ; attempt++) {
             let res;
             try {
-                res = await fetch(`${API_BASE}${path}`);
+                res = await fetch(`${API_BASE}${path}`, fresh ? {cache: "no-cache"} : undefined);
             } catch (err) {                       // network: offline, DNS, reset
                 if (attempt < PP_RETRY_DELAYS.length) { await ppSleep(PP_RETRY_DELAYS[attempt]); continue; }
                 err.network = true;
@@ -1083,9 +1084,9 @@ const PotentialProAPI = {
     scoredPicks: (tier)      => apiGet(`/api/stats/picks${tier ? `?tier=${tier}` : ""}`),
     fixtures:    ()          => apiGet("/api/fixtures"),
     arbs:        ()          => apiGet("/api/arbs"),
-    match:       (id)        => apiGet(`/api/match/${encodeURIComponent(id)}`),
-    matchCentre: (id)        => apiGet(`/api/match/${encodeURIComponent(id)}/centre`),
-    matches:     ()          => apiGet("/api/matches"),
+    match:       (id, fresh) => apiGet(`/api/match/${encodeURIComponent(id)}`, fresh),
+    matchCentre: (id, fresh) => apiGet(`/api/match/${encodeURIComponent(id)}/centre`, fresh),
+    matches:     (fresh)     => apiGet("/api/matches", fresh),
     roundups:    (days)      => apiGet(`/api/roundups?days=${days || 7}`),
     checkSlip:   (legs)      => apiPost("/api/slip/check", {legs}),
     resultsFor:  (matchIds)  => apiPost("/api/results/lookup", {match_ids: matchIds}),

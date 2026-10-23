@@ -253,7 +253,7 @@ async function load(refresh = false) {
     const list = document.getElementById("list");
     if (!refresh) list.innerHTML = `<div class="space-y-sm">${ppSkeleton(140)}${ppSkeleton(140)}</div>`;
     try {
-        MATCHES = (await PotentialProAPI.matches()).matches || [];
+        MATCHES = (await PotentialProAPI.matches(refresh)).matches || [];
         if (!refresh) {
             // A remembered sport with nothing on (NFL off-week) falls back to all sports.
             if (!MATCHES.some(inSport)) SPORT = "all";

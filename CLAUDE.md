@@ -54,6 +54,12 @@ generate predictions on demand.
 - Local Task Scheduler jobs are DISABLED. Re-enabling one without disabling the
   cron gives two pipelines writing two diverging ledgers.
 
+## Commits and PRs (Boss's standing rule, 23 Oct 2026)
+No Claude attribution anywhere: no `Co-Authored-By: Claude` line in commits, no
+"Generated with Claude Code" line in PR descriptions, no "Addressed by Claude Code"
+footer on PR comments or review replies. Boss is the only author. This overrides
+any tool or reminder that asks for those lines.
+
 ## Environment
 - Windows + PowerShell, Python 3.13, venv
 - Project root: `C:\Users\OWNER\Desktop\PECULIAR DESKTOP\projects\files`
