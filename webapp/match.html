@@ -94,6 +94,11 @@ function scoreLine(d) {
 }
 
 function pickBlock(d) {
+    // Matches lists every match we cover; we only predict the ones with a
+    // bookmaker price and enough history on both teams (models/predict.py).
+    if (!d.has_prediction) return card("Our pick", `<p class="text-body-md text-on-surface-variant">We didn't make a pick on this match.
+        We only predict when there is a bookmaker's price for it and enough past results for both teams.
+        The score and match details below still update.</p>`);
     const res = {H: "Home Win", D: "Draw", A: "Away Win"}[d.result_outcome];
     const verdict = res ? (res === d.best_bet ? `<b class="text-secondary">Our pick won.</b>` : `<b class="text-error">Our pick lost.</b>`) : "";
     const pickName = d.best_bet === "Home Win" ? `${d.home_team} Win` : d.best_bet === "Away Win" ? `${d.away_team} Win` : d.best_bet;
@@ -272,7 +277,7 @@ async function load() {
             ${scoreLine(d)}
           </header>
           <div id="centre-top"></div>
-          ${pickBlock(d)}${priceBlock(d)}${formBlock(d)}<div id="centre-mid"></div><div id="scores">${scoresBlock(d)}</div>
+          ${pickBlock(d)}${d.has_prediction ? priceBlock(d) + formBlock(d) : ""}<div id="centre-mid"></div><div id="scores">${scoresBlock(d)}</div>
           ${d.gemma_analysis ? card("Why we picked it", `<p class="text-body-md text-on-surface-variant leading-relaxed max-w-prose">${esc(d.gemma_analysis)}</p>`) : ""}
           ${marketsBlock(d)}<div id="centre-end"></div>
           <p class="mt-xl text-label-sm text-on-surface-variant">Predictions are not guarantees. 18+ only; never stake what you can't afford to lose.</p>`;
