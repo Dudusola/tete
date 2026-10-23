@@ -1378,7 +1378,7 @@ def get_match_centre(match_id: str):
     lineups, goals and cards, team stats, commentary, table and last five,
     plus SportyBet's correct-score prices while the match can still be bet.
     Its own endpoint so the main match page never waits on two outside feeds."""
-    from models.match_centre import espn_centre, sporty_correct_scores
+    from models.match_centre import espn_centre, espn_stats_empty, fotmob_stats, sporty_correct_scores
     conn = get_connection()
     row = conn.execute(f"""SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
                                  m.kickoff_utc, m.live_state, m.espn_league
@@ -1389,8 +1389,13 @@ def get_match_centre(match_id: str):
     d = dict(row)
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     started = effective_live_state(d) in ("in", "post") or (d["kickoff_utc"] or "9") <= now
-    return {"espn": espn_centre(d["match_id"], d["espn_league"], live=started),
-            "correct_scores": {} if started else sporty_correct_scores(d)}
+    espn = espn_centre(d["match_id"], d["espn_league"], live=started)
+    # ESPN leaves stats at zero for games it isn't tracking live; FotMob fills them.
+    if started and espn is not None and espn_stats_empty(espn.get("stats")):
+        fm = fotmob_stats(d, live=effective_live_state(d) != "post")
+        if fm:
+            espn = {**espn, "stats": fm, "stats_source": "FotMob"}
+    return {"espn": espn, "correct_scores": {} if started else sporty_correct_scores(d)}
 
 
 @app.get("/api/match/{match_id}")

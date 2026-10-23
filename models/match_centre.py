@@ -11,6 +11,13 @@ Two free sources, both probed live before this was written:
     the correct-score market (Betradar 45). The fixture is found with the same
     map_leg booking uses.
 
+  * FotMob (www.fotmob.com/api/data/..., no key, unofficial - 23 Oct 2026). ONLY
+    for team stats when ESPN's are empty: ESPN sends all-zero stats (0% possession
+    each) for games it isn't tracking live, e.g. Al Ittihad v Al Diriyah at 38'
+    where FotMob had 54-46 possession, 6-5 shots and xG. Found by date + both team
+    names through models/team_match.pair_score (the live-score matcher, bug #17).
+    Sofascore was probed too: 403 to plain requests.
+
 Decoration only: nothing here is a model input or a graded number, and every
 function returns None/{} rather than raising, so the match page never breaks
 because a feed is down. Memoised so a busy page cannot hammer either source.
@@ -27,6 +34,15 @@ EVENT_TYPES = {"Goal": "goal", "Goal - Header": "goal", "Goal - Volley": "goal",
 STATS = [("possessionPct", "Possession %"), ("totalShots", "Shots"), ("shotsOnTarget", "On target"),
          ("wonCorners", "Corners"), ("foulsCommitted", "Fouls"), ("yellowCards", "Yellow cards"),
          ("redCards", "Red cards"), ("saves", "Saves")]
+FOTMOB_DAY = "https://www.fotmob.com/api/data/matches?date={day}"
+FOTMOB_MATCH = "https://www.fotmob.com/api/data/matchDetails?matchId={id}"
+FOTMOB_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                                "(KHTML, like Gecko) Chrome/128 Safari/537.36"}
+# FotMob title -> our label, in the order the page shows them (ESPN's labels, then xG).
+FOTMOB_STATS = [("Ball possession", "Possession %"), ("Total shots", "Shots"),
+                ("Shots on target", "On target"), ("Corners", "Corners"), ("Fouls committed", "Fouls"),
+                ("Yellow cards", "Yellow cards"), ("Red cards", "Red cards"), ("Keeper saves", "Saves"),
+                ("Expected goals (xG)", "Expected goals (xG)")]
 _memo: dict = {}
 
 
@@ -95,6 +111,52 @@ def espn_centre(match_id: str, espn_league: str | None, live: bool) -> dict | No
                                                      timeout=15).json()))
 
 
+def espn_stats_empty(stats: list) -> bool:
+    """ESPN's 'not tracked' shape: no stats, or possession 0 for both sides."""
+    poss = next((x for x in stats or [] if x["label"].startswith("Possession")), None)
+    if not poss:
+        return not stats
+    try:
+        return float(poss["home"] or 0) + float(poss["away"] or 0) == 0
+    except ValueError:
+        return True
+
+
+def parse_fotmob_stats(d: dict) -> list:
+    seen = {}
+    for g in (((d.get("content") or {}).get("stats") or {}).get("Periods") or {}).get("All", {}).get("stats") or []:
+        for x in g.get("stats") or []:
+            v = x.get("stats") or []
+            if len(v) == 2 and None not in v:
+                seen.setdefault(x.get("title"), v)
+    return [{"label": label, "home": str(seen[t][0]), "away": str(seen[t][1])}
+            for t, label in FOTMOB_STATS if t in seen]
+
+
+def fotmob_stats(fixture: dict, live: bool) -> list:
+    """Team stats from FotMob for this fixture, or [] if it can't be found."""
+    from models.team_match import pair_score
+    def find():
+        day = (fixture.get("kickoff_utc") or fixture.get("match_date") or "")[:10].replace("-", "")
+        if len(day) != 8:
+            return None
+        listing = _remember(("fotmob_day", day), 1800, lambda: requests.get(
+            FOTMOB_DAY.format(day=day), headers=FOTMOB_HEADERS, timeout=15).json()) or {}
+        best = None
+        for lg in listing.get("leagues") or []:
+            for m in lg.get("matches") or []:
+                sc = pair_score(fixture["home_team"], fixture["away_team"],
+                                (m.get("home") or {}).get("name", ""), (m.get("away") or {}).get("name", ""))
+                if sc and (not best or sc > best[0]):
+                    best = (sc, m.get("id"))
+        return best and best[1]
+    fm_id = _remember(("fotmob_id", fixture.get("match_id")), 1800, find)
+    if not fm_id:
+        return []
+    return _remember(("fotmob_stats", fm_id), 60 if live else 1800, lambda: parse_fotmob_stats(
+        requests.get(FOTMOB_MATCH.format(id=fm_id), headers=FOTMOB_HEADERS, timeout=15).json())) or []
+
+
 def sporty_correct_scores(fixture: dict) -> dict:
     """{"1:1": 6.4, ...} from SportyBet for this fixture, or {} if it isn't listed."""
     def compute():
@@ -134,3 +196,11 @@ if __name__ == "__main__":
     assert out["stats"] == [{"label": "Possession %", "home": "52.5", "away": "47.5"}]
     assert out["lineups"][0]["starters"] == [{"name": "Keeper", "position": "G", "number": None}]
     print("PASS - ESPN summary parser")
+    assert espn_stats_empty([{"label": "Possession %", "home": "0", "away": "0"}])
+    assert not espn_stats_empty(out["stats"]) and espn_stats_empty([])
+    fm = {"content": {"stats": {"Periods": {"All": {"stats": [{"stats": [
+        {"title": "Ball possession", "stats": [54, 46]}, {"title": "Expected goals (xG)", "stats": ["1.04", "0.16"]},
+        {"title": "Shots", "stats": [None, None]}]}]}}}}}
+    assert parse_fotmob_stats(fm) == [{"label": "Possession %", "home": "54", "away": "46"},
+                                      {"label": "Expected goals (xG)", "home": "1.04", "away": "0.16"}]
+    print("PASS - FotMob stats parser")
