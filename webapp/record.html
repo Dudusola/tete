@@ -110,17 +110,8 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      prices stored when each pick was made sits right under it, with its
      range, filled live from /api/stats `returns` (models/returns.py). The
      wording follows the interval: "break-even" while zero is inside it. -->
-<!-- Day by day: "what we called, what landed" (step 7 of the Puntrr audit).
-     Written from the ledger by GET /api/roundups, not by an LLM: every served
-     pick per match day, won or lost. Puntrr's Catch-Up shows only the calls
-     that landed on big games; this shows all of ours. -->
-<section id="roundups" aria-labelledby="roundups-h" class="hidden mt-lg">
-  <h2 id="roundups-h" class="text-body-lg font-semibold text-primary">What we called, what landed</h2>
-  <p class="text-body-md text-on-surface-variant mt-xs">Every recommended pick by day, wins and losses.</p>
-  <div id="roundup-days" class="mt-sm space-y-sm"></div>
-</section>
 
-<section id="honest" aria-labelledby="honest-h" class="hidden bg-surface-container-lowest border border-outline-variant rounded-xl p-md md:p-lg">
+<section id="honest" aria-labelledby="honest-h" class="hidden mt-lg bg-surface-container-lowest border border-outline-variant rounded-xl p-md md:p-lg">
   <h2 id="honest-h" class="text-body-lg font-semibold text-primary">What this is, and what it isn't yet</h2>
   <div class="grid md:grid-cols-2 gap-md md:gap-lg mt-sm text-body-md text-on-surface-variant">
     <div>
@@ -159,6 +150,16 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 <p id="coverage-note" class="hidden p-md rounded-xl bg-surface-container-low border border-outline-variant text-body-md text-on-surface-variant"></p>
 </div>
 
+<!-- Day by day: "what we called, what landed" (step 7 of the Puntrr audit).
+     Written from the ledger by GET /api/roundups, not by an LLM: every served
+     pick per match day, won or lost. Puntrr's Catch-Up shows only the calls
+     that landed on big games; this shows all of ours. -->
+<section id="roundups" aria-labelledby="roundups-h" class="hidden mt-xl">
+  <h2 id="roundups-h" class="text-body-lg font-semibold text-primary">What we called, what landed</h2>
+  <p class="text-body-md text-on-surface-variant mt-xs">Every recommended pick by day, wins and losses.</p>
+  <div id="roundup-days" class="mt-sm rounded-xl border border-outline-variant bg-surface-container-lowest overflow-hidden divide-y divide-outline-variant"></div>
+</section>
+
 <!-- Weekly trend. A lifetime percentage hides everything that matters —
      whether calibration is improving, whether a change helped, whether a good
      month is carrying a bad one. Single series, so no legend: the heading
@@ -171,7 +172,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
      db/calibration_health.py via /api/stats, the same function the CLI report
      uses, so this can never disagree with it. Hidden until the numbers arrive. -->
 <section id="calibration-section" class="hidden mt-xl p-md md:p-lg bg-surface-container-lowest border border-outline-variant rounded-xl">
-  <h2 class="text-body-lg md:text-headline-md font-semibold text-primary">Does a stated probability mean what it says?</h2>
+  <h2 class="text-body-lg md:text-headline-md font-semibold text-primary">Said vs won</h2>
   <p class="text-body-md text-on-surface-variant mt-xs">What we said each pick's chance was, against how often they won.</p>
   <p class="mt-xs flex flex-wrap gap-x-md gap-y-xs text-label-sm text-on-surface-variant">
     <span class="whitespace-nowrap"><span class="cal-tick-key inline-block w-[2px] h-3 bg-primary align-middle" aria-hidden="true"></span> we said</span>
@@ -192,7 +193,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 
 <section class="mt-xl">
 <div class="flex items-center justify-between mb-md">
-<h2 class="text-body-lg font-semibold text-primary">Performance by Tier</h2>
+<h2 class="text-body-lg font-semibold text-primary">By confidence level</h2>
 <span class="tooltip-wrap">
   <button id="info-btn" type="button" aria-label="About confidence tiers" aria-expanded="false" aria-controls="info-tip" class="pp-focus rounded-full material-symbols-outlined inline-flex items-center justify-center w-9 h-9 text-on-surface-variant hover:text-secondary cursor-pointer">info</button>
   <span class="tooltip-box" id="info-tip" role="tooltip">
@@ -220,7 +221,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 <h3 class="text-body-lg text-primary font-semibold" id="drill-title">Picks</h3>
 <button id="drill-close" type="button" aria-label="Close list" class="pp-focus rounded-full material-symbols-outlined text-on-surface-variant hover:text-error cursor-pointer">close</button>
 </div>
-<div id="drill-list" class="divide-y divide-surface-container-high max-h-[420px] overflow-y-auto"></div>
+<div id="drill-list" class="divide-y divide-outline-variant max-h-[420px] overflow-y-auto"></div>
 </div>
 </section>
 
@@ -228,7 +229,7 @@ html.dark .cal-tick, html.dark .cal-tick-key{background-color:#ffffff !important
 <section id="other-sports" class="mt-xl">
 <h2 class="text-body-lg font-semibold text-primary">NHL, NFL and NBA</h2>
 <p class="text-label-sm text-on-surface-variant mt-xs mb-sm">Each sport keeps its own record, separate from football's. Tap one for what to know.</p>
-<div id="other-sports-list" class="flex flex-col gap-xs"><span class="text-label-sm text-on-surface-variant">Loading…</span></div>
+<div id="other-sports-list" class="rounded-xl border border-outline-variant bg-surface-container-lowest overflow-hidden divide-y divide-outline-variant"><span class="block p-md text-label-sm text-on-surface-variant">Loading…</span></div>
 </section>
 
 <section class="mt-xl mb-8">
@@ -595,14 +596,19 @@ async function loadOtherSports() {
             const tierTxt = ["HIGH", "MEDIUM"].filter(k => (t[k] || {}).graded)
                 .map(k => `${k} ${t[k].won}/${t[k].graded}`).join(" · ");
             const rec = r.graded
-                ? `<strong class="text-primary tabular-nums">${r.won}-${r.lost}</strong> on ${r.graded} graded picks (${r.hit_pct}%)${tierTxt ? ` · ${tierTxt}` : ""}`
+                ? `<b class="text-primary">${r.won} of ${r.graded}</b> won`
                 : "no graded picks yet";
-            return `<details class="p-sm rounded-lg bg-surface-container-low border border-outline-variant text-label-sm text-on-surface-variant">
-              <summary class="cursor-pointer"><span class="font-bold text-primary">${code.toUpperCase()}</span> · ${rec}</summary>
-              <p class="mt-xs max-w-prose">${escapeHtml((d.disclosures || {})[code] || "")}</p></details>`;
+            return `<details class="group">
+              <summary class="cursor-pointer px-md py-sm flex items-center justify-between gap-sm list-none [&::-webkit-details-marker]:hidden">
+                <span class="font-semibold text-primary">${code.toUpperCase()}</span>
+                <span class="shrink-0 flex items-center gap-xs whitespace-nowrap text-body-md tabular-nums text-on-surface-variant">${rec}${r.graded ? ` <span class="text-label-sm">(${r.hit_pct}%)</span>` : ""}
+                  <span class="material-symbols-outlined text-[20px] transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span></span></summary>
+              <div class="px-md pb-sm text-label-sm text-on-surface-variant">
+                ${tierTxt ? `<p class="tabular-nums">${tierTxt}</p>` : ""}
+                <p class="mt-xs max-w-prose">${escapeHtml((d.disclosures || {})[code] || "")}</p></div></details>`;
         }).join("");
     } catch (err) {
-        box.innerHTML = `<span class="text-label-sm text-on-surface-variant">${escapeHtml(ppErrorMessage(err, "load the NHL/NFL/NBA records"))}</span>`;
+        box.innerHTML = `<span class="block p-md text-label-sm text-on-surface-variant">${escapeHtml(ppErrorMessage(err, "load the NHL/NFL/NBA records"))}</span>`;
     }
 }
 
@@ -641,10 +647,11 @@ function roundupDay(day, open) {
         <span class="material-symbols-outlined text-[18px] ${p.won ? "text-secondary" : "text-error"}" aria-hidden="true">${p.won ? "check_circle" : "cancel"}</span>
         <span class="flex-1 min-w-0"><a href="match.html?id=${encodeURIComponent(p.match_id)}" class="text-primary hover:underline">${escapeHtml(p.home_team)} ${score(p)} ${escapeHtml(p.away_team)}</a>
           <span class="block text-label-sm text-on-surface-variant">Picked ${escapeHtml(roundupPickName(p))} · ${Math.round(p.best_bet_prob * 100)}% · ${p.won ? "won" : "lost"}</span></span></li>`;
-    return `<details class="rounded-xl border border-outline-variant bg-surface-container-lowest" ${open ? "open" : ""}>
-      <summary class="cursor-pointer p-md flex items-center justify-between gap-sm">
+    return `<details class="group" ${open ? "open" : ""}>
+      <summary class="cursor-pointer px-md py-sm flex items-center justify-between gap-sm list-none [&::-webkit-details-marker]:hidden">
         <span class="font-semibold text-primary">${escapeHtml(label)}${today ? " (so far)" : ""}</span>
-        <span class="shrink-0 whitespace-nowrap text-body-md tabular-nums text-on-surface-variant"><b class="text-primary">${day.won} of ${day.graded}</b> won</span>
+        <span class="shrink-0 flex items-center gap-xs whitespace-nowrap text-body-md tabular-nums text-on-surface-variant"><b class="text-primary">${day.won} of ${day.graded}</b> won
+          <span class="material-symbols-outlined text-[20px] transition-transform group-open:rotate-180" aria-hidden="true">expand_more</span></span>
       </summary>
       <div class="px-md pb-md">
         ${line("Best call", day.best_call)}
@@ -658,7 +665,7 @@ async function loadRoundups() {
     try {
         const days = (await PotentialProAPI.roundups(7)).days || [];
         if (!days.length) return;
-        document.getElementById("roundup-days").innerHTML = days.map((d, i) => roundupDay(d, i === 0 || (i === 1 && days[0].graded < 3))).join("");
+        document.getElementById("roundup-days").innerHTML = days.map((d, i) => roundupDay(d, i === (days[0].graded < 3 && days.length > 1 ? 1 : 0))).join("");
         document.getElementById("roundups").classList.remove("hidden");
     } catch (err) {
         console.error("roundups:", err);   // the rest of the record still stands
