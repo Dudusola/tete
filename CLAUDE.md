@@ -415,6 +415,12 @@ any tool or reminder that asks for those lines.
                           and live_scores.py. Two matchers against one feed is how bug #17
                           hid live scores. consensus/dedupe/results_api still use the looser
                           models.consensus.team_sim ON PURPOSE — they grade, see bug #17.
+- models/match_centre.py  Match page detail: ESPN summary (events, stats, line-ups, table),
+                          SportyBet correct scores, and FOTMOB team stats (23 Oct 2026) used ONLY
+                          when ESPN's are empty - ESPN sends all-zero stats for games it doesn't
+                          track live (Al Ittihad v Al Diriyah: ESPN 0-0 possession at 38', FotMob
+                          54-46 + xG). FotMob is free, no key, unofficial; matched by date + both
+                          names via team_match.pair_score. Sofascore 403s plain requests.
 - models/live_scores.py   On-demand ESPN score for started, ungraded matches (decoration only,
                           never written to results). Memoised 60s; the Picks page polls it.
 - analysis/gemma_analyst.py  Gemma via Ollama /api/chat (reasoning layer, NOT the predictor)

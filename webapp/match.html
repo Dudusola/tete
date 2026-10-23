@@ -235,7 +235,8 @@ function statsBlock(c, d) {
           <span class="text-label-sm text-on-surface-variant">${esc(s.label)}</span><b class="text-primary tabular-nums">${esc(s.away)}</b></div>
           <div class="flex h-1.5 rounded-full overflow-hidden bg-surface-container-high mt-[2px]">${h + a ? `<div class="bg-secondary" style="width:${share}%"></div>` : ""}</div></div>`;
     };
-    return card("Match stats", `<div class="flex justify-between text-label-sm text-on-surface-variant mb-xs"><span>${esc(d.home_team)}</span><span>${esc(d.away_team)}</span></div>${c.stats.map(row).join("")}`);
+    return card("Match stats", `<div class="flex justify-between text-label-sm text-on-surface-variant mb-xs"><span>${esc(d.home_team)}</span><span>${esc(d.away_team)}</span></div>${c.stats.map(row).join("")}
+      <p class="text-label-sm text-on-surface-variant mt-xs">From ${esc(c.stats_source || "ESPN")}.</p>`);
 }
 function lineupsBlock(c) {
     if (!c || !c.lineups || !c.lineups.length) return "";
