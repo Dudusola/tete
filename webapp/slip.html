@@ -176,7 +176,30 @@ let selectedCount = 5;
 let selectedLeagues = new Set();
 let excludedPairs = [];   // [{home, away}] fixtures the user removed
 let pinnedLegs = [];      // Bankers: [{home_team, away_team, market, selection}]
-let NBA_MARKETS = null;   // match_id -> [{market, selection, probability}] from the NBA picks feed
+/* Plain words for NHL/NBA/NFL bets (plain-language rule): "49ers -2.5" is
+   "49ers win by 3+", "Over 49.5" is "50+ points in total". Market names are
+   us_sports.py's (Moneyline, 60-Minute Result, Puck Line, Spread, Over/Under ...). */
+function usBetLabel(market, sel) {
+    const unit = market.endsWith("Goals") ? "goals" : "points";
+    if (market === "Moneyline") return `${sel} to win`;
+    if (market === "60-Minute Result") return sel === "Draw" ? "Level after 60 minutes" : `${sel} ahead after 60 minutes`;
+    // A whole-number line (NFL -3) is a push on the exact number: money back.
+    let m = sel.match(/^(.*) ([+-])(\d+(?:\.5)?)$/);
+    if (m && (market === "Spread" || market === "Puck Line")) {
+        const v = parseFloat(m[3]), whole = Number.isInteger(v), n = whole ? v + 1 : Math.ceil(v);
+        const push = whole ? ` (by exactly ${v}: money back)` : "";
+        return (m[2] === "-" ? `${m[1]} win by ${n}+` : `${m[1]} won't lose by ${n}+`) + push;
+    }
+    m = sel.match(/^(Over|Under) (\d+(?:\.5)?)$/);
+    if (m) {
+        const v = parseFloat(m[2]), whole = Number.isInteger(v);
+        const push = whole ? ` (exactly ${v}: money back)` : "";
+        return (m[1] === "Over" ? `${whole ? v + 1 : Math.ceil(v)}+ ${unit} in total` : `${whole ? v - 1 : Math.floor(v)} or fewer ${unit} in total`) + push;
+    }
+    return ppPlainPick(sel);
+}
+const legLabel = leg => ["nba", "nhl", "nfl"].includes(leg.sport) ? usBetLabel(leg.market, leg.selection) : ppPlainPick(leg.selection);
+const US_MARKETS = {};    // match_id -> [{market, selection, probability}] from /api/match/<id>
 let selectedSports = ppSportsGet();
 
 function paintLeagueSection() {
@@ -259,8 +282,8 @@ function renderLeg(leg, idx) {
   <div class="flex items-end gap-sm">
     <div class="flex-1 min-w-0">
       <div class="text-body-md text-primary font-semibold">${escapeHtml(leg.home_team)} vs ${escapeHtml(leg.away_team)}</div>
-      <div class="text-body-md text-secondary font-semibold" title="Bookmaker calls it: ${escapeHtml(leg.market)} · ${escapeHtml(leg.selection)}">${escapeHtml(ppPlainPick(leg.selection))}</div>
-      ${leg.sport === "nba" ? `<div class="nba-bet-slot" data-idx="${idx}"></div>` : ""}
+      <div class="text-body-md text-secondary font-semibold" title="Bookmaker calls it: ${escapeHtml(leg.market)} · ${escapeHtml(leg.selection)}">${escapeHtml(legLabel(leg))}</div>
+      ${["nba", "nhl", "nfl"].includes(leg.sport) ? `<div class="us-bet-slot" data-idx="${idx}"></div>` : ""}
     </div>
     <div class="shrink-0 text-right tabular-nums">
       <div class="text-body-lg text-primary font-semibold">${prob}%</div>
@@ -346,7 +369,7 @@ function renderSlip(data) {
   </div>
 </section>`;
     LAST_SLIP = data.legs;
-    fillNbaBetTypes(data.legs);
+    fillUsBetTypes(data.legs);
     document.querySelectorAll(".book-provider-btn").forEach(b =>
         b.addEventListener("click", () => bookSlip(b.dataset.provider)));
     ppWireTrackSlip(() => LAST_SLIP.map(l => ({ ...l, odds: l.sporty_odds })), "builder");
@@ -375,26 +398,30 @@ function renderSlip(data) {
     if (reset) reset.addEventListener("click", () => { excludedPairs = []; generateSlip(); });
 }
 
-/* NBA legs: offer the game's other priced bets (win, spread, total points) when
-   the bookmaker has posted lines. Only games on the NBA picks feed carry them. */
-async function fillNbaBetTypes(legs) {
-    const slots = document.querySelectorAll(".nba-bet-slot");
-    if (!slots.length) return;
-    if (!NBA_MARKETS) {
-        try {
-            const d = await PotentialProAPI.sportPicks(["nba"]);
-            NBA_MARKETS = Object.fromEntries((d.picks || []).map(p => [p.match_id, (p.markets || [])
-                .map(m => ({market: m.market, selection: m.selection, probability: m.probability ?? m.book_probability}))]));
-        } catch (err) { console.error("nba markets:", err); return; }
-    }
-    slots.forEach(slot => {
+/* NHL, NBA and NFL legs: offer the game's other priced bets (win, spread or
+   puck line, totals, 60-minute result) when the bookmaker has posted lines.
+   From the match page's data (/api/match/<id>), so low-confidence games get the
+   switch too; the Picks feed skips them. NHL totals are left out: the Builder
+   never picks them (us_sports.slip_options - the book prices them better), so a
+   pinned NHL total would match nothing. */
+async function fillUsBetTypes(legs) {
+    const slots = [...document.querySelectorAll(".us-bet-slot")];
+    await Promise.all(slots.map(async slot => {
         const leg = legs[parseInt(slot.dataset.idx)];
-        const opts = (NBA_MARKETS[leg.match_id] || []).filter(o => o.probability != null);
+        if (!US_MARKETS[leg.match_id]) {
+            try {
+                const g = await PotentialProAPI.match(leg.match_id);
+                US_MARKETS[leg.match_id] = (g.markets || [])
+                    .filter(m => !(leg.sport === "nhl" && m.market.startsWith("Over/Under")))
+                    .map(m => ({market: m.market, selection: m.selection, probability: m.probability ?? m.book_probability}));
+            } catch (err) { console.error("bet types:", err); return; }
+        }
+        const opts = US_MARKETS[leg.match_id].filter(o => o.probability != null);
         if (opts.length <= 2) return;           // win/lose only: nothing to switch to
         const key = o => `${o.market}||${o.selection}`;
         slot.innerHTML = `<label class="mt-xs flex items-center gap-xs text-label-sm text-on-surface-variant"><span class="whitespace-nowrap">Bet type</span>
-          <select class="nba-bet min-w-0 max-w-full flex-1 md:flex-none rounded-lg border border-outline-variant bg-surface text-label-sm py-1 pl-2 pr-8">
-            ${opts.map(o => `<option value="${escapeHtml(key(o))}" ${key(o) === key(leg) ? "selected" : ""}>${escapeHtml(ppPlainPick(o.selection))} · ${Math.round(o.probability * 100)}%</option>`).join("")}
+          <select class="us-bet min-w-0 max-w-full flex-1 md:flex-none rounded-lg border border-outline-variant bg-surface text-label-sm py-1 pl-2 pr-8">
+            ${opts.map(o => `<option value="${escapeHtml(key(o))}" ${key(o) === key(leg) ? "selected" : ""}>${escapeHtml(usBetLabel(o.market, o.selection))} · ${Math.round(o.probability * 100)}%</option>`).join("")}
           </select></label>`;
         slot.querySelector("select").addEventListener("change", e => {
             const [market, selection] = e.target.value.split("||");
@@ -403,7 +430,7 @@ async function fillNbaBetTypes(legs) {
             pinnedLegs.push({home_team: leg.home_team, away_team: leg.away_team, market, selection});
             generateSlip();
         });
-    });
+    }));
 }
 
 let LAST_SLIP = [];
