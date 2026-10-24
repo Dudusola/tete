@@ -238,6 +238,56 @@ function statsBlock(c, d) {
     return card("Match stats", `<div class="flex justify-between text-label-sm text-on-surface-variant mb-xs"><span>${esc(d.home_team)}</span><span>${esc(d.away_team)}</span></div>${c.stats.map(row).join("")}
       <p class="text-label-sm text-on-surface-variant mt-xs">From ${esc(c.stats_source || "ESPN")}.</p>`);
 }
+/* xG, momentum and shot map (FotMob, 24 Oct 2026). Plain SVG drawn with
+   currentColor, so the text-* tokens theme it in dark mode too. */
+function chancesBlock(f, d) {
+    if (!f) return "";
+    const parts = [];
+    if (f.xg) parts.push(`<div class="flex justify-between items-baseline text-body-md">
+        <b class="text-primary tabular-nums text-body-lg">${esc(f.xg[0])}</b>
+        <span class="text-label-sm text-on-surface-variant">Expected goals (xG)</span>
+        <b class="text-primary tabular-nums text-body-lg">${esc(f.xg[1])}</b></div>
+      <p class="text-label-sm text-on-surface-variant mt-[2px]">How good the chances were: 1.0 is about one goal's worth.</p>`);
+    const mom = f.momentum || [];
+    if (mom.length > 5) {
+        const last = Math.round(mom[mom.length - 1][0]) || 90, W = 300, H = 60, mid = H / 2, bw = W / Math.max(last, 90);
+        const bars = mom.map(([m, v]) => {
+            const h = Math.abs(v) / 100 * (mid - 2);
+            return `<rect x="${(m * bw).toFixed(1)}" y="${(v >= 0 ? mid - h : mid).toFixed(1)}" width="${Math.max(bw - 0.4, 0.6).toFixed(1)}" height="${h.toFixed(1)}" class="${v >= 0 ? "text-secondary" : "text-on-surface-variant"}" fill="currentColor"/>`;
+        }).join("");
+        const top = mom.reduce((a, [, v]) => a + Math.max(v, 0), 0), bottom = mom.reduce((a, [, v]) => a + Math.max(-v, 0), 0);
+        parts.push(`<div class="mt-md">
+          <div class="flex justify-between text-label-sm text-on-surface-variant"><span>Who was pressing</span><span class="tabular-nums">to ${last}'</span></div>
+          <svg viewBox="0 0 ${W} ${H}" class="w-full h-16 mt-xs" role="img" aria-label="Momentum by minute: ${esc(top >= bottom ? d.home_team : d.away_team)} had more of it">
+            <line x1="0" y1="${mid}" x2="${W}" y2="${mid}" class="text-outline-variant" stroke="currentColor" stroke-width="0.5"/>
+            <line x1="${45 * bw}" y1="0" x2="${45 * bw}" y2="${H}" class="text-outline-variant" stroke="currentColor" stroke-width="0.5" stroke-dasharray="2 2"/>${bars}</svg>
+          <div class="flex justify-between text-label-sm"><span class="text-secondary font-semibold">▲ ${esc(d.home_team)}</span><span class="text-on-surface-variant font-semibold">▼ ${esc(d.away_team)}</span></div></div>`);
+    }
+    const shots = f.shots || [];
+    if (shots.length) {
+        // One pitch: home shoots at the right-hand goal, away (mirrored) at the left.
+        const dot = sh => {
+            const x = sh.home ? sh.x : 105 - sh.x, y = sh.home ? sh.y : 68 - sh.y, r = (1 + sh.xg * 3.5).toFixed(2);
+            const tip = `${sh.player || ""} ${sh.min != null ? sh.min + "'" : ""} · xG ${sh.xg}${sh.goal ? " · goal" : ""}`;
+            return `<circle cx="${x}" cy="${y}" r="${r}" class="${sh.home ? "text-secondary" : "text-on-surface-variant"}" stroke="currentColor" stroke-width="0.4"
+                fill="${sh.goal ? "currentColor" : "none"}" fill-opacity="${sh.goal ? 0.9 : 0}"><title>${esc(tip)}</title></circle>`;
+        };
+        const n = side => shots.filter(sh => sh.home === side), g = side => n(side).filter(sh => sh.goal).length;
+        parts.push(`<div class="mt-md">
+          <div class="text-label-sm text-on-surface-variant">Shot map</div>
+          <svg viewBox="-1 -1 107 70" class="w-full mt-xs rounded-lg bg-surface-container-low" role="img"
+               aria-label="Shot map: ${esc(d.home_team)} ${n(true).length} shots, ${g(true)} scored; ${esc(d.away_team)} ${n(false).length} shots, ${g(false)} scored">
+            <g class="text-outline-variant" stroke="currentColor" stroke-width="0.4" fill="none">
+              <rect x="0" y="0" width="105" height="68"/><line x1="52.5" y1="0" x2="52.5" y2="68"/><circle cx="52.5" cy="34" r="9.15"/>
+              <rect x="0" y="13.84" width="16.5" height="40.32"/><rect x="88.5" y="13.84" width="16.5" height="40.32"/>
+              <rect x="0" y="24.84" width="5.5" height="18.32"/><rect x="99.5" y="24.84" width="5.5" height="18.32"/></g>
+            ${shots.map(dot).join("")}</svg>
+          <div class="flex justify-between text-label-sm mt-xs"><span class="text-on-surface-variant">← ${esc(d.away_team)} ${n(false).length} shots</span><span class="text-secondary">${esc(d.home_team)} ${n(true).length} shots →</span></div>
+          <p class="text-label-sm text-on-surface-variant mt-[2px]">Bigger circle = better chance. Filled = goal.</p></div>`);
+    }
+    if (!parts.length) return "";
+    return card("Chances", parts.join("") + `<p class="text-label-sm text-on-surface-variant mt-sm">From FotMob.</p>`);
+}
 function lineupsBlock(c) {
     if (!c || !c.lineups || !c.lineups.length) return "";
     return card("Line-ups", `<details><summary class="cursor-pointer text-body-md text-secondary font-semibold">Show the starting line-ups</summary>
@@ -270,7 +320,7 @@ async function loadCentre(id, d, fresh = false) {
         const c = await PotentialProAPI.matchCentre(id, fresh);
         const e = c.espn;
         if (e && e.venue) document.getElementById("venue").textContent = ` · ${e.venue}`;
-        document.getElementById("centre-top").innerHTML = eventsBlock(e, d) + statsBlock(e, d);
+        document.getElementById("centre-top").innerHTML = eventsBlock(e, d) + statsBlock(e, d) + chancesBlock(c.fotmob, d);
         document.getElementById("centre-mid").innerHTML = recentBlock(e, d) + lineupsBlock(e);
         document.getElementById("centre-end").innerHTML = commentaryBlock(e);
         if (c.correct_scores && Object.keys(c.correct_scores).length)
