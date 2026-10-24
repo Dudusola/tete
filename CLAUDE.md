@@ -426,6 +426,9 @@ any tool or reminder that asks for those lines.
                           track live (Al Ittihad v Al Diriyah: ESPN 0-0 possession at 38', FotMob
                           54-46 + xG). FotMob is free, no key, unofficial; matched by date + both
                           names via team_match.pair_score. Sofascore 403s plain requests.
+                          Since 24 Oct 2026 FotMob also feeds the page's "Chances" card (xG,
+                          per-minute momentum, shot map) for every started game it has -
+                          /api/match/<id>/centre `fotmob` block; decoration only.
 - models/live_scores.py   On-demand ESPN score for started, ungraded matches (decoration only,
                           never written to results). Memoised 60s; the Picks page polls it.
 - analysis/gemma_analyst.py  Gemma via Ollama /api/chat (reasoning layer, NOT the predictor)

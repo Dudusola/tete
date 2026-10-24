@@ -1378,7 +1378,7 @@ def get_match_centre(match_id: str):
     lineups, goals and cards, team stats, commentary, table and last five,
     plus SportyBet's correct-score prices while the match can still be bet.
     Its own endpoint so the main match page never waits on two outside feeds."""
-    from models.match_centre import espn_centre, espn_stats_empty, fotmob_stats, sporty_correct_scores
+    from models.match_centre import espn_centre, espn_stats_empty, fotmob_detail, sporty_correct_scores
     conn = get_connection()
     row = conn.execute(f"""SELECT m.match_id, m.home_team, m.away_team, m.league, m.match_date,
                                  m.kickoff_utc, m.live_state, m.espn_league
@@ -1390,12 +1390,14 @@ def get_match_centre(match_id: str):
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
     started = effective_live_state(d) in ("in", "post") or (d["kickoff_utc"] or "9") <= now
     espn = espn_centre(d["match_id"], d["espn_league"], live=started)
-    # ESPN leaves stats at zero for games it isn't tracking live; FotMob fills them.
-    if started and espn is not None and espn_stats_empty(espn.get("stats")):
-        fm = fotmob_stats(d, live=effective_live_state(d) != "post")
-        if fm:
-            espn = {**espn, "stats": fm, "stats_source": "FotMob"}
-    return {"espn": espn, "correct_scores": {} if started else sporty_correct_scores(d)}
+    # FotMob: xG, momentum and the shot map once a game starts, and the team
+    # stats when ESPN leaves them at zero (games it isn't tracking live).
+    fm = fotmob_detail(d, live=effective_live_state(d) != "post") if started else None
+    if fm and fm["stats"] and espn is not None and espn_stats_empty(espn.get("stats")):
+        espn = {**espn, "stats": fm["stats"], "stats_source": "FotMob"}
+    chances = ({k: fm[k] for k in ("xg", "momentum", "shots")}
+               if fm and (fm["xg"] or fm["momentum"] or fm["shots"]) else None)
+    return {"espn": espn, "fotmob": chances, "correct_scores": {} if started else sporty_correct_scores(d)}
 
 
 @app.get("/api/match/{match_id}")

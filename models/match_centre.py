@@ -16,7 +16,9 @@ Two free sources, both probed live before this was written:
     each) for games it isn't tracking live, e.g. Al Ittihad v Al Diriyah at 38'
     where FotMob had 54-46 possession, 6-5 shots and xG. Found by date + both team
     names through models/team_match.pair_score (the live-score matcher, bug #17).
-    Sofascore was probed too: 403 to plain requests.
+    Sofascore was probed too: 403 to plain requests. Since 24 Oct 2026 also the
+    match page's xG, momentum (FotMob's per-minute -100..100 swing) and shot map,
+    for every started game FotMob has, not only when ESPN's stats are empty.
 
 Decoration only: nothing here is a model input or a graded number, and every
 function returns None/{} rather than raising, so the match page never breaks
@@ -133,8 +135,28 @@ def parse_fotmob_stats(d: dict) -> list:
             for t, label in FOTMOB_STATS if t in seen]
 
 
-def fotmob_stats(fixture: dict, live: bool) -> list:
-    """Team stats from FotMob for this fixture, or [] if it can't be found."""
+def parse_fotmob(d: dict) -> dict:
+    """Stats, xG, momentum and shots, home/away as FotMob's header has them."""
+    content = d.get("content") or {}
+    teams = (d.get("header") or {}).get("teams") or [{}]
+    home_id = teams[0].get("id")
+    stats = parse_fotmob_stats(d)
+    momentum = [[p["minute"], p["value"]] for p in
+                ((content.get("momentum") or {}).get("main") or {}).get("data") or []
+                if p.get("minute") is not None and p.get("value") is not None]
+    # Coordinates: both sides attack the goal at x=105 (pitch 105 x 68).
+    shots = [{"home": s.get("teamId") == home_id, "x": round(s["x"], 1), "y": round(s["y"], 1),
+              "xg": round(s.get("expectedGoals") or 0, 2),
+              "goal": s.get("eventType") == "Goal" and not s.get("isOwnGoal"),
+              "on_target": bool(s.get("isOnTarget")), "min": s.get("min"), "player": s.get("playerName")}
+             for s in (content.get("shotmap") or {}).get("shots") or []
+             if s.get("x") is not None and s.get("y") is not None]
+    xg = next(([x["home"], x["away"]] for x in stats if x["label"] == "Expected goals (xG)"), None)
+    return {"stats": stats, "xg": xg, "momentum": momentum, "shots": shots}
+
+
+def fotmob_detail(fixture: dict, live: bool) -> dict | None:
+    """FotMob's stats, xG, momentum and shots for this fixture, or None."""
     from models.team_match import pair_score
     def find():
         day = (fixture.get("kickoff_utc") or fixture.get("match_date") or "")[:10].replace("-", "")
@@ -152,9 +174,9 @@ def fotmob_stats(fixture: dict, live: bool) -> list:
         return best and best[1]
     fm_id = _remember(("fotmob_id", fixture.get("match_id")), 1800, find)
     if not fm_id:
-        return []
-    return _remember(("fotmob_stats", fm_id), 60 if live else 1800, lambda: parse_fotmob_stats(
-        requests.get(FOTMOB_MATCH.format(id=fm_id), headers=FOTMOB_HEADERS, timeout=15).json())) or []
+        return None
+    return _remember(("fotmob_detail", fm_id), 60 if live else 1800, lambda: parse_fotmob(
+        requests.get(FOTMOB_MATCH.format(id=fm_id), headers=FOTMOB_HEADERS, timeout=15).json()))
 
 
 def sporty_correct_scores(fixture: dict) -> dict:
@@ -204,3 +226,12 @@ if __name__ == "__main__":
     assert parse_fotmob_stats(fm) == [{"label": "Possession %", "home": "54", "away": "46"},
                                       {"label": "Expected goals (xG)", "home": "1.04", "away": "0.16"}]
     print("PASS - FotMob stats parser")
+    full = {"header": {"teams": [{"id": 1}, {"id": 2}]}, **fm}
+    full["content"]["momentum"] = {"main": {"data": [{"minute": 1, "value": 33}, {"minute": 2, "value": -14}]}}
+    full["content"]["shotmap"] = {"shots": [
+        {"teamId": 1, "x": 100.9, "y": 34.6, "expectedGoals": 0.53, "eventType": "Goal", "isOnTarget": True, "min": 30},
+        {"teamId": 2, "x": 90.0, "y": 30.0, "expectedGoals": 0.1, "eventType": "Goal", "isOwnGoal": True, "min": 50}]}
+    p = parse_fotmob(full)
+    assert p["xg"] == ["1.04", "0.16"] and p["momentum"] == [[1, 33], [2, -14]]
+    assert [(s["home"], s["goal"]) for s in p["shots"]] == [(True, True), (False, False)]
+    print("PASS - FotMob detail parser")
