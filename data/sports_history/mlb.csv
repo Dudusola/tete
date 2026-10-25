@@ -38852,3 +38852,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401930515,2026-10-18,2026-10-18 21:00,2026,3,Cleveland Guardians,Tampa Bay Rays,5,30,1,3,A,REG,1,3,0
 401908028,2026-10-20,2026-10-20 00:00,2026,3,Tampa Bay Rays,Cleveland Guardians,30,5,7,3,H,REG,7,3,0
 401908042,2026-10-24,2026-10-24 00:00,2026,3,Milwaukee Brewers,Tampa Bay Rays,8,30,3,2,H,REG,3,2,0
+401908043,2026-10-25,2026-10-25 00:00,2026,3,Milwaukee Brewers,Tampa Bay Rays,8,30,5,4,H,REG,5,4,0
