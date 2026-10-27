@@ -20762,3 +20762,6 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892579,2026-10-25,2026-10-25 22:00,2027,2,Dallas Stars,New York Islanders,9,12,6,3,H,REG,6,3,0
 401892580,2026-10-26,2026-10-26 00:00,2027,2,Nashville Predators,Colorado Avalanche,27,17,6,2,H,REG,6,2,0
 401892581,2026-10-26,2026-10-26 02:00,2027,2,Vancouver Canucks,Minnesota Wild,22,30,2,4,A,,,,0
+401892582,2026-10-26,2026-10-26 23:00,2027,2,New York Rangers,Los Angeles Kings,13,8,3,6,A,REG,3,6,0
+401892583,2026-10-27,2026-10-27 00:30,2027,2,Calgary Flames,Toronto Maple Leafs,3,21,5,2,H,REG,5,2,0
+401892584,2026-10-27,2026-10-27 01:30,2027,2,Edmonton Oilers,Detroit Red Wings,6,5,3,4,A,SO,3,3,0
