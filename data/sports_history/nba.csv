@@ -20577,3 +20577,10 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401909284,2026-10-31,2026-10-31 00:00,2027,2,Minnesota Timberwolves,LA Clippers,16,12,127,101,H,REG,127,101,0
 401909285,2026-10-31,2026-10-31 02:00,2027,2,Golden State Warriors,Los Angeles Lakers,9,13,112,95,H,REG,112,95,0
 401909286,2026-10-31,2026-10-31 02:00,2027,2,Phoenix Suns,Denver Nuggets,21,7,120,127,A,REG,120,127,0
+401909896,2026-10-31,2026-10-31 19:00,2027,2,Utah Jazz,Portland Trail Blazers,26,22,90,112,A,REG,90,112,0
+401909897,2026-10-31,2026-10-31 22:00,2027,2,Charlotte Hornets,Philadelphia 76ers,30,20,104,109,A,REG,104,109,0
+401909898,2026-10-31,2026-10-31 23:00,2027,2,New Orleans Pelicans,Atlanta Hawks,3,1,121,99,H,REG,121,99,0
+401909899,2026-11-01,2026-11-01 00:00,2027,2,Memphis Grizzlies,Sacramento Kings,29,23,136,105,H,REG,136,105,0
+401909900,2026-11-01,2026-11-01 00:00,2027,2,Milwaukee Bucks,Cleveland Cavaliers,15,5,111,136,A,REG,111,136,0
+401909901,2026-11-01,2026-11-01 00:00,2027,2,San Antonio Spurs,Minnesota Timberwolves,24,16,121,111,H,REG,121,111,0
+401909902,2026-11-01,2026-11-01 00:30,2027,2,Houston Rockets,Oklahoma City Thunder,10,25,119,98,H,REG,119,98,0
