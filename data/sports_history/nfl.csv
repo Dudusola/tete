@@ -4470,3 +4470,15 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873022,2026-10-26,2026-10-26 00:20,2026,2,Seattle Seahawks,Kansas City Chiefs,26,12,20,3,H,REG,20,3,0
 401873009,2026-10-27,2026-10-27 00:15,2026,2,Philadelphia Eagles,Dallas Cowboys,21,6,21,38,A,REG,21,38,0
 401873023,2026-10-30,2026-10-30 00:15,2026,2,Green Bay Packers,Carolina Panthers,9,29,27,19,H,REG,27,19,0
+401873024,2026-11-01,2026-11-01 18:00,2026,2,Dallas Cowboys,Arizona Cardinals,6,22,30,33,A,OT,30,30,0
+401873025,2026-11-01,2026-11-01 18:00,2026,2,Tampa Bay Buccaneers,Atlanta Falcons,27,1,16,0,H,REG,16,0,0
+401873026,2026-11-01,2026-11-01 18:00,2026,2,Buffalo Bills,Baltimore Ravens,2,33,36,10,H,REG,36,10,0
+401873027,2026-11-01,2026-11-01 18:00,2026,2,Pittsburgh Steelers,Cleveland Browns,23,5,27,6,H,REG,27,6,0
+401873028,2026-11-01,2026-11-01 18:00,2026,2,Jacksonville Jaguars,Indianapolis Colts,30,11,42,7,H,REG,42,7,0
+401873029,2026-11-01,2026-11-01 18:00,2026,2,New York Jets,Las Vegas Raiders,20,13,33,38,A,REG,33,38,0
+401873030,2026-11-01,2026-11-01 18:00,2026,2,Detroit Lions,Minnesota Vikings,8,16,19,15,H,REG,19,15,0
+401873031,2026-11-01,2026-11-01 18:00,2026,2,Cincinnati Bengals,Tennessee Titans,4,10,43,36,H,OT,36,36,0
+401873032,2026-11-01,2026-11-01 21:05,2026,2,Los Angeles Rams,Los Angeles Chargers,14,24,24,9,H,REG,24,9,0
+401873033,2026-11-01,2026-11-01 21:25,2026,2,Denver Broncos,Kansas City Chiefs,7,12,28,24,H,REG,28,24,0
+401873034,2026-11-01,2026-11-01 21:25,2026,2,Miami Dolphins,New England Patriots,15,17,19,24,A,REG,19,24,0
+401873035,2026-11-02,2026-11-02 01:20,2026,2,Washington Commanders,Philadelphia Eagles,28,21,27,10,H,REG,27,10,0

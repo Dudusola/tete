@@ -20584,3 +20584,7 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401909900,2026-11-01,2026-11-01 00:00,2027,2,Milwaukee Bucks,Cleveland Cavaliers,15,5,111,136,A,REG,111,136,0
 401909901,2026-11-01,2026-11-01 00:00,2027,2,San Antonio Spurs,Minnesota Timberwolves,24,16,121,111,H,REG,121,111,0
 401909902,2026-11-01,2026-11-01 00:30,2027,2,Houston Rockets,Oklahoma City Thunder,10,25,119,98,H,REG,119,98,0
+401909903,2026-11-01,2026-11-01 20:30,2027,2,Orlando Magic,Boston Celtics,19,2,97,108,A,REG,97,108,0
+401909904,2026-11-01,2026-11-01 22:00,2027,2,Indiana Pacers,Brooklyn Nets,11,17,90,98,A,REG,90,98,0
+401909905,2026-11-02,2026-11-02 01:30,2027,2,Golden State Warriors,LA Clippers,9,12,124,112,H,REG,124,112,0
+401909906,2026-11-02,2026-11-02 02:00,2027,2,Los Angeles Lakers,Toronto Raptors,13,28,131,125,H,REG,131,125,0
