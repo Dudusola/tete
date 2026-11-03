@@ -145,12 +145,14 @@ def parse_fotmob(d: dict) -> dict:
                 ((content.get("momentum") or {}).get("main") or {}).get("data") or []
                 if p.get("minute") is not None and p.get("value") is not None]
     # Coordinates: both sides attack the goal at x=105 (pitch 105 x 68).
+    # Own goals are dropped: FotMob files them under the scorer's team, so one
+    # drew as a shot by the side that conceded (Milan "9 shots" beside ESPN's 8).
     shots = [{"home": s.get("teamId") == home_id, "x": round(s["x"], 1), "y": round(s["y"], 1),
               "xg": round(s.get("expectedGoals") or 0, 2),
-              "goal": s.get("eventType") == "Goal" and not s.get("isOwnGoal"),
+              "goal": s.get("eventType") == "Goal",
               "on_target": bool(s.get("isOnTarget")), "min": s.get("min"), "player": s.get("playerName")}
              for s in (content.get("shotmap") or {}).get("shots") or []
-             if s.get("x") is not None and s.get("y") is not None]
+             if s.get("x") is not None and s.get("y") is not None and not s.get("isOwnGoal")]
     xg = next(([x["home"], x["away"]] for x in stats if x["label"] == "Expected goals (xG)"), None)
     return {"stats": stats, "xg": xg, "momentum": momentum, "shots": shots}
 
@@ -233,5 +235,5 @@ if __name__ == "__main__":
         {"teamId": 2, "x": 90.0, "y": 30.0, "expectedGoals": 0.1, "eventType": "Goal", "isOwnGoal": True, "min": 50}]}
     p = parse_fotmob(full)
     assert p["xg"] == ["1.04", "0.16"] and p["momentum"] == [[1, 33], [2, -14]]
-    assert [(s["home"], s["goal"]) for s in p["shots"]] == [(True, True), (False, False)]
+    assert [(s["home"], s["goal"]) for s in p["shots"]] == [(True, True)]    # own goal dropped
     print("PASS - FotMob detail parser")

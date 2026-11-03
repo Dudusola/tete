@@ -42,6 +42,7 @@ const API_BASE = (function () {
       html.dark .bg-surface-bright { background-color:#37393b !important; }
       html.dark .bg-surface-tint\\/30 { background-color:rgba(190,198,224,0.25) !important; }
       html.dark .bg-error-container { background-color:#93000a !important; }
+      html.dark .bg-tertiary-container { background-color:#44618a !important; }
       html.dark .text-primary { color:#ffffff !important; }
       html.dark .text-on-surface { color:#e1e3e5 !important; }
       html.dark .text-on-background { color:#e1e3e5 !important; }
@@ -52,7 +53,7 @@ const API_BASE = (function () {
       html.dark .text-error { color:#ffb4ab !important; }
       html.dark .text-on-error-container { color:#ffdad6 !important; }
       html.dark .text-on-primary-container { color:#aab2c5 !important; }
-      html.dark .text-on-tertiary-container { color:#98a5b8 !important; }
+      html.dark .text-on-tertiary-container { color:#d3e4fe !important; }
       html.dark .text-surface-tint { color:#98a5b8 !important; }
       html.dark .border-outline-variant { border-color:#42474a !important; }
       html.dark .border-outline { border-color:#8c9198 !important; }

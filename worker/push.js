@@ -332,7 +332,8 @@ export async function runPush(env) {
     return;
   }
   const subs = await sb(env, "push_subscriptions?select=id,user_id,endpoint,p256dh,auth");
-  if (!subs.length) return;
+  // Say it: a silent return made "nobody subscribed" look like "push is broken".
+  if (!subs.length) return console.log("push: 0 subscriptions - nothing to send");
   const now = Date.now();
   const messages = await dueMessages(env, [...new Set(subs.map((s) => s.user_id))], now);
 

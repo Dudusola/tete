@@ -8,6 +8,12 @@ compatibility_date = "2026-08-01"
 
 # Plain config only. REPO and FEED_PATH are not sensitive — the repo is private
 # and reading it still requires GITHUB_TOKEN.
+# Keep console.log output (push counts, dispatch results) for 3 days. Free plan:
+# 200k events/day; we log a few hundred. Without it, the only window was a live
+# `wrangler tail`, which kept dropping, so push delivery could not be checked.
+[observability]
+enabled = true
+
 [vars]
 REPO = "Dudusola/tete"
 FEED_PATH = "feed/bot_feed.json"
