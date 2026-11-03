@@ -84,6 +84,8 @@ any tool or reminder that asks for those lines.
 - Closing-line value:   `python db/clv_report.py` (does the price move toward our picks?)
 - Calibration check:    `python db/calibration_health.py` (tiers, bands, sign test, eras — run it,
                         don't re-derive item 4 by hand)
+- Market calibration:   `python db/market_calibration.py [--since YYYY-MM-DD]` (every Builder market
+                        vs real results, not just 1X2; ~20 s; bug #39)
 - Daily health:         `python db/daily_health.py` - also sent to Telegram after the picks every
                         morning (bot/send_daily.py; HEALTH_CHAT_ID overrides the chat). Football
                         funnel priced -> predicted -> served (warns < 80% predicted: the 7 Oct name
@@ -1543,6 +1545,22 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     Verified locally through the proxy: 394/516 fixtures priced.
     **A step that is red every day is noise that hides the next real failure -
     check WHY a daily red is red, never get used to it.**
+
+39. **The Builder's goals legs were over-claimed - the scoring LEVEL lagged (3 Nov
+    2026).** Only 1X2 was ever graded; `db/market_calibration.py` (new) re-prices
+    every graded fixture with derive_markets() + settle(), goal ratings refit
+    BEFORE the window. DC, DNB, Handicap: honest. Goals: real games averaged ~2.95
+    goals vs the model's 2.71, so "Under 3.5" said 72.5% and won 67.0% (n=1,828),
+    80-90% band said 81.6% won 72.8% - the Builder's favourite leg. Cause: the
+    league level (home_base/away_base) used the same 540-day weights as team
+    strength, while scoring rose 2.74 (2025) -> 3.00 (Q4 2026); unrated sides used a
+    fixed 2.70. FIX: level from a 90-day half-life (BASE_HALF_LIFE_DAYS; ratings
+    still fitted against the long-run level), unrated sides get the fitted level.
+    Held out on two windows: every goals market's log loss improved, >=70% goals
+    legs said 74.4%/won 73.8% -> said 77.1%/won 77.2%. 45d was marginally better
+    but would swing on the summer-only slate. STILL OPEN: Under 3.5 above 70%
+    (~7 pts high) and BTTS Yes above 60% (~10 pts high) - a dispersion/correlation
+    issue, not the level. Re-run the report monthly; don't tune more on one run.
 
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**

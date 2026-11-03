@@ -259,8 +259,10 @@ def derive_markets(pred: dict) -> list:
         # falls back to the flat total, which is what shipped before. That is
         # 35% of fixtures today and shrinks as history accumulates.
         xg = goals_model.expected_goals(home, away)
-        if xg and (mu_h + mu_a) > 0:
-            scale = sum(xg) / (mu_h + mu_a)
+        # An unrated side still gets today's scoring level, not the fixed 2.70.
+        total = sum(xg) if xg else goals_model.base_total()
+        if total and (mu_h + mu_a) > 0:
+            scale = total / (mu_h + mu_a)
             mu_h, mu_a = mu_h * scale, mu_a * scale
 
         mx = _poisson_matrix(mu_h, mu_a)
