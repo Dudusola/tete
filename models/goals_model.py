@@ -69,6 +69,7 @@ import math
 import os
 
 HALF_LIFE_DAYS = 540      # ~18 months; a season and a half back counts half
+BASE_HALF_LIFE_DAYS = 90  # the league-wide scoring LEVEL only; see fit()
 SHRINK_K = 12             # matches needed before a rating is half-trusted
 ITERATIONS = 12           # attack/defence alternation; converges well before 12
 MIN_MATCHES = 3           # below this a team gets no rating at all
@@ -230,6 +231,12 @@ def expected_goals(home: str, away: str, data: dict | None = None):
     return round(mu_h, 4), round(mu_a, 4)
 
 
+def base_total(data: dict | None = None) -> float | None:
+    """Today's league-wide expected total, for fixtures with an unrated side."""
+    data = data if data is not None else load()
+    return (data["home_base"] + data["away_base"]) if data.get("home_base") else None
+
+
 # ─────────────────────────── fit (never runs in the API) ────────────────────
 def fit(cutoff: str | None = None, verbose: bool = True) -> dict:
     """Fit ratings from data/historical/*.csv.
@@ -315,6 +322,14 @@ def fit(cutoff: str | None = None, verbose: bool = True) -> dict:
             if exp_ga[t] > 0:
                 defence[t] = min(max(ga[t] / exp_ga[t], lo), hi)
 
+    # The LEVEL drifts far faster than team strength (2.74 goals a game in 2025,
+    # 3.00 in Q4 2026), so the served bases are re-read off recent matches only.
+    # The ratings above stay fitted against the long-run level, so they remain
+    # relative strengths. db/market_calibration.py measured the old 540-day level.
+    bw = 0.5 ** (age / BASE_HALF_LIFE_DAYS)
+    home_base = float((d["FTHG"] * bw).sum() / bw.sum())
+    away_base = float((d["FTAG"] * bw).sum() / bw.sum())
+
     # Shrink toward 1.0 by weighted sample size, and drop the unusable.
     out_teams = {}
     for t in teams:
@@ -332,6 +347,7 @@ def fit(cutoff: str | None = None, verbose: bool = True) -> dict:
         "home_base": round(home_base, 4),
         "away_base": round(away_base, 4),
         "half_life_days": HALF_LIFE_DAYS,
+        "base_half_life_days": BASE_HALF_LIFE_DAYS,
         "shrink_k": SHRINK_K,
         "total_clip": [1.4, 4.6],
         "fitted_from_matches": len(rows),
