@@ -246,5 +246,7 @@ jobs:
               echo "::error::git pull --rebase failed - read the git output above for the reason. If it names db/sports_predictor.db, two runs wrote the ledger; otherwise it is a worktree or network problem (bug #14: an unstaged file once caused this and was misreported as a second writer)."
               exit 1
             }
-            git push
+            # One retry: GitHub refused two pushes in Nov 2026 ("fatal error in
+            # commit_refs_rules", its side), and a refused push throws the run away.
+            git push || { sleep 15; git pull --rebase --autostash --no-edit && git push; }
           fi

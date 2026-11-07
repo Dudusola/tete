@@ -128,5 +128,7 @@ jobs:
               echo "::error::git pull --rebase failed; see the log above for the actual reason."
               exit 1
             }
-            git push
+            # One retry: GitHub refused two pushes in Nov 2026 ("fatal error in
+            # commit_refs_rules", its side), and a refused push throws the run away.
+            git push || { sleep 15; git pull --rebase --autostash --no-edit && git push; }
           fi
