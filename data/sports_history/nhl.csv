@@ -20839,3 +20839,6 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892656,2026-11-06,2026-11-06 00:00,2027,2,Winnipeg Jets,Vancouver Canucks,28,22,6,2,H,REG,6,2,0
 401892657,2026-11-06,2026-11-06 01:00,2027,2,Edmonton Oilers,Anaheim Ducks,6,25,4,5,A,REG,4,5,0
 401892658,2026-11-06,2026-11-06 02:30,2027,2,Colorado Avalanche,Nashville Predators,17,27,2,3,A,OT,2,2,0
+401892659,2026-11-07,2026-11-07 00:00,2027,2,Buffalo Sabres,Columbus Blue Jackets,2,29,5,2,H,REG,5,2,0
+401892660,2026-11-07,2026-11-07 01:00,2027,2,Minnesota Wild,San Jose Sharks,30,18,4,1,H,REG,4,1,0
+401892661,2026-11-07,2026-11-07 01:00,2027,2,Calgary Flames,Anaheim Ducks,3,25,3,5,A,REG,3,5,0
