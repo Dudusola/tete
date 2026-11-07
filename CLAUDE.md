@@ -85,7 +85,7 @@ any tool or reminder that asks for those lines.
 - Calibration check:    `python db/calibration_health.py` (tiers, bands, sign test, eras — run it,
                         don't re-derive item 4 by hand)
 - Market calibration:   `python db/market_calibration.py [--since YYYY-MM-DD]` (every Builder market
-                        vs real results, not just 1X2; ~20 s; bug #39)
+                        vs real results, not just 1X2; ratings refit weekly; ~2 min; bug #39)
 - Daily health:         `python db/daily_health.py` - also sent to Telegram after the picks every
                         morning (bot/send_daily.py; HEALTH_CHAT_ID overrides the chat). Football
                         funnel priced -> predicted -> served (warns < 80% predicted: the 7 Oct name
@@ -1558,9 +1558,14 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     still fitted against the long-run level), unrated sides get the fitted level.
     Held out on two windows: every goals market's log loss improved, >=70% goals
     legs said 74.4%/won 73.8% -> said 77.1%/won 77.2%. 45d was marginally better
-    but would swing on the summer-only slate. STILL OPEN: Under 3.5 above 70%
-    (~7 pts high) and BTTS Yes above 60% (~10 pts high) - a dispersion/correlation
-    issue, not the level. Re-run the report monthly; don't tune more on one run.
+    but would swing on the summer-only slate.
+    RE-MEASURED 7 Nov with WEEKLY refits (the report's first version froze the
+    ratings at the window start, a lag live never had): goals legs >=70% said
+    77.4% / won 77.4% (Oct-Nov, n=2,202); BTTS Yes >=60% is within noise. Only
+    Under 3.5 >=70% stays ~5 pts high, in BOTH halves (74.5->69.3, 74.4->69.1):
+    those games are rated 2.56 goals and score 2.74. Variance ~= mean, so NOT
+    over-dispersion. Shrinking each total toward the level (k 0.5-0.8) helped
+    Oct-Nov and HURT Aug-Sep - not shipped. Re-run monthly; don't tune on one run.
 
 ## Decisions & their reasoning
 - **Pipeline steps have a SEVERITY, and DEGRADED is the default (Aug 2026).**

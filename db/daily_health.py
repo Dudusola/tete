@@ -126,7 +126,8 @@ def main() -> int:
         print(f"No database at {DB_PATH}")
         return 1
     conn = sqlite3.connect(DB_PATH)
-    print(message(conn))
+    # The message carries emoji for Telegram; a Windows console is cp1252 (bug #29).
+    print(message(conn).encode("ascii", "replace").decode())
     return 0
 
 

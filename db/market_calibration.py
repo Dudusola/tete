@@ -13,9 +13,10 @@ the SAME models/settle.py that grades tracked slips.
 
 LOOK-AHEAD. The goal ratings are refit daily from CSVs that contain these very
 matches, so grading with today's file would be in-sample. The ratings are refit
-here with fit(cutoff=window start) and swapped into goals_model's cache.
-shortcut: one cutoff for the whole window, so later matches get ratings a little
-staler than live had (conservative); switch to monthly refits if a band hangs on it.
+here WEEKLY, fit(cutoff=Monday of the match's week), and swapped into
+goals_model's cache - close to what live had. One cutoff for the whole window
+(the first version) froze the scoring level for months and blamed the model for
+a lag production never had: Under 3.5 at 70-80% read 74.0% said / 66.9% won.
 
 Read-only. Never writes the DB or data/goals_ratings.json.
 
@@ -28,6 +29,7 @@ import os
 import sqlite3
 import sys
 from collections import defaultdict
+from datetime import date, timedelta
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from db.calibration_health import MIN_BAND_N, wilson
@@ -63,11 +65,25 @@ def rows(conn, since: str) -> list:
         ORDER BY m.match_date""", (since,)).fetchall()
 
 
-def grade(conn, since: str) -> tuple[dict, int, int]:
+def week_start(d: str) -> str:
+    day = date.fromisoformat(d[:10])
+    return (day - timedelta(days=day.weekday())).isoformat()
+
+
+def refit(cutoff: str) -> None:
+    goals_model._CACHE = goals_model.fit(cutoff=cutoff, verbose=False)
+    goals_model._INDEX, goals_model._RESOLVED = None, {}
+
+
+def grade(conn, since: str, walk: bool = True) -> tuple[dict, int, int]:
     """{(market, band): [won, n, sum_claim]}, fixtures, fixtures with a goal rating."""
     cells = defaultdict(lambda: [0, 0, 0.0])
     fixtures = rated = 0
+    fitted = None
     for r in rows(conn, since):
+        if walk and week_start(r["match_date"]) != fitted:
+            fitted = week_start(r["match_date"])
+            refit(fitted)
         pred = dict(r)
         fixtures += 1
         rated += goals_model.expected_goals(r["home_team"], r["away_team"]) is not None
@@ -95,11 +111,8 @@ def main():
     conn.row_factory = sqlite3.Row
 
     if not a.no_refit:
-        print(f"Refitting goal ratings on matches before {a.since} (no look-ahead)...")
-        goals_model._CACHE = goals_model.fit(cutoff=a.since, verbose=False)
-        goals_model._INDEX, goals_model._RESOLVED = None, {}
-
-    cells, fixtures, rated = grade(conn, a.since)
+        print("Refitting goal ratings weekly, each on matches before that week (no look-ahead)...")
+    cells, fixtures, rated = grade(conn, a.since, walk=not a.no_refit)
     print("=" * 84)
     print(f"  MARKET CALIBRATION - every market derive_markets() prices, since {a.since}")
     print(f"  {fixtures} graded football fixtures; {rated} had a goal rating for both teams"
@@ -134,6 +147,7 @@ def main():
 
 
 if __name__ == "__main__":
+    assert week_start("2026-11-08") == "2026-11-02" and week_start("2026-11-02") == "2026-11-02"
     assert band(0.705) == "70-80%" and band(0.95) == "90-100%" and band(0.2) == "0-50%"
     assert settle("Over/Under 2.5", "Under 2.5 Goals", "A", "B", 2, 1) == LOST
     main()
