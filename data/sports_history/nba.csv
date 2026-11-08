@@ -20626,4 +20626,12 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401909291,2026-11-07,2026-11-07 01:00,2027,2,Memphis Grizzlies,Oklahoma City Thunder,29,25,97,128,A,REG,97,128,0
 401909292,2026-11-07,2026-11-07 01:00,2027,2,Milwaukee Bucks,Toronto Raptors,15,28,107,121,A,REG,107,121,0
 401909293,2026-11-07,2026-11-07 01:00,2027,2,New Orleans Pelicans,Minnesota Timberwolves,3,16,109,115,A,REG,109,115,0
+401909294,2026-11-07,2026-11-07 03:00,2027,2,Los Angeles Lakers,Portland Trail Blazers,13,22,124,118,H,REG,124,118,0
 401909295,2026-11-07,2026-11-07 03:00,2027,2,Sacramento Kings,San Antonio Spurs,23,24,109,124,A,REG,109,124,0
+401909938,2026-11-07,2026-11-07 22:00,2027,2,Indiana Pacers,Denver Nuggets,11,7,102,114,A,REG,102,114,1
+401909939,2026-11-08,2026-11-08 00:30,2027,2,Atlanta Hawks,Brooklyn Nets,1,17,124,121,H,REG,124,121,0
+401909940,2026-11-08,2026-11-08 01:00,2027,2,Cleveland Cavaliers,New York Knicks,5,18,97,109,A,REG,97,109,0
+401909941,2026-11-08,2026-11-08 01:00,2027,2,Oklahoma City Thunder,Washington Wizards,25,27,114,75,H,REG,114,75,0
+401909942,2026-11-08,2026-11-08 01:30,2027,2,Golden State Warriors,Orlando Magic,9,19,126,119,H,OT,110,110,0
+401909943,2026-11-08,2026-11-08 02:00,2027,2,Phoenix Suns,Houston Rockets,21,10,102,99,H,REG,102,99,0
+401909944,2026-11-08,2026-11-08 03:00,2027,2,Portland Trail Blazers,San Antonio Spurs,22,24,103,125,A,REG,103,125,0
