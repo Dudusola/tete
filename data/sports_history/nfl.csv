@@ -4484,3 +4484,16 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873035,2026-11-02,2026-11-02 01:20,2026,2,Washington Commanders,Philadelphia Eagles,28,21,27,10,H,REG,27,10,0
 401873036,2026-11-03,2026-11-03 01:15,2026,2,Seattle Seahawks,Chicago Bears,26,3,17,34,A,REG,17,34,0
 401873037,2026-11-06,2026-11-06 01:15,2026,2,Baltimore Ravens,Jacksonville Jaguars,33,30,10,33,A,REG,10,33,0
+401873038,2026-11-08,2026-11-08 14:30,2026,2,Atlanta Falcons,Cincinnati Bengals,1,4,17,34,A,REG,17,34,1
+401873039,2026-11-08,2026-11-08 18:00,2026,2,New Orleans Saints,Cleveland Browns,18,5,23,22,H,OT,16,16,0
+401873040,2026-11-08,2026-11-08 18:00,2026,2,Indianapolis Colts,Dallas Cowboys,11,6,23,27,A,REG,23,27,0
+401873041,2026-11-08,2026-11-08 18:00,2026,2,Carolina Panthers,Denver Broncos,29,7,21,26,A,REG,21,26,0
+401873042,2026-11-08,2026-11-08 18:00,2026,2,Miami Dolphins,Detroit Lions,15,8,9,19,A,REG,9,19,0
+401873043,2026-11-08,2026-11-08 18:00,2026,2,Washington Commanders,Los Angeles Rams,28,14,13,20,A,REG,13,20,0
+401873044,2026-11-08,2026-11-08 18:00,2026,2,Philadelphia Eagles,New York Giants,21,19,11,19,A,REG,11,19,0
+401873045,2026-11-08,2026-11-08 18:00,2026,2,Kansas City Chiefs,New York Jets,12,20,35,12,H,REG,35,12,0
+401873046,2026-11-08,2026-11-08 21:05,2026,2,Los Angeles Chargers,Houston Texans,24,34,22,44,A,REG,22,44,0
+401873047,2026-11-08,2026-11-08 21:25,2026,2,San Francisco 49ers,Las Vegas Raiders,25,13,38,17,H,REG,38,17,0
+401873048,2026-11-08,2026-11-08 21:25,2026,2,Seattle Seahawks,Arizona Cardinals,26,22,17,3,H,REG,17,3,0
+401873049,2026-11-08,2026-11-08 21:25,2026,2,New England Patriots,Green Bay Packers,17,9,27,45,A,REG,27,45,0
+401873050,2026-11-09,2026-11-09 01:20,2026,2,Chicago Bears,Tampa Bay Buccaneers,3,27,27,24,H,REG,27,24,0
