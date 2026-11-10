@@ -4497,3 +4497,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873048,2026-11-08,2026-11-08 21:25,2026,2,Seattle Seahawks,Arizona Cardinals,26,22,17,3,H,REG,17,3,0
 401873049,2026-11-08,2026-11-08 21:25,2026,2,New England Patriots,Green Bay Packers,17,9,27,45,A,REG,27,45,0
 401873050,2026-11-09,2026-11-09 01:20,2026,2,Chicago Bears,Tampa Bay Buccaneers,3,27,27,24,H,REG,27,24,0
+401873051,2026-11-10,2026-11-10 01:15,2026,2,Minnesota Vikings,Buffalo Bills,16,2,6,23,A,REG,6,23,0
