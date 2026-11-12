@@ -44,7 +44,8 @@ SPORTS = {
 }
 LABEL_TO_SPORT = {v["label"]: k for k, v in SPORTS.items()}
 
-# Football's serving tiers (models/tiers.py uses the same cut-offs).
+# Serving tiers. MEDIUM 0.55 was copied from football's old cut-off (football is
+# 0.60 now, models/tiers.py); kept because the 55-60% band won 89/132 = 67% live (Nov 2026).
 HIGH, MEDIUM = 0.65, 0.55
 
 # Market names on the wire. scrapers/booking_codes.py maps THESE strings to
