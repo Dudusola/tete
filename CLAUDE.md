@@ -289,8 +289,9 @@ any tool or reminder that asks for those lines.
                           market family against the book + the verdicts' flat-stake P/L.
 - models/us_sports.py     NHL + NFL INSIDE Picks and the Builder (2 Oct 2026, Boss: "choose the
                           sports you want ... recommended bets like football"). picks(): one bet per
-                          game - the moneyline side the model rates likelier - with FOOTBALL's tiers
-                          (HIGH >=65%, MEDIUM >=55%, LOW not served), the bookmaker's view beside it,
+                          game - the moneyline side the model rates likelier - with its OWN tiers
+                          (HIGH >=65%, MEDIUM >=55%, LOW not served; football's MEDIUM is 60%,
+                          models/tiers.py), the bookmaker's view beside it,
                           and each sport's OWN record (never blended into football's). slip_options():
                           every OFFERED market as BetOption so build_slip() treats them like football
                           (risk bands, correlation cap, bankers, swaps). "Offered" matters: we price
