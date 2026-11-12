@@ -20870,3 +20870,9 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892687,2026-11-11,2026-11-11 01:00,2027,2,St. Louis Blues,Detroit Red Wings,19,5,3,2,H,REG,3,2,0
 401892688,2026-11-11,2026-11-11 00:00,2027,2,Winnipeg Jets,New Jersey Devils,28,11,4,2,H,REG,4,2,0
 401892689,2026-11-11,2026-11-11 03:00,2027,2,Los Angeles Kings,Nashville Predators,8,27,0,3,A,REG,0,3,0
+401892690,2026-11-12,2026-11-12 00:00,2027,2,Buffalo Sabres,Tampa Bay Lightning,2,20,3,8,A,REG,3,8,0
+401892691,2026-11-12,2026-11-12 00:30,2027,2,Calgary Flames,New York Rangers,3,13,1,3,A,REG,1,3,0
+401892692,2026-11-12,2026-11-12 02:00,2027,2,Edmonton Oilers,Philadelphia Flyers,6,15,3,2,H,OT,2,2,0
+401892693,2026-11-12,2026-11-12 02:30,2027,2,Vegas Golden Knights,Utah Mammoth,37,129764,5,3,H,REG,5,3,0
+401892694,2026-11-12,2026-11-12 03:00,2027,2,Anaheim Ducks,Nashville Predators,25,27,2,4,A,REG,2,4,0
+401892695,2026-11-12,2026-11-12 03:00,2027,2,San Jose Sharks,Pittsburgh Penguins,18,16,2,3,A,SO,2,2,0
