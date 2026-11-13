@@ -20666,3 +20666,7 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401909973,2026-11-12,2026-11-12 02:00,2027,2,Utah Jazz,Orlando Magic,26,19,108,123,A,REG,108,123,0
 401909974,2026-11-12,2026-11-12 02:30,2027,2,Houston Rockets,Golden State Warriors,10,9,115,108,H,REG,115,108,0
 401909975,2026-11-12,2026-11-12 03:00,2027,2,Portland Trail Blazers,Oklahoma City Thunder,22,25,118,108,H,REG,118,108,0
+401909976,2026-11-13,2026-11-13 00:00,2027,2,Philadelphia 76ers,Toronto Raptors,20,28,123,112,H,REG,123,112,0
+401909977,2026-11-13,2026-11-13 00:00,2027,2,Washington Wizards,Detroit Pistons,27,8,140,144,A,OT,121,121,0
+401909978,2026-11-13,2026-11-13 01:00,2027,2,Minnesota Timberwolves,Dallas Mavericks,16,6,133,94,H,REG,133,94,0
+401909979,2026-11-13,2026-11-13 02:00,2027,2,Phoenix Suns,Charlotte Hornets,21,30,101,96,H,REG,101,96,0

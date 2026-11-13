@@ -20870,9 +20870,20 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892687,2026-11-11,2026-11-11 01:00,2027,2,St. Louis Blues,Detroit Red Wings,19,5,3,2,H,REG,3,2,0
 401892688,2026-11-11,2026-11-11 00:00,2027,2,Winnipeg Jets,New Jersey Devils,28,11,4,2,H,REG,4,2,0
 401892689,2026-11-11,2026-11-11 03:00,2027,2,Los Angeles Kings,Nashville Predators,8,27,0,3,A,REG,0,3,0
+401891808,2026-11-12,2026-11-12 17:00,2027,2,Seattle Kraken,Carolina Hurricanes,124292,7,1,4,A,REG,1,4,1
 401892690,2026-11-12,2026-11-12 00:00,2027,2,Buffalo Sabres,Tampa Bay Lightning,2,20,3,8,A,REG,3,8,0
 401892691,2026-11-12,2026-11-12 00:30,2027,2,Calgary Flames,New York Rangers,3,13,1,3,A,REG,1,3,0
 401892692,2026-11-12,2026-11-12 02:00,2027,2,Edmonton Oilers,Philadelphia Flyers,6,15,3,2,H,OT,2,2,0
 401892693,2026-11-12,2026-11-12 02:30,2027,2,Vegas Golden Knights,Utah Mammoth,37,129764,5,3,H,REG,5,3,0
 401892694,2026-11-12,2026-11-12 03:00,2027,2,Anaheim Ducks,Nashville Predators,25,27,2,4,A,REG,2,4,0
 401892695,2026-11-12,2026-11-12 03:00,2027,2,San Jose Sharks,Pittsburgh Penguins,18,16,2,3,A,SO,2,2,0
+401892696,2026-11-13,2026-11-13 00:00,2027,2,Boston Bruins,Montreal Canadiens,1,10,2,5,A,REG,2,5,0
+401892697,2026-11-13,2026-11-13 00:00,2027,2,Toronto Maple Leafs,Minnesota Wild,21,30,2,5,A,REG,2,5,0
+401892698,2026-11-13,2026-11-13 00:00,2027,2,Ottawa Senators,Colorado Avalanche,14,17,4,3,H,OT,3,3,0
+401892699,2026-11-13,2026-11-13 00:30,2027,2,Florida Panthers,Detroit Red Wings,26,5,5,4,H,REG,5,4,0
+401892700,2026-11-13,2026-11-13 00:00,2027,2,New Jersey Devils,Washington Capitals,11,23,5,2,H,REG,5,2,0
+401892701,2026-11-13,2026-11-13 00:00,2027,2,Columbus Blue Jackets,Tampa Bay Lightning,29,20,1,3,A,REG,1,3,0
+401892702,2026-11-13,2026-11-13 01:00,2027,2,Chicago Blackhawks,Buffalo Sabres,4,2,3,2,H,OT,2,2,0
+401892703,2026-11-13,2026-11-13 01:00,2027,2,Dallas Stars,Winnipeg Jets,9,28,3,8,A,REG,3,8,0
+401892704,2026-11-13,2026-11-13 02:00,2027,2,Utah Mammoth,St. Louis Blues,129764,19,0,1,A,SO,0,0,0
+401892705,2026-11-13,2026-11-13 03:00,2027,2,Los Angeles Kings,New York Islanders,8,12,2,5,A,REG,2,5,0
