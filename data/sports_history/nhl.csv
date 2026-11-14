@@ -20887,3 +20887,5 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892703,2026-11-13,2026-11-13 01:00,2027,2,Dallas Stars,Winnipeg Jets,9,28,3,8,A,REG,3,8,0
 401892704,2026-11-13,2026-11-13 02:00,2027,2,Utah Mammoth,St. Louis Blues,129764,19,0,1,A,SO,0,0,0
 401892705,2026-11-13,2026-11-13 03:00,2027,2,Los Angeles Kings,New York Islanders,8,12,2,5,A,REG,2,5,0
+401892706,2026-11-14,2026-11-14 02:00,2027,2,Vancouver Canucks,New York Rangers,22,13,1,5,A,REG,1,5,0
+401892707,2026-11-14,2026-11-14 03:00,2027,2,Vegas Golden Knights,Nashville Predators,37,27,2,3,A,SO,2,2,0
