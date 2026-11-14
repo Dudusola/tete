@@ -451,7 +451,7 @@ def run_pipeline() -> list:
     # What is genuinely lost is INDEPENDENCE: ESPN and PredictZ both price off
     # the same bookmaker markets, so consensus between them is two views of one
     # market rather than two opinions. That is a real cost and it is recorded
-    # in CLAUDE.md — but it is not worth a daily false alarm.
+    # in docs/history.md — but it is not worth a daily false alarm.
     #
     # SKIPPED IN THE CLOUD since 28 Sep 2026 (PP_SKIP_APIFOOTBALL=1 in
     # daily.yml). API-Football support confirmed the suspension is their

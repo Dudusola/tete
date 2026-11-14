@@ -1,6 +1,6 @@
 """nhl_form.py - the FACTS an NHL analysis is allowed to use.
 
-Bug #28 in CLAUDE.md is the reason this exists as its own step: an LLM given
+Bug #28 in docs/history.md is the reason this exists as its own step: an LLM given
 nothing but probabilities writes prose that fits every game ever played, and an
 LLM asked for specifics without being given them invents injuries and goalies.
 So the analysis is written ONLY from this dict, which is stored beside it

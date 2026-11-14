@@ -20,7 +20,7 @@ That is a superset - "home" or "check" in prose gets included too, costing a
 few hundred bytes each - but it cannot MISS an icon whose name appears in the
 source, including the ones built in JS (`${won ? 'check_circle' : 'cancel'}`).
 The one thing it cannot see is a name assembled from pieces ("trending_" + x);
-like the Tailwind rule in CLAUDE.md, never build an icon name from parts.
+like the Tailwind rule in docs/history.md, never build an icon name from parts.
 
 deploy-webapp.yml runs this on every deploy (and warns if the committed HTML
 was stale), the same pattern as the app.css rebuild.

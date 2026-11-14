@@ -82,7 +82,7 @@ def fetch_stats() -> dict:
     Neither number was wrong about its own query; they were answering different
     questions while both being labelled "our record". Same rule as
     fetch_todays_picks above, and the same rule /api/stats uses — latest row per
-    match, always. (See CLAUDE.md bug #3.)
+    match, always. (See docs/history.md bug #3.)
     """
     conn = get_connection()
     # Same reasoning as the MAX(id) clause above, one layer out: the bot and

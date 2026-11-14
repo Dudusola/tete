@@ -25,7 +25,7 @@ Nothing is on the laptop. Three free tiers, each doing one job:
 **There is nothing to run by hand.** Push to `main` and the API and the PWA
 redeploy themselves; the pipeline runs on its own schedule whether or not any
 machine of ours is awake. That was the entire point of moving off the laptop
-(CLAUDE.md bug #9).
+(docs/history.md bug #9).
 
 The local Task Scheduler job **"PotentialPro Daily Pipeline 1200" is disabled**
 and must stay disabled. Two pipelines writing two copies of a committed binary
@@ -146,7 +146,7 @@ cloudflared tunnel run --url http://127.0.0.1:8080 potentialpro
   Pages domain. Right now any site on the internet can read the API from a
   visitor's browser.
 - **Rotate the Telegram bot token** via BotFather — it was exposed in chat once
-  and has not been regenerated. Standing item in CLAUDE.md.
+  and has not been regenerated. Standing item in docs/history.md.
 - A paid host (~$5/mo) removes Render's cold start, which is the single most
   visible flaw a tester will hit.
 - Don't invite testers until the two items above are done.

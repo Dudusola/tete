@@ -9,7 +9,7 @@ graded against the real final score, and the record is public.
 comes before features.
 
 > **New here?** Set up with [CONTRIBUTING.md](CONTRIBUTING.md), then read
-> [CLAUDE.md](CLAUDE.md), the project memory: why things are built the way they
+> [docs/project-notes.md](docs/project-notes.md), the project notes: why things are built the way they
 > are, and the bugs already fixed (so nobody reintroduces them).
 
 ---
@@ -172,7 +172,7 @@ live: two writers make two diverging track records. Point `DB_PATH` at a copy.
 
 ## More docs
 
-- [CLAUDE.md](CLAUDE.md): project memory, fixed bugs, decisions and their reasons
+- [docs/project-notes.md](docs/project-notes.md): project notes, fixed bugs, decisions and their reasons
 - [CONTRIBUTING.md](CONTRIBUTING.md): setup and how to work without clashing
 - [DEPLOY.md](DEPLOY.md): hosting and secrets
 - [PRODUCT.md](PRODUCT.md): who the users are and the design direction

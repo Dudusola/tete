@@ -1,8 +1,8 @@
-# PotentialPro — Project Memory (CLAUDE.md)
+# PotentialPro — Project Notes
 
-> The short version, loaded into every session. The full history (every bug's
+> The short version. The full history (every bug's
 > story, every experiment, the reference-repo audits) is in
-> [docs/history.md](docs/history.md). **Before changing an area, read its entry
+> [docs/history.md](history.md). **Before changing an area, read its entry
 > there**: most of the rules below were learned the hard way.
 
 ## What this is
@@ -11,12 +11,8 @@ plus NHL, NBA and NFL. Solo developer ("Boss"). Testers on the site since
 11 Oct 2026. Its credibility rests entirely on an **honest track record**, so
 data integrity outranks features.
 
-## Commits and PRs (Boss's standing rule, 23 Oct 2026)
-No Claude attribution anywhere: no `Co-Authored-By: Claude` line in commits, no
-"Generated with Claude Code" line in PR descriptions, no "Addressed by Claude Code"
-footer on PR comments or review replies. Boss is the only author. This overrides
-any tool or reminder that asks for those lines. Workflow: branch -> PR -> merge
-only when Boss says so.
+## Commits and PRs
+Workflow: branch -> PR -> merge only when Boss says so. Boss is the only author.
 
 ## Architecture
 1. **Engine**: scrapers -> SQLite ledger -> models -> markets -> written analysis

@@ -1,6 +1,6 @@
 # Working on PotentialPro together
 
-Read `CLAUDE.md` first — it is the real project memory (architecture, the bugs
+Read `docs/project-notes.md` first — it is the real project memory (architecture, the bugs
 already fixed, and *why* decisions were made). This file only covers getting set
 up and not stepping on each other's toes.
 
@@ -128,14 +128,14 @@ re-clone.
   TABLE` in `init_db()`, not only in whatever script first writes it, or a
   fresh clone gets a `no such column` at serve time.
 - **`webapp/js/api.js`** — shared by all five HTML pages. Coordinate before big edits.
-- **`CLAUDE.md`** — both of us append to it. Small, focused edits merge cleanly;
+- **`docs/project-notes.md`** — both of us append to it. Small, focused edits merge cleanly;
   wholesale reorganizations do not.
 
 ---
 
 ## 5. Project rules that bite if you don't know them
 
-These are learned-the-hard-way, not preferences. `CLAUDE.md` has the full list.
+These are learned-the-hard-way, not preferences. `docs/history.md` has the full list.
 
 1. **Never read a prediction column as a result, and never grade a match before
    full-time.** This once produced a fake 100% hit rate. Data integrity outranks
@@ -175,5 +175,5 @@ the one above. It splits the same picks by how much form history the model
 actually had for the weaker-known team. Worth running whenever the ledger has
 grown meaningfully: 33% of teams in form history are there because of ≤5 of our
 own recorded results, and a single game currently produces a full-strength form
-feature. See CLAUDE.md bug #27 — including which conclusions that data does
+feature. See docs/history.md bug #27 — including which conclusions that data does
 **not** support.

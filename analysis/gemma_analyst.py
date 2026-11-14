@@ -471,7 +471,7 @@ def _facts_block(ctx: dict) -> str:
     # This is not decoration. `form_ppg` and friends divide by len(recent), not
     # by the window, so ONE recorded game yields a FULL-MAGNITUDE form signal:
     # a single win is indistinguishable from five straight wins (3.00 ppg).
-    # 33% of teams in history are in that position (CLAUDE.md bug #27).
+    # 33% of teams in history are in that position (docs/history.md bug #27).
     #
     # Handing "3.00 points per game" to an LLM without this warning is how
     # vague-but-harmless prose becomes confident-and-false prose: it will write

@@ -1,5 +1,5 @@
 # Daily pipeline in the cloud — so the ledger doesn't depend on one laptop
-# being awake, on mains power, and online at noon (see CLAUDE.md bug #9).
+# being awake, on mains power, and online at noon (see docs/history.md bug #9).
 #
 # DO NOT enable the schedule until the probe workflow shows the scrapers work
 # from here, AND the local Task Scheduler job is disabled. Two pipelines writing
