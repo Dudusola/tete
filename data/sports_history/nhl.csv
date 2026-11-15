@@ -20887,5 +20887,19 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892703,2026-11-13,2026-11-13 01:00,2027,2,Dallas Stars,Winnipeg Jets,9,28,3,8,A,REG,3,8,0
 401892704,2026-11-13,2026-11-13 02:00,2027,2,Utah Mammoth,St. Louis Blues,129764,19,0,1,A,SO,0,0,0
 401892705,2026-11-13,2026-11-13 03:00,2027,2,Los Angeles Kings,New York Islanders,8,12,2,5,A,REG,2,5,0
+401891809,2026-11-14,2026-11-14 18:00,2027,2,Carolina Hurricanes,Seattle Kraken,7,124292,5,1,H,REG,5,1,1
 401892706,2026-11-14,2026-11-14 02:00,2027,2,Vancouver Canucks,New York Rangers,22,13,1,5,A,REG,1,5,0
 401892707,2026-11-14,2026-11-14 03:00,2027,2,Vegas Golden Knights,Nashville Predators,37,27,2,3,A,SO,2,2,0
+401892708,2026-11-14,2026-11-14 20:30,2027,2,Chicago Blackhawks,Winnipeg Jets,4,28,4,5,A,SO,4,4,0
+401892709,2026-11-15,2026-11-15 00:00,2027,2,Boston Bruins,Minnesota Wild,1,30,2,6,A,REG,2,6,0
+401892710,2026-11-15,2026-11-15 00:00,2027,2,Toronto Maple Leafs,Edmonton Oilers,21,6,0,1,A,REG,0,1,0
+401892711,2026-11-15,2026-11-15 00:00,2027,2,Montreal Canadiens,Colorado Avalanche,10,17,1,4,A,REG,1,4,0
+401892712,2026-11-15,2026-11-15 00:00,2027,2,Tampa Bay Lightning,Detroit Red Wings,20,5,0,2,A,REG,0,2,0
+401892713,2026-11-15,2026-11-15 00:00,2027,2,Pittsburgh Penguins,Ottawa Senators,16,14,1,4,A,REG,1,4,0
+401892714,2026-11-15,2026-11-15 00:00,2027,2,Washington Capitals,New Jersey Devils,23,11,4,7,A,REG,4,7,0
+401892715,2026-11-15,2026-11-15 00:00,2027,2,Columbus Blue Jackets,Philadelphia Flyers,29,15,3,4,A,REG,3,4,0
+401892716,2026-11-15,2026-11-15 00:00,2027,2,St. Louis Blues,Florida Panthers,19,26,1,4,A,REG,1,4,0
+401892717,2026-11-15,2026-11-15 01:00,2027,2,Dallas Stars,Buffalo Sabres,9,2,2,0,H,,,,0
+401892718,2026-11-15,2026-11-15 02:00,2027,2,Utah Mammoth,San Jose Sharks,129764,18,5,6,A,SO,5,5,0
+401892719,2026-11-15,2026-11-15 03:00,2027,2,Anaheim Ducks,New York Islanders,25,12,2,6,A,REG,2,6,0
+401892720,2026-11-15,2026-11-15 03:00,2027,2,Los Angeles Kings,Calgary Flames,8,3,2,3,A,REG,2,3,0
