@@ -4499,3 +4499,15 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873050,2026-11-09,2026-11-09 01:20,2026,2,Chicago Bears,Tampa Bay Buccaneers,3,27,27,24,H,REG,27,24,0
 401873051,2026-11-10,2026-11-10 01:15,2026,2,Minnesota Vikings,Buffalo Bills,16,2,6,23,A,REG,6,23,0
 401873052,2026-11-13,2026-11-13 01:15,2026,2,New York Giants,Washington Commanders,19,28,21,24,A,REG,21,24,0
+401873053,2026-11-15,2026-11-15 14:30,2026,2,Detroit Lions,New England Patriots,8,17,35,10,H,REG,35,10,1
+401873054,2026-11-15,2026-11-15 18:00,2026,2,New York Jets,Buffalo Bills,20,2,12,31,A,REG,12,31,0
+401873055,2026-11-15,2026-11-15 18:00,2026,2,New Orleans Saints,Carolina Panthers,18,29,17,20,A,REG,17,20,0
+401873056,2026-11-15,2026-11-15 18:00,2026,2,Cleveland Browns,Houston Texans,5,34,27,24,H,REG,27,24,0
+401873057,2026-11-15,2026-11-15 18:00,2026,2,Tennessee Titans,Jacksonville Jaguars,10,30,23,40,A,REG,23,40,0
+401873058,2026-11-15,2026-11-15 18:00,2026,2,Atlanta Falcons,Kansas City Chiefs,1,12,13,35,A,REG,13,35,0
+401873059,2026-11-15,2026-11-15 18:00,2026,2,Indianapolis Colts,Miami Dolphins,11,15,24,22,H,REG,24,22,0
+401873060,2026-11-15,2026-11-15 18:00,2026,2,Green Bay Packers,Minnesota Vikings,9,16,10,30,A,REG,10,30,0
+401873061,2026-11-15,2026-11-15 21:05,2026,2,Arizona Cardinals,Los Angeles Rams,22,14,6,34,A,REG,6,34,0
+401873062,2026-11-15,2026-11-15 21:05,2026,2,Las Vegas Raiders,Seattle Seahawks,13,26,13,21,A,REG,13,21,0
+401873063,2026-11-15,2026-11-15 21:25,2026,2,Dallas Cowboys,San Francisco 49ers,6,25,40,46,A,REG,40,46,0
+401873064,2026-11-16,2026-11-16 01:20,2026,2,Cincinnati Bengals,Pittsburgh Steelers,4,23,38,18,H,REG,38,18,0
