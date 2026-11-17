@@ -20693,3 +20693,11 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401909991,2026-11-16,2026-11-16 00:00,2027,2,Washington Wizards,Houston Rockets,27,10,119,147,A,REG,119,147,0
 401909992,2026-11-16,2026-11-16 01:00,2027,2,Milwaukee Bucks,Atlanta Hawks,15,1,106,113,A,REG,106,113,0
 401909993,2026-11-16,2026-11-16 02:00,2027,2,Sacramento Kings,Oklahoma City Thunder,23,25,103,125,A,REG,103,125,0
+401909994,2026-11-17,2026-11-17 00:00,2027,2,Boston Celtics,Orlando Magic,2,19,105,115,A,REG,105,115,0
+401909995,2026-11-17,2026-11-17 00:00,2027,2,Cleveland Cavaliers,Chicago Bulls,5,4,126,115,H,REG,126,115,0
+401909996,2026-11-17,2026-11-17 00:00,2027,2,Washington Wizards,Memphis Grizzlies,27,29,120,136,A,REG,120,136,0
+401909997,2026-11-17,2026-11-17 00:30,2027,2,Brooklyn Nets,Philadelphia 76ers,17,20,123,135,A,REG,123,135,0
+401909998,2026-11-17,2026-11-17 00:30,2027,2,Miami Heat,Houston Rockets,14,10,128,110,H,REG,128,110,0
+401909999,2026-11-17,2026-11-17 01:00,2027,2,Minnesota Timberwolves,Portland Trail Blazers,16,22,106,98,H,REG,106,98,0
+401910000,2026-11-17,2026-11-17 01:00,2027,2,New Orleans Pelicans,Golden State Warriors,3,9,115,94,H,REG,115,94,0
+401910001,2026-11-17,2026-11-17 02:00,2027,2,Denver Nuggets,Phoenix Suns,7,21,105,117,A,REG,105,117,0
