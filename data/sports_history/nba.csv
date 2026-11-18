@@ -20701,3 +20701,7 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401909999,2026-11-17,2026-11-17 01:00,2027,2,Minnesota Timberwolves,Portland Trail Blazers,16,22,106,98,H,REG,106,98,0
 401910000,2026-11-17,2026-11-17 01:00,2027,2,New Orleans Pelicans,Golden State Warriors,3,9,115,94,H,REG,115,94,0
 401910001,2026-11-17,2026-11-17 02:00,2027,2,Denver Nuggets,Phoenix Suns,7,21,105,117,A,REG,105,117,0
+401910002,2026-11-18,2026-11-18 00:30,2027,2,Toronto Raptors,New York Knicks,28,18,102,111,A,REG,102,111,0
+401910003,2026-11-18,2026-11-18 01:00,2027,2,Minnesota Timberwolves,Portland Trail Blazers,16,22,106,105,H,REG,106,105,0
+401910004,2026-11-18,2026-11-18 01:00,2027,2,San Antonio Spurs,Detroit Pistons,24,8,93,105,A,REG,93,105,0
+401910006,2026-11-18,2026-11-18 03:30,2027,2,LA Clippers,Utah Jazz,12,26,107,132,A,REG,107,132,0

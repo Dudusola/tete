@@ -20910,3 +20910,14 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892725,2026-11-16,2026-11-16 02:00,2027,2,San Jose Sharks,Nashville Predators,18,27,4,2,H,REG,4,2,0
 401892726,2026-11-17,2026-11-17 00:30,2027,2,New York Rangers,Montreal Canadiens,13,10,3,1,H,REG,3,1,0
 401892727,2026-11-17,2026-11-17 02:30,2027,2,Utah Mammoth,Vancouver Canucks,129764,22,2,3,A,REG,2,3,0
+401892728,2026-11-18,2026-11-18 00:00,2027,2,Boston Bruins,Los Angeles Kings,1,8,0,3,A,REG,0,3,0
+401892729,2026-11-18,2026-11-18 00:30,2027,2,Tampa Bay Lightning,Washington Capitals,20,23,5,2,H,REG,5,2,0
+401892730,2026-11-18,2026-11-18 00:00,2027,2,Florida Panthers,Edmonton Oilers,26,6,2,5,A,REG,2,5,0
+401892731,2026-11-18,2026-11-18 00:00,2027,2,New York Islanders,Columbus Blue Jackets,12,29,5,1,H,REG,5,1,0
+401892732,2026-11-18,2026-11-18 00:00,2027,2,Philadelphia Flyers,Buffalo Sabres,15,2,4,3,H,REG,4,3,0
+401892733,2026-11-18,2026-11-18 00:30,2027,2,Chicago Blackhawks,Toronto Maple Leafs,4,21,6,3,H,REG,6,3,0
+401892734,2026-11-18,2026-11-18 01:00,2027,2,St. Louis Blues,Anaheim Ducks,19,25,8,6,H,,,,0
+401892735,2026-11-18,2026-11-18 01:00,2027,2,Minnesota Wild,Nashville Predators,30,27,7,3,H,REG,7,3,0
+401892736,2026-11-18,2026-11-18 00:00,2027,2,Winnipeg Jets,Ottawa Senators,28,14,1,2,A,,,,0
+401892737,2026-11-18,2026-11-18 03:00,2027,2,Vegas Golden Knights,Dallas Stars,37,9,3,4,A,OT,3,3,0
+401892738,2026-11-18,2026-11-18 03:00,2027,2,San Jose Sharks,Calgary Flames,18,3,2,5,A,REG,2,5,0
