@@ -4,7 +4,7 @@
 -- WHY THIS IS NOT IN db/sports_predictor.db: that file is committed to the
 -- repo and rewritten by GitHub Actions every day. User rows there would be
 -- readable by anyone with repo access and overwritten by the next run
--- (CLAUDE.md "What's next" item 8). Supabase holds ONLY user-owned data; the
+-- (docs/history.md "What's next" item 8). Supabase holds ONLY user-owned data; the
 -- model, its predictions and the public track record stay where they are.
 --
 -- WHAT IS STORED: the picks a signed-in user chose to track, with an optional

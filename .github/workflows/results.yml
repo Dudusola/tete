@@ -80,7 +80,7 @@ jobs:
 
       # Kickoff times refreshed above can move a kickoff earlier than a pick
       # already made; the record must only count pre-kickoff predictions
-      # (CLAUDE.md bug #33). Archives, never deletes.
+      # (docs/history.md bug #33). Archives, never deletes.
       - name: Archive post-kickoff predictions
         continue-on-error: true
         env:

@@ -225,7 +225,7 @@ def show_scoreboard():
         -- Latest prediction row per match, same as /api/stats and the bot.
         -- Without this a re-predicted match is scored once per row and this
         -- console printed a third, different track record from the two the
-        -- product publishes. (CLAUDE.md bug #3.)
+        -- product publishes. (docs/history.md bug #3.)
         WHERE mp.id = (
             SELECT MAX(mp2.id) FROM model_predictions mp2
             WHERE mp2.match_id = mp.match_id

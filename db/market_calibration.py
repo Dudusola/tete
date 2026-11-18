@@ -3,7 +3,7 @@
 WHY (3 Nov 2026). The public record grades one thing: the 1X2 pick. But the
 Builder's top legs are Double Chance, Over/Under, BTTS and Handicap at 75-80%
 ("Wigan v Mansfield, 3 goals or fewer, 78%"), and the slip itself says those
-"haven't been checked against results yet". CLAUDE.md's rule is "grade what we
+"haven't been checked against results yet". docs/history.md's rule is "grade what we
 already show BEFORE making more of it bookable" - this grades it.
 
 HOW. Every graded football match with a pre-kickoff prediction (the latest row;

@@ -23,7 +23,7 @@
  * SECRETS: VAPID_PRIVATE_KEY (the key's "d", base64url), SUPABASE_SERVICE_KEY.
  * VARS: VAPID_PUBLIC_KEY, SUPABASE_URL (wrangler.toml).
  *
- * THE TRAP (CLAUDE.md item 7): subscriptions expire silently. A 404/410 from
+ * THE TRAP (docs/history.md item 7): subscriptions expire silently. A 404/410 from
  * the push service deletes the subscription, and every run logs its counts,
  * so "0 delivered" is visible rather than looking like a quiet day.
  */

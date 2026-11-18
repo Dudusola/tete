@@ -30,7 +30,7 @@ jobs:
         run: |
           pip install -r requirements.txt
           # Chromium for Forebet, Firefox for PredictZ (Chromium gets challenged
-          # there even with stealth — see CLAUDE.md bug #6).
+          # there even with stealth — see docs/history.md bug #6).
           playwright install --with-deps chromium firefox
 
       - name: Create empty database

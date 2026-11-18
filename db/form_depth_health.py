@@ -18,7 +18,7 @@ graded pick. That is minutes, not milliseconds, and the point of the other
 script is that it is cheap enough to run before every trust decision. Keep that
 one fast; run this one when the sample has grown.
 
-What it found on first run (24 Aug 2026, 635 graded picks) — see CLAUDE.md
+What it found on first run (24 Aug 2026, 635 graded picks) — see docs/history.md
 bug #27. The headline is that thin history is NOT uniformly bad, which is why
 the obvious fix (refuse to predict without N games) would be a mistake:
 
@@ -49,7 +49,7 @@ flat depth curve above.
 
 Do NOT act on a single run of this. n=47 for thin MEDIUM, and this project has
 already been burned once by treating a 13-sample tier inversion as real
-(CLAUDE.md "What's next" item 4). Re-run as the ledger grows.
+(docs/history.md "What's next" item 4). Re-run as the ledger grows.
 
 Above all, vary `--depth` before believing anything. On the same 635 picks,
 moving the cut from 5 to 3 flips every conclusion except one:
@@ -204,7 +204,7 @@ def main():
 
     print(f"\n{'='*72}")
     # Plain ASCII on purpose: this prints to a Windows console (cp1252), where
-    # an em-dash comes out as a replacement char. CLAUDE.md already records the
+    # an em-dash comes out as a replacement char. docs/history.md already records the
     # same class of problem for webapp/*.html.
     print("  Reminder: one game gives a full-magnitude form feature, because\n"
           "  form_ppg/goals_avg/venue_ppg divide by len(recent), not by the\n"

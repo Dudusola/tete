@@ -10,7 +10,7 @@ whether a bettor has an edge, and it needs no match result — so it answers
 "do we know something the market doesn't?" weeks sooner, and with far less
 noise, than waiting for graded outcomes (`db/edge_report.py`).
 
-The idea came from auditing gmalbert/baseball-predictions (CLAUDE.md item 10).
+The idea came from auditing gmalbert/baseball-predictions (docs/history.md item 10).
 
 HOW
 ---

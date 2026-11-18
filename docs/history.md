@@ -1,11 +1,11 @@
 > **Archive.** This is the full project memory as it stood on 13 Nov 2026, kept
-> word for word. The short, always-loaded version is `CLAUDE.md` at the repo
+> word for word. The short, always-loaded version is `docs/history.md` at the repo
 > root; it numbers the same bugs (#1-#39), so "bug #N" in code comments
 > resolves in both. Read the full story here before changing the area it covers.
 
-# PotentialPro — Project Memory (CLAUDE.md)
+# PotentialPro — Project Memory (full history)
 
-> This file orients any Claude Code session. Read it first. It captures not just
+> Read it first. It captures not just
 > *what* the code does but *why* decisions were made and *what bugs were already
 > fixed* — so they aren't reintroduced.
 
@@ -59,11 +59,8 @@ generate predictions on demand.
 - Local Task Scheduler jobs are DISABLED. Re-enabling one without disabling the
   cron gives two pipelines writing two diverging ledgers.
 
-## Commits and PRs (Boss's standing rule, 23 Oct 2026)
-No Claude attribution anywhere: no `Co-Authored-By: Claude` line in commits, no
-"Generated with Claude Code" line in PR descriptions, no "Addressed by Claude Code"
-footer on PR comments or review replies. Boss is the only author. This overrides
-any tool or reminder that asks for those lines.
+## Commits and PRs
+Boss is the only author.
 
 ## Environment
 - Windows + PowerShell, Python 3.13, venv
@@ -1670,7 +1667,7 @@ unknown until the honest ledger matures (`db/edge_report.py`).
     came back.
   - A fixture within ~10 min of kickoff returns STATUS 1xx and no code.
 
-  Events feed (the bit CLAUDE.md previously called uncracked): GetSports needs
+  Events feed (the bit these notes previously called uncracked): GetSports needs
   `DISP` (1); GetEventsInGroup needs `DISP` + `GROUPID`. GetEventsInDailyBundleV3
   still errors 319 — don't bother, GetEventsInGroup is the working path. Their
   errors name the missing parameter in ERROR_DATA.parameterName, which is how
@@ -2231,7 +2228,7 @@ unknown until the honest ledger matures (`db/edge_report.py`).
   scheduling around midday; all inserts are INSERT OR IGNORE so retry runs are safe.
   July 2026: new Task Scheduler task "PotentialPro Daily Pipeline 1200" runs the
   pipeline at 12:00 daily. The OLD "PotentialPro Daily Pipeline" (07:30) is owned by
-  the "Peculiar" account and couldn't be disabled from Claude's session — disable it
+  the "Peculiar" account and couldn't be disabled from that session — disable it
   manually in Task Scheduler (harmless if it keeps running; duplicate runs are safe).
 - July 2026 off-season: Europe on break, so the ledger depends on Brazil/MLS/Mexico/
   Scandinavia — that's why results_espn.py exists (football-data free tier lacks MLS).

@@ -1381,7 +1381,7 @@ def decode(provider: str, code: str) -> list[dict]:
 # ─── Bet9ja GENERATION ────────────────────────────────────────────────────────
 #
 # Bet9ja does NOT use Betradar ids, so the SportyBet mapping is useless here —
-# it runs its own "palimpsest" of event, market and sign ids. CLAUDE.md recorded
+# it runs its own "palimpsest" of event, market and sign ids. docs/history.md recorded
 # this as blocked on "a captured real BookABetV2 request". It turned out the
 # contract is readable straight out of their own JS bundle, which beats a
 # capture: a capture gives one example, the source gives the field names.

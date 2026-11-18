@@ -4,7 +4,7 @@ Boss (6 Oct 2026): "look at the records we have and try to refine better".
 The answer that day was no - and this script exists so the question can be
 re-asked in one command as the ledger grows, instead of re-derived by hand
 (which is how two earlier "findings" were acted on and then reversed - see
-CLAUDE.md "What's next" item 4).
+docs/history.md "What's next" item 4).
 
 It asks three things of the SERVED football picks (HIGH + MEDIUM, 1X2):
 

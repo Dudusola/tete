@@ -8,7 +8,7 @@ the time? A model can have a correctly ORDERED set of tiers and still be
 systematically wrong about the numbers it prints next to them, and those
 numbers are what a punter acts on.
 
-CLAUDE.md item 4 has been through this analysis twice, by hand, and the
+docs/history.md item 4 has been through this analysis twice, by hand, and the
 conclusion REVERSED both times:
 
     9 Aug 2026, 184 graded : HIGH 68.0% > MEDIUM 59.1% > LOW 56.5%
@@ -20,7 +20,7 @@ conclusion REVERSED both times:
                              57.1%% (n=7) -> 75.0%% (n=12) as the sample grew.
 
 Both passes were recomputed from scratch, by hand, with the numbers pasted into
-CLAUDE.md. That is how a finding gets stale without anyone noticing it has, and
+docs/history.md. That is how a finding gets stale without anyone noticing it has, and
 it is why `form_depth_health.py` exists for bug #27. This is the same idea for
 the calibration question: run it, do not re-derive it.
 

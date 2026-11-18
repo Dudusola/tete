@@ -1,6 +1,6 @@
 """quarantine_late_predictions.py - keep the track record to predictions made BEFORE kickoff.
 
-CLAUDE.md bug #33. Every stats query in the codebase counts the LATEST
+docs/history.md bug #33. Every stats query in the codebase counts the LATEST
 prediction per match (MAX(id), bug #3). predict.py used to predict anything
 dated today or later, so a late kickoff (23:00 UTC, dated "tomorrow" by one
 source) was predicted again the next morning - after the final whistle, and

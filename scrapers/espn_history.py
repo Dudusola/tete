@@ -9,7 +9,7 @@ history, and every other route was blocked:
     fixtures+odds source, but the account is SUSPENDED — even /status returns
     "Your account is suspended". Its last row in the ledger is 9 Aug 2026.
   * Forebet covers Saudi but is Cloudflare-403'd from datacenter IPs, so it
-    cannot run in the cloud at all (CLAUDE.md bug #26).
+    cannot run in the cloud at all (docs/history.md bug #26).
 
 ESPN is the one source that is already proven unblocked in GitHub Actions (it
 produced rows every single day this month) and it needs no API key. Its
@@ -32,7 +32,7 @@ silent compromise, because:
     at predict.py:370.
 
 So: this unblocks form. Serving a new league still needs a live odds source for
-it — see CLAUDE.md "What's next" item 0.
+it — see docs/history.md "What's next" item 0.
 
 COVERAGE IS NOT UNIFORM PER LEAGUE. Ask for 2018 and you may get 2022. Saudi
 `ksa.1` returns nothing before 2022/23 no matter what `--start` says — 1,179
@@ -189,7 +189,7 @@ def main():
     rows = fetch_history(args.league, start, end)
 
     # Project rule: a scraper that gets nothing must exit non-zero. A silent
-    # empty result once hid a two-week gap in the ledger (CLAUDE.md bug #5).
+    # empty result once hid a two-week gap in the ledger (docs/history.md bug #5).
     if not rows:
         logger.error(f"No finished matches for {args.league} — refusing to "
                      f"write an empty or truncated CSV.")
@@ -208,7 +208,7 @@ def main():
 
     if args.dry_run:
         # ASCII only in console output: the Windows console is cp1252 and turns
-        # an em-dash into a replacement char. Same class of problem CLAUDE.md
+        # an em-dash into a replacement char. Same class of problem docs/history.md
         # records for webapp/*.html.
         logger.info("Dry run - nothing written.")
         print("\nTeams:")

@@ -214,7 +214,7 @@ def run(apply=False):
         # changed — only 20 rows had book_odds at all and 19 of them were
         # already MAX(id) — but that is a property of the feature being new,
         # not of the query being safe. Every serving and stats query in the
-        # codebase reads MAX(id) per group (CLAUDE.md bug #3); a cleanup step
+        # codebase reads MAX(id) per group (docs/history.md bug #3); a cleanup step
         # that keeps MIN is deleting precisely the row the rest of the system
         # is about to read.
         cur.execute("""DELETE FROM model_predictions WHERE id NOT IN (

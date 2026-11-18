@@ -7,7 +7,7 @@ theft; they are COST and REPUTATION:
   - One oversized POST read into memory can take down a 512 MB free instance.
   - The booking endpoints call SportyBet / MSport / Bet9ja FROM OUR IP. Anyone
     looping them makes us the abuser, and API-Football already suspended an
-    account over shared-IP abuse (CLAUDE.md, cause found 28 Sep 2026).
+    account over shared-IP abuse (docs/history.md, cause found 28 Sep 2026).
   - /api/slip with varied parameters is a cache miss every time (~1-1.5 s of
     the free CPU each), so a loop of random queries starves everyone else.
 

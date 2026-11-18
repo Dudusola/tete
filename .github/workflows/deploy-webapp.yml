@@ -14,7 +14,7 @@
 #   2. gh secret set CLOUDFLARE_API_TOKEN --body "<token>"
 #      gh secret set CLOUDFLARE_ACCOUNT_ID --body "<account id>"
 #      (--body, never a pipe: PowerShell 5.1 prepends a BOM that breaks the
-#      value server-side. Recorded in CLAUDE.md's gotchas.)
+#      value server-side. Recorded in docs/history.md's gotchas.)
 #
 # Until those secrets exist this workflow skips cleanly rather than failing, so
 # adding it changes nothing until it is ready to work.

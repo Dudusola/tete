@@ -1,6 +1,6 @@
 /* auth.js — sign-in and per-user "My Record", on every page.
 
-   TWO RECORDS, KEPT APART ON PURPOSE (CLAUDE.md "What's next" item 8):
+   TWO RECORDS, KEPT APART ON PURPOSE (docs/history.md "What's next" item 8):
    the MODEL's track record is global and lives in the ledger; a USER's record
    is the picks THEY chose to follow, and lives in Supabase. Nothing here can
    change a model number, and no user row ever enters the committed ledger.

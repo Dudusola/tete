@@ -1,7 +1,7 @@
 # Why is Forebet returning 0 rows from GitHub's IPs?
 #
 # "Blocked" is currently the scraper's GUESS — it infers a block from an empty
-# result. Bug #6 in CLAUDE.md is exactly the cost of that assumption (a bad
+# result. Bug #6 in docs/history.md is exactly the cost of that assumption (a bad
 # detector discarded good pages for days), so this measures instead of guessing.
 #
 # Hypothesis: it's the BROWSER, not the IP. forebet.py uses Chromium;

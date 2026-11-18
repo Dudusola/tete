@@ -296,7 +296,7 @@ def get_todays_scraped_matches() -> list:
         )
         WHERE m.match_date >= date('now')
           -- NEVER predict a match that has started or already has a result
-          -- (CLAUDE.md bug #33). match_date alone let a 23:00 UTC kickoff,
+          -- (docs/history.md bug #33). match_date alone let a 23:00 UTC kickoff,
           -- dated "tomorrow" by one source, be predicted the next morning -
           -- after the final whistle, with its own result already feeding the
           -- form features. The record counts the LATEST prediction per match,
@@ -429,7 +429,7 @@ def build_analysis_facts(home_hist: list, away_hist: list, feats: dict,
 
       *_games   how many matches those averages actually rest on. Required,
                 because form_ppg divides by len(recent) rather than the window,
-                so one win and five wins are both 3.00 (CLAUDE.md bug #27).
+                so one win and five wins are both 3.00 (docs/history.md bug #27).
                 Without this the LLM writes "unbeaten in five" about a club we
                 have seen once, which is a fabrication we published.
       odds_*    the raw prices, so the analysis can quote 1.80 instead of a

@@ -6,7 +6,7 @@
 > games since 2010-11. Before building the model, read §7.
 >
 > Original status (11 Aug): **RESEARCH ONLY. Nothing built, nothing wired into the pipeline.**
-> The decision in CLAUDE.md stands — the second sport waits until football is
+> The decision in docs/history.md stands — the second sport waits until football is
 > validated. This file exists so that when that day comes, the unknowns are
 > already answered and the traps are already found. Everything below was
 > PROBED against the live services, not assumed.
@@ -260,7 +260,7 @@ bigger and the two objections that blocked acting on it are both answered:
   it is no longer a plausible explanation for the whole signal.
 - **Tiers rank monotonically and the separation is wide** (76.3 / 60.9 / 44.6),
   on samples too large for the n=13 and n=47 artefacts that reversed the
-  conclusion twice before (CLAUDE.md "What's next" item 4, bug #27).
+  conclusion twice before (docs/history.md "What's next" item 4, bug #27).
 - **The 26 Aug `TIER_MEDIUM` 0.55 -> 0.60 change was a genuine prediction that
   came true.** It forecast served accuracy near 69.1% from a held-out slice;
   the live ledger has since delivered ~68% on 409 served picks. A threshold
@@ -356,7 +356,7 @@ not just basketball, and most are also the lessons of football's bugs #7 and #18
     `reg_*_goals` exist so any regulation grading can be done honestly.
 
 11. **Only games that count.** Preseason, All-Star and other exhibitions are
-    already excluded by `espn_ledger._parse_event` (CLAUDE.md bug #31). A new
+    already excluded by `espn_ledger._parse_event` (docs/history.md bug #31). A new
     data source must reuse that parser or reproduce its filters.
 
 Safe to use freely, because they are genuinely known in advance: rest days

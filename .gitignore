@@ -29,8 +29,6 @@ db/*.db-shm
 models/*.joblib
 *.log
 
-# Machine-local Claude Code state (paths differ per machine)
-.claude/settings.local.json
 
 # OS / editor noise
 Thumbs.db
