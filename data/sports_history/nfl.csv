@@ -4512,3 +4512,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873063,2026-11-15,2026-11-15 21:25,2026,2,Dallas Cowboys,San Francisco 49ers,6,25,40,46,A,REG,40,46,0
 401873064,2026-11-16,2026-11-16 01:20,2026,2,Cincinnati Bengals,Pittsburgh Steelers,4,23,38,18,H,REG,38,18,0
 401873065,2026-11-17,2026-11-17 01:15,2026,2,Baltimore Ravens,Los Angeles Chargers,33,24,20,23,A,REG,20,23,0
+401873066,2026-11-20,2026-11-20 01:15,2026,2,Houston Texans,Indianapolis Colts,34,11,26,3,H,REG,26,3,0
