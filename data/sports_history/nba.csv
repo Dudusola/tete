@@ -20754,3 +20754,6 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401910043,2026-11-24,2026-11-24 01:30,2027,2,Houston Rockets,LA Clippers,10,12,116,104,H,REG,116,104,0
 401910044,2026-11-24,2026-11-24 03:00,2027,2,Los Angeles Lakers,Utah Jazz,13,26,109,94,H,REG,109,94,0
 401910045,2026-11-24,2026-11-24 03:00,2027,2,Sacramento Kings,San Antonio Spurs,23,24,107,123,A,REG,107,123,0
+401909314,2026-11-25,2026-11-25 00:00,2027,2,Orlando Magic,Detroit Pistons,19,8,86,104,A,REG,86,104,0
+401909315,2026-11-25,2026-11-25 01:00,2027,2,Washington Wizards,Boston Celtics,27,2,116,131,A,REG,116,131,0
+401909316,2026-11-25,2026-11-25 03:00,2027,2,Denver Nuggets,Dallas Mavericks,7,6,101,120,A,REG,101,120,0
