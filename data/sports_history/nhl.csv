@@ -20963,3 +20963,17 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401892778,2026-11-24,2026-11-24 02:40,2027,2,Seattle Kraken,Anaheim Ducks,124292,25,3,2,H,REG,3,2,0
 401892779,2026-11-24,2026-11-24 03:00,2027,2,San Jose Sharks,Minnesota Wild,18,30,2,5,A,REG,2,5,0
 401892780,2026-11-25,2026-11-25 01:00,2027,2,Edmonton Oilers,Vegas Golden Knights,6,37,3,5,A,REG,3,5,0
+401892781,2026-11-26,2026-11-26 00:00,2027,2,Boston Bruins,Winnipeg Jets,1,28,2,4,A,REG,2,4,0
+401892782,2026-11-26,2026-11-26 00:00,2027,2,Buffalo Sabres,New York Rangers,2,13,5,1,H,REG,5,1,0
+401892783,2026-11-26,2026-11-26 00:00,2027,2,Tampa Bay Lightning,Carolina Hurricanes,20,7,1,3,A,REG,1,3,0
+401892784,2026-11-26,2026-11-26 00:00,2027,2,Florida Panthers,Ottawa Senators,26,14,5,3,H,REG,5,3,0
+401892785,2026-11-26,2026-11-26 00:00,2027,2,New York Islanders,St. Louis Blues,12,19,3,2,H,SO,2,2,0
+401892786,2026-11-26,2026-11-26 00:00,2027,2,Pittsburgh Penguins,Calgary Flames,16,3,3,6,A,REG,3,6,0
+401892787,2026-11-26,2026-11-26 00:00,2027,2,Washington Capitals,Philadelphia Flyers,23,15,7,3,H,REG,7,3,0
+401892788,2026-11-26,2026-11-26 00:00,2027,2,Columbus Blue Jackets,New Jersey Devils,29,11,2,3,A,SO,2,2,0
+401892789,2026-11-26,2026-11-26 00:30,2027,2,Detroit Red Wings,Vancouver Canucks,5,22,5,1,H,REG,5,1,0
+401892790,2026-11-26,2026-11-26 01:00,2027,2,Dallas Stars,Nashville Predators,9,27,1,3,A,REG,1,3,0
+401892791,2026-11-26,2026-11-26 01:00,2027,2,Minnesota Wild,Utah Mammoth,30,129764,3,4,A,REG,3,4,0
+401892792,2026-11-26,2026-11-26 02:30,2027,2,Colorado Avalanche,Montreal Canadiens,17,10,6,0,H,REG,6,0,0
+401892793,2026-11-26,2026-11-26 03:00,2027,2,Anaheim Ducks,San Jose Sharks,25,18,7,0,H,REG,7,0,0
+401892794,2026-11-26,2026-11-26 02:40,2027,2,Seattle Kraken,Chicago Blackhawks,124292,4,1,3,A,REG,1,3,0
