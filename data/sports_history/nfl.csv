@@ -4526,3 +4526,6 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873077,2026-11-23,2026-11-23 01:20,2026,2,San Francisco 49ers,Minnesota Vikings,25,16,35,10,H,REG,35,10,1
 401873078,2026-11-24,2026-11-24 01:15,2026,2,Washington Commanders,Cincinnati Bengals,28,4,22,20,H,REG,22,20,0
 401873079,2026-11-26,2026-11-26 01:00,2026,2,Los Angeles Rams,Green Bay Packers,14,9,26,13,H,REG,26,13,0
+401873080,2026-11-26,2026-11-26 21:30,2026,2,Dallas Cowboys,Philadelphia Eagles,6,21,38,39,A,REG,38,39,0
+401873081,2026-11-26,2026-11-26 18:00,2026,2,Detroit Lions,Chicago Bears,8,3,35,39,A,REG,35,39,0
+401873082,2026-11-27,2026-11-27 01:20,2026,2,Buffalo Bills,Kansas City Chiefs,2,12,13,10,H,REG,13,10,0
