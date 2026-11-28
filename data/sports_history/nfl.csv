@@ -4529,3 +4529,4 @@ event_id,date,kickoff_utc,season,season_type,home_team,away_team,home_id,away_id
 401873080,2026-11-26,2026-11-26 21:30,2026,2,Dallas Cowboys,Philadelphia Eagles,6,21,38,39,A,REG,38,39,0
 401873081,2026-11-26,2026-11-26 18:00,2026,2,Detroit Lions,Chicago Bears,8,3,35,39,A,REG,35,39,0
 401873082,2026-11-27,2026-11-27 01:20,2026,2,Buffalo Bills,Kansas City Chiefs,2,12,13,10,H,REG,13,10,0
+401873083,2026-11-27,2026-11-27 20:00,2026,2,Pittsburgh Steelers,Denver Broncos,23,7,27,5,H,REG,27,5,0
